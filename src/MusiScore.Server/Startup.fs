@@ -1,20 +1,26 @@
 namespace MusiScore.Server
 
+open Bolero
+open Bolero.Remoting.Server
+open Bolero.Server
 open Microsoft.AspNetCore
 open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
+open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
-open Bolero
-open Bolero.Remoting.Server
-open Bolero.Server
 open MusiScore
+open System
 
 type Startup() =
 
     // This method gets called by the runtime. Use this method to add services to the container.
     // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
     member this.ConfigureServices(services: IServiceCollection) =
+        services.AddSingleton<Db>(fun (serviceProvider: IServiceProvider) ->
+            let connectionString = serviceProvider.GetService<IConfiguration>().GetConnectionString("Db")
+            Db(connectionString)
+        ) |> ignore
         services.AddMvc() |> ignore
         services.AddServerSideBlazor() |> ignore
         services

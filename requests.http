@@ -1,0 +1,1 @@
+POST https://localhost:64326/api/compositions/1/voices/1?count=5

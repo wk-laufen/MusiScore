@@ -1,13 +1,19 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26124.0
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32516.85
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{87F6C079-CBD7-4866-BDEB-CBDEA9E51D2A}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MusiScore.Server", "src\MusiScore.Server\MusiScore.Server.fsproj", "{4E2AA925-4694-4593-ADBC-F349D269587A}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MusiScore.Client", "src\MusiScore.Client\MusiScore.Client.fsproj", "{1481BBD6-A6DA-4912-A03A-134880D14701}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MusiScore.Shared", "src\MusiScore.Shared\MusiScore.Shared.fsproj", "{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{B1C4515D-4BA9-4567-A4B7-7534EFD58BC4}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MusiScore.Server.Test", "test\MusiScore.Server.Test\MusiScore.Server.Test.fsproj", "{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,6 +49,30 @@ Global
 		{1481BBD6-A6DA-4912-A03A-134880D14701}.Release|x64.Build.0 = Release|Any CPU
 		{1481BBD6-A6DA-4912-A03A-134880D14701}.Release|x86.ActiveCfg = Release|Any CPU
 		{1481BBD6-A6DA-4912-A03A-134880D14701}.Release|x86.Build.0 = Release|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Debug|x64.Build.0 = Debug|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Debug|x86.Build.0 = Debug|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Release|x64.ActiveCfg = Release|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Release|x64.Build.0 = Release|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Release|x86.ActiveCfg = Release|Any CPU
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F}.Release|x86.Build.0 = Release|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Debug|x64.Build.0 = Debug|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Debug|x86.Build.0 = Debug|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Release|x64.ActiveCfg = Release|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Release|x64.Build.0 = Release|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Release|x86.ActiveCfg = Release|Any CPU
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,6 +80,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{4E2AA925-4694-4593-ADBC-F349D269587A} = {87F6C079-CBD7-4866-BDEB-CBDEA9E51D2A}
 		{1481BBD6-A6DA-4912-A03A-134880D14701} = {87F6C079-CBD7-4866-BDEB-CBDEA9E51D2A}
+		{5C90EAC3-441F-4B8B-AE84-FBFEC5FD485F} = {87F6C079-CBD7-4866-BDEB-CBDEA9E51D2A}
+		{8B52B7A7-0898-4F04-95FB-F9AAC66AE28E} = {B1C4515D-4BA9-4567-A4B7-7534EFD58BC4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8CFD6033-FB8D-48BE-9628-9D83DC023CAB}
