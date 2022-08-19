@@ -1,11 +1,61 @@
-﻿namespace MusiScore.Shared
+﻿namespace MusiScore.Shared.DataTransfer
 
-type ActiveCompositionDto = {
-    Title: string
-    ShowVoicesLink: string
-}
+module Print =
+    type ActiveCompositionDto = {
+        Title: string
+        ShowVoicesUrl: string
+    }
 
-type VoiceDto = {
-    Name: string
-    PrintLink: string
-}
+    type CompositionDto = {
+        Title: string
+        IsActive: bool
+        ShowVoicesUrl: string
+    }
+
+    type VoiceDto = {
+        Name: string
+        PrintUrl: string
+    }
+
+module Admin =
+    type ExistingCompositionDto = {
+        Title: string
+        IsActive: bool
+        UpdateUrl: string
+        DeleteUrl: string
+        GetVoicesUrl: string
+        CreateVoiceUrl: string
+    }
+
+    type CompositionListDto = {
+        Compositions: ExistingCompositionDto array
+        CreateCompositionUrl: string
+    }
+
+    type NewCompositionDto = {
+        Title: string
+    }
+
+    type CompositionUpdateDto = {
+        Title: string option
+        IsActive: bool option
+    }
+
+    type CreateVoiceDto = {
+        Name: string
+        File: byte[]
+        PrintSetting: string
+    }
+
+    type ExistingVoiceDto = {
+        Name: string
+        PrintSetting: string
+        UpdateUrl: string
+        DeleteUrl: string
+    }
+
+    type UpdateVoiceDto = {
+        Name: string option
+        File: byte[] option
+        PrintSetting: string option
+    }

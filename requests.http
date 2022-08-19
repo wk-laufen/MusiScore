@@ -1,1 +1,55 @@
-POST https://localhost:64326/api/compositions/1/voices/1?count=5
+@baseUrl = https://localhost:64326
+
+GET {{baseUrl}}/api/print/compositions?activeOnly=true
+
+###
+
+GET {{baseUrl}}/api/print/compositions/1/voices
+
+###
+
+POST {{baseUrl}}/api/print/compositions/1/voices/1?count=5
+
+###
+
+GET {{baseUrl}}/api/admin/compositions
+
+###
+
+PATCH {{baseUrl}}/api/admin/compositions/1
+Content-Type: application/json
+
+{ "title": "An der Elbe", "isActive": true }
+
+###
+
+POST {{baseUrl}}/api/admin/compositions
+Content-Type: application/json
+
+{ "title": "The Italian Polka" }
+
+###
+
+DELETE {{baseUrl}}/api/admin/compositions/6
+
+###
+
+GET {{baseUrl}}/api/admin/compositions/6/voices
+
+###
+
+POST {{baseUrl}}/api/admin/compositions/6/voices
+Content-Type: application/json
+
+{ "name": "Bb Klarinette 1", "file": "MTIzNA==", "printSetting": "duplex" }
+
+###
+
+PATCH {{baseUrl}}/api/admin/compositions/6/voices/5
+Content-Type: application/json
+
+{ "name": "Bb Klarinette 1", "file": "NDMyMQ==", "printSetting": "a4-to-booklet" }
+
+###
+
+DELETE {{baseUrl}}/api/admin/compositions/6/voices/5
