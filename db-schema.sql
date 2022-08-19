@@ -13,6 +13,9 @@ CREATE TABLE voice_print_setting(
     `key` VARCHAR(50) PRIMARY KEY NOT NULL,
     name VARCHAR(50) NOT NULL
 );
+INSERT INTO voice_print_setting (`key`, name) VALUES ('duplex', 'doppelseitig');
+INSERT INTO voice_print_setting (`key`, name) VALUES ('a4_to_a3_duplex', 'A4 -> A3 doppelseitig');
+INSERT INTO voice_print_setting (`key`, name) VALUES ('a4_to_booklet', 'A4 -> Broschüre');
 
 CREATE TABLE voice(
     id INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
