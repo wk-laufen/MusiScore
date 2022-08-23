@@ -18,6 +18,7 @@ type PrintController(db: Db) =
                 let! compositions = db.GetActiveCompositions()
                 return
                     compositions
+                    |> Seq.sortBy (fun v -> v.Title)
                     |> Seq.map (fun v -> {
                         Title = v.Title
                         ShowVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
@@ -28,6 +29,7 @@ type PrintController(db: Db) =
                 let! compositions = db.GetCompositions()
                 return
                     compositions
+                    |> Seq.sortBy (fun v -> v.Title)
                     |> Seq.map (fun v -> {
                         Title = v.Title
                         IsActive = v.IsActive
@@ -55,7 +57,7 @@ type PrintController(db: Db) =
 
     [<Route("compositions/{compositionId}/voices/{voiceId}")>]
     [<HttpPost>]
-    member _.PrintVoice (compositionId: string, voiceId: string, [<FromQuery>]count: System.Nullable<int>) =
+    member _.PrintVoice (compositionId: string, voiceId: string, [<FromQuery>]count: Nullable<int>) =
         async {
             let count = Option.ofNullable count |> Option.defaultValue 1
             let! voice = db.GetPrintableVoice(compositionId, voiceId)

@@ -12,7 +12,6 @@
     <Compile Include="Printer.fs" />
     <Compile Include="PrintController.fs" />
     <Compile Include="AdminController.fs" />
-    <Compile Include="BookService.fs" />
     <Compile Include="Startup.fs" />
   </ItemGroup>
   <ItemGroup>

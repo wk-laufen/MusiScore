@@ -1,28 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 html, body {
   height: 100%;
 }
 
-body {
-  display: flex;
-  flex-direction: column;
-}
-
 #main {
-  flex: 1;
+  @apply flex flex-col h-full;
 }
 
-#main > .columns {
-  min-height: 100%;
+.btn {
+  @apply inline-block text-center cursor-pointer bg-transparent font-semibold py-2 px-4 border rounded;
 }
-
-.sidebar {
-  width: 250px;
-  background: whitesmoke;
-  min-height: 100%;
+.btn:hover {
+  @apply shadow;
 }
-
-#counter {
-  width: 80px;
+.btn-blue:not(.btn-solid) {
+  @apply text-blue-700 border-blue-500;
+}
+.btn-blue.btn-solid {
+  @apply text-white bg-blue-700;
+}
+.btn-blue:hover {
+  @apply shadow-blue-500;
+}
+.btn-gold:not(.btn-solid) {
+  @apply text-gold border-gold;
+}
+.btn-gold.btn-solid {
+  @apply text-white bg-gold;
+}
+.btn-gold:hover {
+  @apply shadow-gold;
 }
 
 #notification-area {

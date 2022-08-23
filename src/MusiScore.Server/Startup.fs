@@ -1,15 +1,12 @@
 namespace MusiScore.Server
 
-open Bolero
-open Bolero.Remoting.Server
-open Bolero.Server
 open Microsoft.AspNetCore
 open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
-open MusiScore
+open Microsoft.Extensions.Hosting
 open System
 
 type Startup() =
@@ -28,14 +25,15 @@ type Startup() =
             .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie()
                 .Services
-            .AddRemoting<BookService>()
         |> ignore
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     member this.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) =
+        if env.IsDevelopment() then
+            app.UseDeveloperExceptionPage() |> ignore
+
         app
             .UseAuthentication()
-            .UseRemoting()
             .UseStaticFiles()
             .UseRouting()
             .UseBlazorFrameworkFiles()

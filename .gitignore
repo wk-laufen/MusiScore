@@ -1,5 +1,9 @@
+.tools/
 .vs/
 bin/
 obj/
+node_modules/
+*.min.css
+**/wwwroot/lib/
 data/
 Noten/
