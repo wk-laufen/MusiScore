@@ -2,7 +2,9 @@
 module.exports = {
   content: [
     "./**/*.html",
-    "./**/View.fs"
+    "./**/ViewComponents.fs",
+    "./**/View.fs",
+    "./**/*.View.fs"
   ],
   theme: {
     extend: {

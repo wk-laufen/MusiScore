@@ -1,4 +1,4 @@
-namespace MusiScore.Client
+namespace global
 
 type Deferred<'success, 'error> =
     | Loading

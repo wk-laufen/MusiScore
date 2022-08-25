@@ -11,7 +11,7 @@ type App() =
     inherit ProgramComponent<Model, Message>()
 
     override this.Program =
-        let router = Router.infer SetPage (fun model -> model.page)
+        let router = Router.infer SetPage (fun (model: Model) -> fst model)
         let httpClient = this.Services.GetService<HttpClient>()
         let view = view router
         Program.mkProgram (fun _ -> Model.init) (update httpClient) view

@@ -6,6 +6,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Deferred.fs" />
+    <Compile Include="ViewComponents.fs" />
+    <Compile Include="Print.Model.fs" />
+    <Compile Include="Print.Update.fs" />
+    <Compile Include="Print.View.fs" />
+    <Compile Include="Admin.Model.fs" />
+    <Compile Include="Admin.Update.fs" />
+    <Compile Include="Admin.View.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="View.fs" />
