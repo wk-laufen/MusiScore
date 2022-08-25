@@ -39,7 +39,8 @@ type Startup() =
             .UseBlazorFrameworkFiles()
             .UseEndpoints(fun endpoints ->
                 endpoints.MapControllers() |> ignore
-                endpoints.MapFallbackToFile("index.html") |> ignore)
+                endpoints.MapFallbackToFile("index.html") |> ignore
+            )
         |> ignore
 
 module Program =
