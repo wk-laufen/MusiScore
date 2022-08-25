@@ -2,11 +2,12 @@ module MusiScore.Client.Print.View
 
 open Bolero.Html
 open MusiScore.Client
+open MusiScore.Shared.DataTransfer.Print
 
 let compositionListView (loadedCompositions: LoadedCompositionsModel) loadingComposition dispatch =
     div {
         attr.``class`` "flex flex-wrap items-stretch justify-center gap-2 m-4"
-        for composition: MusiScore.Shared.DataTransfer.Print.CompositionDto in loadedCompositions.Compositions do
+        for composition in loadedCompositions.Compositions do
             cond (Some composition = loadingComposition) <| function
                 | true ->
                     button {
@@ -30,7 +31,7 @@ let compositionListView (loadedCompositions: LoadedCompositionsModel) loadingCom
                     }
     }
 
-let voiceListView (composition: MusiScore.Shared.DataTransfer.Print.CompositionDto) loadedVoices dispatch =
+let voiceListView (composition: CompositionDto) loadedVoices dispatch =
     div {
         attr.``class`` "p-4"
         h1 {
@@ -39,7 +40,7 @@ let voiceListView (composition: MusiScore.Shared.DataTransfer.Print.CompositionD
         }
         div {
             attr.``class`` "flex flex-wrap items-stretch justify-center gap-2 m-4"
-            for voice: MusiScore.Shared.DataTransfer.Print.VoiceDto in loadedVoices.Voices do
+            for voice in loadedVoices.Voices do
             cond loadedVoices.SelectedVoice <| function
                 | Some (selectedVoice, Some (Deferred.LoadFailed _)) when selectedVoice = voice ->
                     button {
@@ -133,7 +134,7 @@ let view model dispatch =
                     compositionListView loadedCompositions (Some composition) dispatch
                 | Some (_composition, Deferred.LoadFailed _e) ->
                     ViewComponents.errorNotificationWithRetry "Fehler beim Laden." (fun () -> dispatch LoadVoices)
-                | Some (composition: MusiScore.Shared.DataTransfer.Print.CompositionDto, Deferred.Loaded voices) ->
+                | Some (composition, Deferred.Loaded voices) ->
                     voiceListView composition voices dispatch
         }
         commandBar model dispatch
