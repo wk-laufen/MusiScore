@@ -11,6 +11,17 @@ let loading =
         span { "Laden. Bitte warten..." }
     }
 
+let divider (text: string) =
+    div {
+        attr.``class`` "flex p-4 items-center"
+        div { attr.``class`` "grow border-t mt-px border-gray-400" }
+        span {
+            attr.``class`` "shrink mx-4 text-gray-400 text-sm"
+            text
+        }
+        div { attr.``class`` "grow border-t mt-px border-gray-400" }
+    }
+
 let errorNotificationWithRetry (text: string) onRetry =
     div {
         attr.``class`` "flex flex-col items-center justify-center gap-2 m-4"
