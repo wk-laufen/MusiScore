@@ -29,7 +29,13 @@ module Admin =
 
     type CompositionListDto = {
         Compositions: ExistingCompositionDto array
+        GetPrintSettingsUrl: string
         CreateCompositionUrl: string
+    }
+
+    type VoicePrintSettingDto = {
+        Key: string
+        Name: string
     }
 
     type NewCompositionDto = {
@@ -49,6 +55,7 @@ module Admin =
 
     type ExistingVoiceDto = {
         Name: string
+        File: byte[]
         PrintSetting: string
         UpdateUrl: string
         DeleteUrl: string

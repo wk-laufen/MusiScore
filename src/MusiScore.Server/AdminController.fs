@@ -25,8 +25,22 @@ type AdminController(db: Db) =
                         CreateVoiceUrl = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
                     })
                     |> Seq.toArray
+                GetPrintSettingsUrl = this.Url.Action(nameof(this.GetPrintSettings))
                 CreateCompositionUrl = this.Url.Action(nameof(this.CreateComposition))
             }
+        }
+
+    [<Route("print-settings")>]
+    [<HttpGet>]
+    member _.GetPrintSettings () =
+        async {
+            let! printSettings = db.GetPrintSettings()
+            return
+                printSettings
+                |> List.map (fun v -> {
+                    Key = PrintSetting.toDto v.Key
+                    Name = v.Name
+                })
         }
 
     [<Route("compositions")>]
@@ -83,6 +97,7 @@ type AdminController(db: Db) =
                 voices
                 |> Seq.map (fun v -> {
                     Name = v.Name
+                    File = v.File
                     PrintSetting = PrintSetting.toDto v.PrintSetting
                     UpdateUrl = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |})
                     DeleteUrl = this.Url.Action(nameof(this.DeleteVoice), {| compositionId = compositionId; voiceId = v.Id |})
@@ -99,6 +114,7 @@ type AdminController(db: Db) =
                 let! voiceId = db.CreateVoice compositionId createVoice
                 let result = {
                     Name = createVoice.Name
+                    File = createVoice.File
                     PrintSetting = PrintSetting.toDto createVoice.PrintSetting
                     UpdateUrl = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
                     DeleteUrl = this.Url.Action(nameof(this.DeleteVoice), {| compositionId = compositionId; voiceId = voiceId |})
@@ -116,6 +132,7 @@ type AdminController(db: Db) =
                 let! updatedVoice = db.UpdateVoice compositionId voiceId updateVoice
                 let result = {
                     Name = updatedVoice.Name
+                    File = updatedVoice.File
                     PrintSetting = PrintSetting.toDto updatedVoice.PrintSetting
                     UpdateUrl = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
                     DeleteUrl = this.Url.Action(nameof(this.DeleteVoice), {| compositionId = compositionId; voiceId = voiceId |})

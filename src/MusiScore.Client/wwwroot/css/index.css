@@ -13,8 +13,11 @@ html, body {
 .btn {
   @apply inline-block text-center cursor-pointer bg-transparent font-semibold py-2 px-4 border rounded;
 }
-.btn:hover {
+.btn:hover:not(.btn-loading) {
   @apply shadow;
+}
+.btn-loading {
+  @apply cursor-auto relative opacity-50 after:inline-block after:absolute after:left-1/2 after:top-1/2 after:w-4 after:h-4 after:-ml-2 after:-mt-2 after:border-b-2 after:border-blue-500 after:rounded-full after:animate-spin;
 }
 .btn-blue:not(.btn-solid) {
   @apply text-blue-700 border-blue-500;
@@ -33,6 +36,33 @@ html, body {
 }
 .btn-gold:hover {
   @apply shadow-gold;
+}
+
+.input {
+  @apply inline-flex flex-col justify-items-start items-start mt-6;
+}
+.input-label {
+  @apply text-sm font-medium text-slate-700;
+}
+.input-text {
+  @apply w-72 px-2 py-1 border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
+}
+.input-text:invalid {
+  @apply border-pink-500 text-pink-600 focus:ring-pink-500;
+}
+
+.nav-container {
+  @apply flex flex-row flex-wrap list-none mb-4;
+}
+.nav-item {
+  @apply block text-sm cursor-pointer border-b-2 border-transparent px-6 py-3 my-2 hover:bg-gray-100;
+}
+.nav-item.active {
+  @apply border-blue-500;
+}
+
+.voice-preview canvas {
+  @apply border border-slate-300;
 }
 
 #notification-area {

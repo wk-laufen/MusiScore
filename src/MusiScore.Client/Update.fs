@@ -3,7 +3,7 @@ module MusiScore.Client.Update
 
 open Elmish
 
-let update httpClient message model =
+let update httpClient js message model =
     match message, model with
     | SetPage Print, (_, pageModel) ->
         let subModel, subCommand = Print.Model.init
@@ -16,6 +16,6 @@ let update httpClient message model =
         (Print, PrintModel subModel'), Cmd.map PrintMessage subMessage'
     | PrintMessage _, _ -> model, Cmd.none
     | AdminMessage subMessage, (Admin, AdminModel subModel) ->
-        let (subModel', subMessage') = Admin.Update.update httpClient subMessage subModel
+        let (subModel', subMessage') = Admin.Update.update httpClient js subMessage subModel
         (Admin, AdminModel subModel'), Cmd.map AdminMessage subMessage'
     | AdminMessage _, _ -> model, Cmd.none

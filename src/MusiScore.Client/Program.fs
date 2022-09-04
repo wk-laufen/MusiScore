@@ -4,6 +4,7 @@ open Bolero
 open Elmish
 open Microsoft.AspNetCore.Components.WebAssembly.Hosting
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.JSInterop
 open System
 open System.Net.Http
 
@@ -13,8 +14,8 @@ type App() =
     override this.Program =
         let router = Router.infer SetPage (fun (model: Model) -> fst model)
         let httpClient = this.Services.GetService<HttpClient>()
-        let view = view router
-        Program.mkProgram (fun _ -> Model.init) (update httpClient) view
+        let js = this.Services.GetService<IJSRuntime>()
+        Program.mkProgram (fun _ -> Model.init) (update httpClient js) (view router)
         |> Program.withRouter router
 
 module Program =

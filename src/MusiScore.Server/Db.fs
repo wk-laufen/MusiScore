@@ -54,11 +54,20 @@ module private DbModels =
     type DbFullVoice = {
         id: int
         name: string
+        file: byte[]
         print_setting_id: string
     }
     module DbFullVoice =
         let toDomain v : FullVoice =
-            { Id = string v.id; Name = v.name; PrintSetting = DbPrintSetting.toDomain v.print_setting_id }
+            { Id = string v.id; Name = v.name; File = v.file; PrintSetting = DbPrintSetting.toDomain v.print_setting_id }
+    
+    type DbVoicePrintSetting = {
+        Key: string
+        Name: string
+    }
+    module DbVoicePrintSetting =
+        let toDomain v : VoicePrintSetting =
+            { Key = DbPrintSetting.toDomain v.Key; Name = v.Name }
 
 type Db(connectionString: string) =
     let createConnection() =
@@ -142,7 +151,7 @@ type Db(connectionString: string) =
 
     member _.GetFullCompositionVoices (compositionId: string) = async {
         use connection = createConnection()
-        let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, print_setting_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = compositionId |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = compositionId |}) |> Async.AwaitTask
         return
             voices
             |> Seq.map DbFullVoice.toDomain
@@ -194,7 +203,7 @@ type Db(connectionString: string) =
             |}
             let command = $"UPDATE voice SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT id, name, print_setting_id FROM voice WHERE id = @Id", {| Id = voiceId |}, tx) |> Async.AwaitTask
+        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE id = @Id", {| Id = voiceId |}, tx) |> Async.AwaitTask
         tx.Commit()
         return DbFullVoice.toDomain voice
     }
@@ -202,4 +211,13 @@ type Db(connectionString: string) =
     member _.DeleteVoice (_compositionId: string) (voiceId: string) = async {
         use connection = createConnection()
         do! connection.ExecuteAsync("DELETE FROM voice WHERE id = @Id", {| Id = voiceId |}) |> Async.AwaitTask |> Async.Ignore
+    }
+
+    member _.GetPrintSettings() = async {
+        use connection = createConnection()
+        let! compositions = connection.QueryAsync<DbVoicePrintSetting>("SELECT `key`, name FROM voice_print_setting") |> Async.AwaitTask
+        return
+            compositions
+            |> Seq.map DbVoicePrintSetting.toDomain
+            |> Seq.toList
     }

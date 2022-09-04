@@ -1,6 +1,7 @@
 module MusiScore.Client.Admin.View
 
 open Bolero.Html
+open Microsoft.AspNetCore.Components.Forms
 open MusiScore.Client
 open MusiScore.Shared.DataTransfer.Admin
 
@@ -16,7 +17,7 @@ let compositionListView (loadedCompositions: CompositionListDto) loadingComposit
                 attr.``class`` "flex flex-wrap items-stretch gap-2 m-4"
                 for composition in compositions do
                     div {
-                        attr.``class`` "flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x"
+                        attr.``class`` "flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500"
                         span {
                             attr.``class`` "grow flex items-center justify-center !p-8 w-60"
                             composition.Title
@@ -29,10 +30,11 @@ let compositionListView (loadedCompositions: CompositionListDto) loadingComposit
                             }
                         }
                         div {
-                            attr.``class`` "flex flex-col justify-items-stretch divide-y"
+                            attr.``class`` "flex flex-col justify-items-stretch divide-y divide-blue-500"
                             button {
                                 attr.``class`` "p-4 grow"
                                 attr.title "Bearbeiten"
+                                on.click (fun _ -> dispatch (EditComposition composition))
                                 i { attr.``class`` "fa-solid fa-pencil" }
                             }
                             button {
@@ -43,6 +45,205 @@ let compositionListView (loadedCompositions: CompositionListDto) loadingComposit
                         }
                     }
             }
+    }
+
+let formInputText (title: string) onChange formInput =
+    div {
+        label {
+            attr.``class`` "input"
+
+            span {
+                attr.``class`` "input-label"
+                title
+            }
+            input {
+                attr.``class`` "input-text"
+                attr.``type`` "text"
+                attr.required true
+                on.input (fun v -> onChange (v.Value :?> string))
+                attr.value formInput.Text
+            }
+            cond formInput.ValidationState <| function
+                | ValidationError msg ->
+                    span {
+                        attr.``class`` "text-sm text-pink-600"
+                        msg
+                    }
+                | NotValidated
+                | ValidationSuccess _ -> empty ()
+        }
+    }
+
+let formInputFile (title: string) onChange value =
+    div {
+        label {
+            attr.``class`` "input"
+
+            span {
+                attr.``class`` "input-label"
+                title
+            }
+            comp<InputFile> {
+                attr.``class`` "hidden"
+                attr.accept ".pdf" 
+                attr.callback "OnChange" (fun (e: InputFileChangeEventArgs) -> onChange e)
+            }
+            div {
+                attr.``class`` "flex gap-4 items-center"
+
+                div {
+                    attr.``class`` "btn btn-blue"
+                    "Auswählen"
+                }
+
+                cond value <| function
+                    | None
+                    | Some (Ok _) -> empty ()
+                    | Some (Error _) ->
+                        span {
+                            attr.``class`` "text-red-500"
+                            "Fehler beim Laden der Datei"
+                        }
+            }
+        }
+    }
+
+let formInputSelect (title: string) onChange value values =
+    div {
+        label {
+            attr.``class`` "input"
+
+            span {
+                attr.``class`` "input-label"
+                title
+            }
+            select {
+                attr.``class`` "px-3 py-1.5 border border-gray-300 rounded transition ease-in-out focus:border-blue-600"
+                on.change (fun v -> onChange (v.Value :?> string))
+
+                for (key, text: string) in values do
+                    option {
+                        attr.value key
+                        attr.selected (value = key)
+                        text
+                    }
+            }
+        }
+    }
+
+
+let editCompositionView model dispatch =
+    div {
+        attr.``class`` "p-4"
+        h2 {
+            attr.``class`` "text-2xl small-caps"
+            if model.State = CreatedComposition then "Stück anlegen" else "Stück bearbeiten"
+        }
+
+        formInputText "Titel" (SetTitle >> SetEditCompositionFormInput >> dispatch) model.Title
+
+        cond model.Voices <| function
+            | None -> empty ()
+            | Some editVoices ->
+                concat {
+                    h3 {
+                        attr.``class`` "text-xl small-caps mt-4"
+                        "Stimmen"
+                    }
+                    match editVoices with
+                    | Deferred.Loading ->
+                        div {
+                            attr.``class`` "mt-4"
+                            "Stimmen werden geladen..."
+                        }
+                    | Deferred.Loaded editVoices ->
+                        ul {
+                            attr.``class`` "nav-container"
+
+                            for voice in editVoices.Voices do
+                                li {
+                                    a {
+                                        attr.``class`` (sprintf "nav-item%s" (if editVoices.SelectedVoice = Some voice.Id then " active" else ""))
+                                        on.click (fun _ -> dispatch (SelectEditCompositionVoice voice.Id))
+                                        if voice.Name.Text = "" then "<leer>" else voice.Name.Text
+                                    }
+                                }
+                            
+                            li {
+                                a {
+                                    attr.``class`` "nav-item"
+                                    on.click (fun _ -> dispatch AddEditCompositionVoice)
+                                    "+ Neue Stimme"
+                                }
+                            }
+                        }
+                        cond (EditVoicesModel.tryGetSelectedVoice editVoices) <| function
+                        | Some voice ->
+                            div {
+                                formInputText "Name" (SetVoiceName >> SetEditCompositionFormInput >> dispatch) voice.Name
+                                formInputFile "PDF-Datei" (fun e -> dispatch (SetEditCompositionFormInput (SetVoiceFile e.File))) voice.File
+                                cond (snd model.VoicePrintSettings) <| function
+                                    | None
+                                    | Some Deferred.Loading -> empty()
+                                    | Some (Deferred.Loaded printSettings) ->
+                                        let printSettingOptions =
+                                            printSettings
+                                            |> List.map (fun v -> (v.Key, v.Name))
+                                        formInputSelect "Druckeinstellung" (SetPrintSetting >> SetEditCompositionFormInput >> dispatch) voice.PrintSetting printSettingOptions
+                                    | Some (Deferred.LoadFailed e) ->
+                                        ViewComponents.errorNotificationWithRetry "Fehler beim Laden der Druckeinstellungen" (fun () -> dispatch LoadEditCompositionVoicePrintSettings)
+                                div {
+                                    attr.``class`` "voice-preview flex flex-wrap gap-4 p-4"
+                                }
+                            }
+                        | None -> empty()
+                    | Deferred.LoadFailed _ ->
+                        ViewComponents.errorNotificationWithRetry "Fehler beim Laden" (fun () -> dispatch LoadEditCompositionVoices)
+                }
+    }
+
+let commandBar model dispatch =
+    concat {
+        cond model <| function
+            | Model.EditComposition { SaveState = Some (Deferred.LoadFailed _) } ->
+                div {
+                    attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 mb-0"
+                    span {
+                        attr.``class`` "text-sm text-red-500"
+                        "Fehler beim Speichern."
+                    }
+                }
+            | Model.EditComposition { SaveState = Some (Deferred.Loaded ()) } ->
+                div {
+                    attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 mb-0"
+                    span {
+                        attr.``class`` "text-sm text-green-500"
+                        "Stück erfolgreich gespeichert."
+                    }
+                }
+            | _ -> empty ()
+        div {
+            attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 gap-4"
+            
+            match model with
+            | ListCompositions _ ->
+                button {
+                    attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
+                    on.click (fun _ -> dispatch CreateComposition)
+                    "Neues Stück hinzufügen"
+                }
+            | Model.EditComposition subModel ->
+                button {
+                    attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
+                    on.click (fun _ -> dispatch LoadCompositions)
+                    "Zurück"
+                }
+                button {
+                    attr.``class`` (sprintf "btn btn-solid btn-gold !px-8 !py-4%s" (if subModel.SaveState = Some Deferred.Loading then " btn-loading" else ""))
+                    on.click (fun _ -> dispatch SaveComposition)
+                    "Speichern"
+                }
+        }
     }
 
 let view (model: Model) dispatch =
@@ -57,11 +258,14 @@ let view (model: Model) dispatch =
         div {
             attr.``class`` "grow overflow-y-auto"
 
-            match model.Compositions with
-            | Deferred.Loading -> ViewComponents.loading
-            | Deferred.LoadFailed e ->
+            match model with
+            | ListCompositions Deferred.Loading -> ViewComponents.loading
+            | ListCompositions (Deferred.LoadFailed e) ->
                 ViewComponents.errorNotificationWithRetry "Fehler beim Laden." (fun () -> dispatch LoadCompositions)
-            | Deferred.Loaded loadedCompositions ->
+            | ListCompositions (Deferred.Loaded loadedCompositions) ->
                 compositionListView loadedCompositions None dispatch
+            | Model.EditComposition subModel ->
+                editCompositionView subModel dispatch
         }
+        commandBar model dispatch
     }

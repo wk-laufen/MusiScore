@@ -1,3 +1,5 @@
+SET character_set_client = 'utf8';
+
 DROP TABLE IF EXISTS voice_print;
 DROP TABLE IF EXISTS voice;
 DROP TABLE IF EXISTS voice_print_setting;
@@ -13,7 +15,7 @@ CREATE TABLE voice_print_setting(
     `key` VARCHAR(50) PRIMARY KEY NOT NULL,
     name VARCHAR(50) NOT NULL
 );
-INSERT INTO voice_print_setting (`key`, name) VALUES ('duplex', 'doppelseitig');
+INSERT INTO voice_print_setting (`key`, name) VALUES ('duplex', 'Doppelseitig');
 INSERT INTO voice_print_setting (`key`, name) VALUES ('a4_to_a3_duplex', 'A4 -> A3 doppelseitig');
 INSERT INTO voice_print_setting (`key`, name) VALUES ('a4_to_booklet', 'A4 -> Broschüre');
 

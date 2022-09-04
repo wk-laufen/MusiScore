@@ -96,5 +96,11 @@ module UpdateVoice =
 type FullVoice = {
     Id: string
     Name: string
+    File: byte[]
     PrintSetting: PrintSetting
+}
+
+type VoicePrintSetting = {
+    Key: PrintSetting
+    Name: string
 }
