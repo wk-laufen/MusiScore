@@ -8,33 +8,27 @@ let compositionListView (loadedCompositions: LoadedCompositionsModel) loadingCom
     div {
         attr.``class`` "flex flex-wrap items-stretch justify-center gap-2 m-4"
         for composition in loadedCompositions.Compositions do
-            cond (Some composition = loadingComposition) <| function
-                | true ->
-                    button {
-                        attr.``class`` "relative btn btn-blue !p-8 w-60 opacity-50 after:inline-block after:absolute after:left-1/2 after:top-1/2 after:w-4 after:h-4 after:-ml-2 after:-mt-2 after:border-b-2 after:border-blue-500 after:rounded-full after:animate-spin"
-                        composition.Title
-                    }
-                | false ->
-                    button {
-                        attr.``class`` "relative btn btn-blue !p-8 w-60"
-                        on.click (fun _ -> dispatch (SelectComposition composition))
-                        composition.Title
-                        cond (loadedCompositions.IsShowingAllCompositions && composition.IsActive) <| function
-                            | true ->
-                                concat {
-                                    i { attr.``class`` "absolute left-4 top-4 fa-solid fa-star" }
-                                    i { attr.``class`` "absolute right-4 top-4 fa-solid fa-star" }
-                                    i { attr.``class`` "absolute left-4 bottom-4 fa-solid fa-star" }
-                                    i { attr.``class`` "absolute right-4 bottom-4 fa-solid fa-star" }
-                                }
-                            | false -> empty ()
-                    }
+            let isLoading = (Some composition = loadingComposition)
+            button {
+                attr.``class`` (sprintf "relative btn btn-blue !p-8 w-60%s" (if isLoading then " btn-loading" else ""))
+                on.click (if isLoading then ignore else (fun _ -> dispatch (SelectComposition composition)))
+                composition.Title
+                cond (loadedCompositions.IsShowingAllCompositions && composition.IsActive) <| function
+                    | true ->
+                        concat {
+                            i { attr.``class`` "absolute left-4 top-4 fa-solid fa-star" }
+                            i { attr.``class`` "absolute right-4 top-4 fa-solid fa-star" }
+                            i { attr.``class`` "absolute left-4 bottom-4 fa-solid fa-star" }
+                            i { attr.``class`` "absolute right-4 bottom-4 fa-solid fa-star" }
+                        }
+                    | false -> empty ()
+            }
     }
 
 let voiceListView (composition: CompositionDto) loadedVoices dispatch =
     div {
         attr.``class`` "p-4"
-        h1 {
+        h2 {
             attr.``class`` "text-2xl small-caps"
             composition.Title
         }
@@ -86,11 +80,11 @@ let loadCompositionsButton isShowingAllCompositions dispatch =
         text
     }
 
-let cancelButton dispatch =
+let backButton dispatch =
     button {
         attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
         on.click (fun _ -> dispatch LoadActiveCompositions)
-        "Abbrechen"
+        "Zurück"
     }
 
 let commandBar model dispatch =
@@ -106,9 +100,9 @@ let commandBar model dispatch =
                 loadCompositionsButton loadedCompositions.IsShowingAllCompositions dispatch
             | Some (_, Deferred.Loading) -> empty ()
             | Some (_, Deferred.LoadFailed _e) ->
-                cancelButton dispatch
+                backButton dispatch
             | Some (_, Deferred.Loaded _) ->
-                cancelButton dispatch
+                backButton dispatch
     }
 
 let view model dispatch =
