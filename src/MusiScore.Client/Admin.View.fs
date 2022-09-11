@@ -19,7 +19,7 @@ let compositionListView (loadedCompositions: CompositionListDto) loadingComposit
                     div {
                         attr.``class`` "flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500"
                         span {
-                            attr.``class`` "grow flex items-center justify-center !p-8 w-60"
+                            attr.``class`` "grow flex items-center justify-center text-center !p-8 w-60"
                             composition.Title
                         }
                         button {
