@@ -12,31 +12,18 @@ type PrintController(db: Db) =
 
     [<Route("compositions")>]
     [<HttpGet>]
-    member this.GetCompositions ([<FromQuery>]activeOnly: Nullable<bool>) =
+    member this.GetActiveCompositions () =
         async {
-            if activeOnly.GetValueOrDefault(false) then
-                let! compositions = db.GetActiveCompositions()
-                return
-                    compositions
-                    |> Seq.sortBy (fun v -> v.Title)
-                    |> Seq.map (fun v -> {
-                        Title = v.Title
-                        ShowVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
-                    })
-                    |> Seq.cast<obj>
-                    |> Seq.toArray
-            else
-                let! compositions = db.GetCompositions()
-                return
-                    compositions
-                    |> Seq.sortBy (fun v -> v.Title)
-                    |> Seq.map (fun v -> {
-                        Title = v.Title
-                        IsActive = v.IsActive
-                        ShowVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
-                    })
-                    |> Seq.cast<obj>
-                    |> Seq.toArray
+            let! compositions = db.GetActiveCompositions()
+            return
+                compositions
+                |> Seq.sortBy (fun v -> v.Title)
+                |> Seq.map (fun v -> {
+                    Title = v.Title
+                    ShowVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
+                })
+                |> Seq.cast<obj>
+                |> Seq.toArray
         }
 
     [<Route("compositions/{compositionId}/voices")>]

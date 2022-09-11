@@ -13,19 +13,10 @@ let compositionListView (loadedCompositions: LoadedCompositionsModel) loadingCom
                 attr.``class`` (sprintf "relative btn btn-blue !p-8 w-60%s" (if isLoading then " btn-loading" else ""))
                 on.click (if isLoading then ignore else (fun _ -> dispatch (SelectComposition composition)))
                 composition.Title
-                cond (loadedCompositions.IsShowingAllCompositions && composition.IsActive) <| function
-                    | true ->
-                        concat {
-                            i { attr.``class`` "absolute left-4 top-4 fa-solid fa-star" }
-                            i { attr.``class`` "absolute right-4 top-4 fa-solid fa-star" }
-                            i { attr.``class`` "absolute left-4 bottom-4 fa-solid fa-star" }
-                            i { attr.``class`` "absolute right-4 bottom-4 fa-solid fa-star" }
-                        }
-                    | false -> empty ()
             }
     }
 
-let voiceListView (composition: CompositionDto) loadedVoices dispatch =
+let voiceListView (composition: ActiveCompositionDto) loadedVoices dispatch =
     div {
         attr.``class`` "p-4"
         h2 {
@@ -70,20 +61,10 @@ let voiceListView (composition: CompositionDto) loadedVoices dispatch =
         }
     }
 
-let loadCompositionsButton isShowingAllCompositions dispatch =
-    let (command, text) =
-        if isShowingAllCompositions then (LoadActiveCompositions, "Nur aktuelle Stücke anzeigen")
-        else (LoadAllCompositions, "Alle Stücke anzeigen")
-    button {
-        attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
-        on.click (fun _ -> dispatch command)
-        text
-    }
-
 let backButton dispatch =
     button {
         attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
-        on.click (fun _ -> dispatch LoadActiveCompositions)
+        on.click (fun _ -> dispatch LoadCompositions)
         "Zurück"
     }
 
@@ -96,8 +77,7 @@ let commandBar model dispatch =
         | Deferred.LoadFailed e -> empty ()
         | Deferred.Loaded loadedCompositions ->
             match loadedCompositions.SelectedComposition with
-            | None ->
-                loadCompositionsButton loadedCompositions.IsShowingAllCompositions dispatch
+            | None
             | Some (_, Deferred.Loading) -> empty ()
             | Some (_, Deferred.LoadFailed _e) ->
                 backButton dispatch
@@ -120,7 +100,7 @@ let view model dispatch =
             match model.Compositions with
             | Deferred.Loading -> ViewComponents.loading
             | Deferred.LoadFailed e ->
-                ViewComponents.errorNotificationWithRetry "Fehler beim Laden." (fun () -> dispatch LoadActiveCompositions)
+                ViewComponents.errorNotificationWithRetry "Fehler beim Laden." (fun () -> dispatch LoadCompositions)
             | Deferred.Loaded loadedCompositions ->
                 match loadedCompositions.SelectedComposition with
                 | None -> compositionListView loadedCompositions None dispatch

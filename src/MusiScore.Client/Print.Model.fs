@@ -9,9 +9,8 @@ type LoadedVoicesModel = {
 }
 
 type LoadedCompositionsModel = {
-    IsShowingAllCompositions: bool
-    Compositions: CompositionDto list
-    SelectedComposition: (CompositionDto * Deferred<LoadedVoicesModel, exn>) option
+    Compositions: ActiveCompositionDto list
+    SelectedComposition: (ActiveCompositionDto * Deferred<LoadedVoicesModel, exn>) option
 }
 
 type Model = {
@@ -19,10 +18,9 @@ type Model = {
 }
 
 type Message =
-    | LoadActiveCompositions
-    | LoadAllCompositions
-    | LoadCompositionsResult of Result<bool * CompositionDto array, exn>
-    | SelectComposition of CompositionDto
+    | LoadCompositions
+    | LoadCompositionsResult of Result<ActiveCompositionDto array, exn>
+    | SelectComposition of ActiveCompositionDto
     | LoadVoices
     | LoadVoicesResult of Result<VoiceDto array, exn>
     | SelectVoice of VoiceDto
@@ -34,4 +32,4 @@ module Model =
         {
             Compositions = Loading
         },
-        Cmd.ofMsg LoadActiveCompositions
+        Cmd.ofMsg LoadCompositions

@@ -33,24 +33,17 @@ module private Optics =
             (fun v x -> { x with SelectedVoice = v })
 
 let update (httpClient: HttpClient) message model =
-    let selectedComposition_: Prism<Model,(CompositionDto * Deferred<LoadedVoicesModel,exn>) option> = Model.compositions_ >-> Deferred.loaded_ >?> LoadedCompositionsModel.selectedComposition_
+    let selectedComposition_: Prism<Model,(ActiveCompositionDto * Deferred<LoadedVoicesModel,exn>) option> = Model.compositions_ >-> Deferred.loaded_ >?> LoadedCompositionsModel.selectedComposition_
     let selectedCompositionVoices_ = selectedComposition_ >?> Option.value_ >?> snd_
     let selectedVoice_ = selectedCompositionVoices_ >?> Deferred.loaded_ >?> LoadedVoicesModel.selectedVoice_
     let printStatus_ = selectedVoice_ >?> Option.value_ >?> snd_
 
     match message, model with
-    | LoadActiveCompositions, model ->
-        let mapCompositions v =
-            false,
-            v |> Array.map (fun (v: ActiveCompositionDto) -> { Title = v.Title; IsActive = true; ShowVoicesUrl = v.ShowVoicesUrl })
+    | LoadCompositions, model ->
         model |> Optic.set Model.compositions_ Deferred.Loading,
-        Cmd.OfTask.either (fun (url: string) -> httpClient.GetFromJsonAsync<ActiveCompositionDto array>(url)) "/api/print/compositions?activeOnly=true" (mapCompositions >> Ok >> LoadCompositionsResult) (Error >> LoadCompositionsResult)
-    | LoadAllCompositions, model ->
-        let mapCompositions v = (true, v)
-        model |> Optic.set Model.compositions_ Deferred.Loading,
-        Cmd.OfTask.either (fun (url: string) -> httpClient.GetFromJsonAsync<CompositionDto array>(url)) "/api/print/compositions" (mapCompositions >> Ok >> LoadCompositionsResult) (Error >> LoadCompositionsResult)
-    | LoadCompositionsResult (Ok (isAll, compositions)), model ->
-        model |> Optic.set Model.compositions_ (Deferred.Loaded { IsShowingAllCompositions = isAll; Compositions = Array.toList compositions; SelectedComposition = None }),
+        Cmd.OfTask.either (fun (url: string) -> httpClient.GetFromJsonAsync<ActiveCompositionDto array>(url)) "/api/print/compositions" (Ok >> LoadCompositionsResult) (Error >> LoadCompositionsResult)
+    | LoadCompositionsResult (Ok compositions), model ->
+        model |> Optic.set Model.compositions_ (Deferred.Loaded { Compositions = Array.toList compositions; SelectedComposition = None }),
         Cmd.none
     | LoadCompositionsResult (Error e), model ->
         model |> Optic.set Model.compositions_ (Deferred.LoadFailed e),

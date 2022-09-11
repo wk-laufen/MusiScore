@@ -6,12 +6,6 @@ module Print =
         ShowVoicesUrl: string
     }
 
-    type CompositionDto = {
-        Title: string
-        IsActive: bool
-        ShowVoicesUrl: string
-    }
-
     type VoiceDto = {
         Name: string
         PrintUrl: string
