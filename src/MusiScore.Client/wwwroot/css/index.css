@@ -52,10 +52,10 @@ html, body {
 }
 
 .nav-container {
-  @apply flex flex-row flex-wrap list-none mb-4;
+  @apply flex flex-row flex-wrap list-none;
 }
 .nav-item {
-  @apply block text-sm cursor-pointer border-b-2 border-transparent px-6 py-3 my-2 hover:bg-gray-100;
+  @apply block text-sm cursor-pointer border-b-2 border-transparent px-6 py-3 mt-2 hover:bg-gray-100;
 }
 .nav-item.active {
   @apply border-blue-500;

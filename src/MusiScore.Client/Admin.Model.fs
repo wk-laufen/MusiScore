@@ -43,6 +43,7 @@ type EditVoiceModel = {
     Name: FormInput<string>
     File: Result<byte[], exn> option
     PrintSetting: string
+    SaveState: Deferred<unit, exn> option
 }
 module EditVoiceModel =
     let ``new`` printSetting = {
@@ -51,6 +52,7 @@ module EditVoiceModel =
         Name = FormInput.empty
         File = None
         PrintSetting = printSetting
+        SaveState = None
     }
     let validateNewVoiceForm v : CreateVoiceDto option =
         match v.Name, v.File, v.PrintSetting with
@@ -78,6 +80,7 @@ module EditVoiceModel =
 type EditVoicesModel = {
     SelectedVoice: System.Guid option
     Voices: EditVoiceModel list
+    RenderPreviewError: exn option
 }
 module EditVoicesModel =
     let tryGetSelectedVoice model =
@@ -140,6 +143,7 @@ type Message =
     | LoadEditCompositionVoicePrintSettingsResult of Result<VoicePrintSettingDto array, exn>
     | SelectEditCompositionVoice of System.Guid
     | AddEditCompositionVoice
+    | LoadPdfLib
     | LoadPdfLibResult of Result<IJSObjectReference, exn>
     | RenderVoicePreview
     | RenderVoicePreviewsResult of Result<unit, exn>

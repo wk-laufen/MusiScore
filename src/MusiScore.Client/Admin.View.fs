@@ -163,7 +163,18 @@ let editCompositionView model dispatch =
                             for voice in editVoices.Voices do
                                 li {
                                     a {
-                                        attr.``class`` (sprintf "nav-item%s" (if editVoices.SelectedVoice = Some voice.Id then " active" else ""))
+                                        let classes =
+                                            [
+                                                if editVoices.SelectedVoice = Some voice.Id then "active"
+                                                match voice.State with
+                                                | LoadedVoice _ -> ""
+                                                | CreatedVoice -> "text-green-500"
+                                                | ModifiedVoice _ -> "text-yellow-500"
+                                                | DeletedVoice _ -> "text-red-500"
+                                            ]
+                                            |> List.map (sprintf " %s")
+                                            |> String.concat ""
+                                        attr.``class`` (sprintf "nav-item%s" classes)
                                         on.click (fun _ -> dispatch (SelectEditCompositionVoice voice.Id))
                                         if voice.Name.Text = "" then "<leer>" else voice.Name.Text
                                     }
@@ -192,6 +203,17 @@ let editCompositionView model dispatch =
                                         formInputSelect "Druckeinstellung" (SetPrintSetting >> SetEditCompositionFormInput >> dispatch) voice.PrintSetting printSettingOptions
                                     | Some (Deferred.LoadFailed e) ->
                                         ViewComponents.errorNotificationWithRetry "Fehler beim Laden der Druckeinstellungen" (fun () -> dispatch LoadEditCompositionVoicePrintSettings)
+                                let hasLoadPdfModuleError =
+                                    match model.PdfModule with
+                                    | Some (Error _) -> true
+                                    | _ -> false
+                                let hasRenderError =
+                                    match editVoices.RenderPreviewError with
+                                    | Some _ -> true
+                                    | _ -> false
+                                cond (hasLoadPdfModuleError || hasRenderError) <| function
+                                    | true -> ViewComponents.errorNotification "Fehler beim Laden der PDF-Anzeige"
+                                    | false -> empty ()
                                 div {
                                     attr.``class`` "voice-preview flex flex-wrap gap-4 p-4"
                                 }
@@ -203,9 +225,27 @@ let editCompositionView model dispatch =
     }
 
 let commandBar model dispatch =
+    let totalSaveState =
+        match model with
+        | Model.EditComposition ({ Voices = Some (Deferred.Loaded editVoicesModel) } as editCompositionModel) ->
+            let saveStates =
+                [
+                    editCompositionModel.SaveState
+                    yield! editVoicesModel.Voices |> List.map (fun v -> v.SaveState)
+                ]
+            let countSaving = saveStates |> List.sumBy (function | Some Deferred.Loading -> 1 | _ -> 0)
+            let countSaved = saveStates |> List.sumBy (function | Some (Deferred.Loaded ()) -> 1 | _ -> 0)
+            let countSaveError = saveStates |> List.sumBy (function | Some (Deferred.LoadFailed _) -> 1 | _ -> 0)
+            if countSaving > 0 then Some Deferred.Loading
+            elif countSaveError > 0 then Some (Deferred.LoadFailed (exn "Dummy"))
+            elif countSaved > 0 then Some (Deferred.Loaded ())
+            else None
+        | _ -> None
     concat {
-        cond model <| function
-            | Model.EditComposition { SaveState = Some (Deferred.LoadFailed _) } ->
+        cond totalSaveState <| function
+            | None
+            | Some Deferred.Loading -> empty()
+            | Some (Deferred.LoadFailed _) ->
                 div {
                     attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 mb-0"
                     span {
@@ -213,7 +253,7 @@ let commandBar model dispatch =
                         "Fehler beim Speichern."
                     }
                 }
-            | Model.EditComposition { SaveState = Some (Deferred.Loaded ()) } ->
+            | Some (Deferred.Loaded ()) ->
                 div {
                     attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 mb-0"
                     span {
@@ -221,7 +261,6 @@ let commandBar model dispatch =
                         "Stück erfolgreich gespeichert."
                     }
                 }
-            | _ -> empty ()
         div {
             attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 gap-4"
             
@@ -239,7 +278,17 @@ let commandBar model dispatch =
                     "Zurück"
                 }
                 button {
-                    attr.``class`` (sprintf "btn btn-solid btn-gold !px-8 !py-4%s" (if subModel.SaveState = Some Deferred.Loading then " btn-loading" else ""))
+                    let classes =
+                        [
+                            match totalSaveState with
+                            | None
+                            | Some (Deferred.Loaded ())
+                            | Some (Deferred.LoadFailed _) -> ()
+                            | Some Deferred.Loading -> "btn-loading"
+                        ]
+                        |> List.map (sprintf " %s")
+                        |> String.concat ""
+                    attr.``class`` (sprintf "btn btn-solid btn-gold !px-8 !py-4%s" classes)
                     on.click (fun _ -> dispatch SaveComposition)
                     "Speichern"
                 }
