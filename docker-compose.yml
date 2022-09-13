@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  web:
+    image: johannesegger/musiscore:0.1
+  db:
+    image: mysql
+    ports:
+      - 3306:3306
+    volumes:
+      - /opt/musiscore/db:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=musiscore
+  print:
+    image: ydkn/cups
+    volumes:
+      - /opt/musiscore/print:/etc/cups
