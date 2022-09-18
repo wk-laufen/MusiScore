@@ -10,7 +10,13 @@ services:
       - /opt/musiscore/db:/var/lib/mysql
     environment:
       - MYSQL_DATABASE=musiscore
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secret/db_password
+    secrets:
+      - db_password
   print:
     image: ydkn/cups
     volumes:
       - /opt/musiscore/print:/etc/cups
+secrets:
+  db_password:
+    file: ./db_password.txt
