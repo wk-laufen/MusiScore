@@ -12,5 +12,7 @@ sudo usermod -aG docker $USER
 rm get-docker.sh
 
 sudo apt update
-sudo apt install -y python python-pip
+sudo apt install -y python3 python3-pip
+sudo sh -c 'curl https://sh.rustup.rs -sSf | sh'
+sudo /bin/bash -c 'source $HOME/.cargo/env'
 sudo pip install docker-compose
