@@ -1,7 +1,7 @@
 ﻿namespace MusiScore.Server
 
 open Dapper
-open MySqlConnector
+open Npgsql
 open System.Data
 
 [<AutoOpen>]
@@ -71,7 +71,7 @@ module private DbModels =
 
 type Db(connectionString: string) =
     let createConnection() =
-        new MySqlConnection(connectionString) :> IDbConnection
+        new NpgsqlConnection(connectionString) :> IDbConnection
 
     member _.GetActiveCompositions() = async {
         use connection = createConnection()
@@ -84,7 +84,7 @@ type Db(connectionString: string) =
 
     member _.GetCompositionVoices(compositionId: string) = async {
         use connection = createConnection()
-        let! voices = connection.QueryAsync<DbVoice>("SELECT id, name FROM voice WHERE composition_id = @CompositionId", {| CompositionId = compositionId |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbVoice>("SELECT id, name FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
             |> Seq.map DbVoice.toDomain
@@ -93,7 +93,7 @@ type Db(connectionString: string) =
 
     member _.GetPrintableVoice (_compositionId: string, voiceId: string) = async {
         use connection = createConnection()
-        let! voice = connection.QuerySingleAsync<DbPrintableVoice>("SELECT file, print_setting_id FROM voice WHERE id = @VoiceId", {| VoiceId = voiceId |}) |> Async.AwaitTask
+        let! voice = connection.QuerySingleAsync<DbPrintableVoice>("SELECT file, print_setting_id FROM voice WHERE id = @VoiceId", {| VoiceId = int voiceId |}) |> Async.AwaitTask
         return DbPrintableVoice.toDomain voice
     }
 
@@ -133,25 +133,25 @@ type Db(connectionString: string) =
             |> String.concat ", "
         if updateFields <> "" then
             let updateArgs = {|
-                Id = compositionId
+                Id = int compositionId
                 Title = compositionUpdate.Title |> Option.defaultValue ""
                 IsActive = compositionUpdate.IsActive |> Option.defaultValue false
             |}
             let command = $"UPDATE composition SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = compositionId |}, tx) |> Async.AwaitTask
+        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}, tx) |> Async.AwaitTask
         tx.Commit()
         return DbComposition.toDomain composition
     }
 
     member _.DeleteComposition (compositionId: string) = async {
         use connection = createConnection()
-        do! connection.ExecuteAsync("DELETE FROM composition WHERE id = @Id", {| Id = compositionId |}) |> Async.AwaitTask |> Async.Ignore
+        do! connection.ExecuteAsync("DELETE FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask |> Async.Ignore
     }
 
     member _.GetFullCompositionVoices (compositionId: string) = async {
         use connection = createConnection()
-        let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = compositionId |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
             |> Seq.map DbFullVoice.toDomain
@@ -161,17 +161,14 @@ type Db(connectionString: string) =
     member _.CreateVoice (compositionId: string) (createVoice: CreateVoice) = async {
         use connection = createConnection()
         connection.Open()
-        use tx = connection.BeginTransaction()
-        let command = "INSERT INTO voice (name, file, composition_id, print_setting_id) VALUES(@Name, @File, @CompositionId, @PrintSettingId)"
+        let command = "INSERT INTO voice (name, file, composition_id, print_setting_id) VALUES(@Name, @File, @CompositionId, @PrintSettingId) RETURNING id"
         let commandArgs = {|
             Name = createVoice.Name
             File = createVoice.File
-            CompositionId = compositionId
+            CompositionId = int compositionId
             PrintSettingId = DbPrintSetting.fromDomain createVoice.PrintSetting
         |}
-        do! connection.ExecuteAsync(command, commandArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! voiceId = connection.ExecuteScalarAsync<int>("SELECT LAST_INSERT_ID()", transaction = tx) |> Async.AwaitTask
-        tx.Commit()
+        let! voiceId = connection.ExecuteScalarAsync<int>(command, commandArgs) |> Async.AwaitTask
         return string voiceId
     }
 
@@ -196,26 +193,26 @@ type Db(connectionString: string) =
             |> String.concat ", "
         if updateFields <> "" then
             let updateArgs = {|
-                Id = voiceId
+                Id = int voiceId
                 Name = updateVoice.Name |> Option.defaultValue ""
                 File = updateVoice.File |> Option.defaultValue Array.empty
                 PrintSettingId = updateVoice.PrintSetting |> Option.map DbPrintSetting.fromDomain |> Option.defaultValue ""
             |}
             let command = $"UPDATE voice SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE id = @Id", {| Id = voiceId |}, tx) |> Async.AwaitTask
+        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE id = @Id", {| Id = int voiceId |}, tx) |> Async.AwaitTask
         tx.Commit()
         return DbFullVoice.toDomain voice
     }
 
     member _.DeleteVoice (_compositionId: string) (voiceId: string) = async {
         use connection = createConnection()
-        do! connection.ExecuteAsync("DELETE FROM voice WHERE id = @Id", {| Id = voiceId |}) |> Async.AwaitTask |> Async.Ignore
+        do! connection.ExecuteAsync("DELETE FROM voice WHERE id = @Id", {| Id = int voiceId |}) |> Async.AwaitTask |> Async.Ignore
     }
 
     member _.GetPrintSettings() = async {
         use connection = createConnection()
-        let! compositions = connection.QueryAsync<DbVoicePrintSetting>("SELECT `key`, name FROM voice_print_setting") |> Async.AwaitTask
+        let! compositions = connection.QueryAsync<DbVoicePrintSetting>("SELECT \"key\", name FROM voice_print_setting") |> Async.AwaitTask
         return
             compositions
             |> Seq.map DbVoicePrintSetting.toDomain
