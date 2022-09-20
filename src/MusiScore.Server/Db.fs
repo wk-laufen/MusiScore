@@ -109,10 +109,7 @@ type Db(connectionString: string) =
     member _.CreateComposition (newComposition: NewComposition) = async {
         use connection = createConnection()
         connection.Open()
-        use tx = connection.BeginTransaction()
-        do! connection.ExecuteAsync("INSERT INTO composition (title, is_active) VALUES(@Title, false)", {| Title = newComposition.Title |}, tx) |> Async.AwaitTask |> Async.Ignore
-        let! compositionId = connection.ExecuteScalarAsync<int>("SELECT LAST_INSERT_ID()", transaction = tx) |> Async.AwaitTask
-        tx.Commit()
+        let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, is_active) VALUES(@Title, false) RETURNING id", {| Title = newComposition.Title |}) |> Async.AwaitTask
         return string compositionId
     }
 
