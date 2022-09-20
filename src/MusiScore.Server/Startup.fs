@@ -8,6 +8,7 @@ open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open System
+open System.IO
 
 type Startup() =
 
@@ -15,7 +16,16 @@ type Startup() =
     // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
     member this.ConfigureServices(services: IServiceCollection) =
         services.AddSingleton<Db>(fun (serviceProvider: IServiceProvider) ->
-            let connectionString = serviceProvider.GetService<IConfiguration>().GetConnectionString("Db")
+            let connectionString =
+                let config = serviceProvider.GetService<IConfiguration>()
+                config.GetConnectionString("Db")
+                |> Option.ofObj
+                |> Option.orElseWith (fun () ->
+                    config.GetValue("Db_ConnectionString_File")
+                    |> Option.ofObj
+                    |> Option.map File.ReadAllText
+                )
+                |> Option.defaultWith (fun () -> failwith "DB connection string not found")
             Db(connectionString)
         ) |> ignore
         services.AddMvc() |> ignore
