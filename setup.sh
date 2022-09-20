@@ -13,6 +13,6 @@ rm get-docker.sh
 
 sudo apt update
 sudo apt install -y python3 python3-pip
-sudo sh -c 'curl https://sh.rustup.rs -sSf | sh'
-sudo /bin/bash -c 'source $HOME/.cargo/env'
-sudo pip install docker-compose
+curl https://sh.rustup.rs -sSf | sh
+source $HOME/.cargo/env
+pip install docker-compose
