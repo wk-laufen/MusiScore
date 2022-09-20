@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  web:
+    build: ./src
+    ports:
+      - 8080:80
+    environment:
+      - ConnectionStrings__Db=Host=db;Database=musiscore;User ID=musiscore;Password=test1234;
+      - Print__Server=print
+      - Print__Printer=Ricoh-Aficio-3025
+  db:
+    image: postgres
+    volumes:
+      - ./data:/app/data
+      - ./db-schema.sql:/docker-entrypoint-initdb.d/01-db-schema.sql
+      - ./db-sample.sql:/docker-entrypoint-initdb.d/02-db-sample.sql
+    environment:
+      - POSTGRES_USER=musiscore
+      - POSTGRES_PASSWORD=test1234
+  print:
+    image: ydkn/cups
+    ports:
+      - 8081:631

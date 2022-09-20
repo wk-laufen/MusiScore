@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build-env
+FROM mcr.microsoft.com/dotnet/sdk:6.0-bullseye-slim-amd64 AS build-env
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN dotnet publish ./MusiScore.Server -c Release -o out
 ###
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:6.0-bullseye-slim-arm32v7
+FROM mcr.microsoft.com/dotnet/aspnet:6.0-bullseye-slim
 RUN apt update && apt install -y cups-client && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build-env /app/out .
