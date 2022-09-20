@@ -16,6 +16,7 @@ type AdminController(db: Db) =
             return {
                 Compositions =
                     compositions
+                    |> Seq.sortBy (fun v -> v.Title)
                     |> Seq.map (fun v -> {
                         Title = v.Title
                         IsActive = v.IsActive
