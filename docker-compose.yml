@@ -2,21 +2,33 @@ version: "3.9"
 services:
   web:
     image: johannesegger/musiscore:0.1
+    restart: unless-stopped
+    ports:
+      - 80:80
+    environment:
+      - Db_ConnectionString_File=/run/secrets/db_connection_string
+    secrets:
+      - db_connection_string
   db:
     image: postgres
-    ports:
-      - 5432:5432
+    restart: unless-stopped
     volumes:
       - /opt/musiscore/db:/var/lib/postgresql/data
+      - ./db-schema.sql:/docker-entrypoint-initdb.d/01-db-schema.sql
     environment:
       - POSTGRES_USER=musiscore
-      - POSTGRES_PASSWORD_FILE=/run/secret/db_password
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
     secrets:
       - db_password
   print:
     image: ydkn/cups
+    restart: unless-stopped
+    ports:
+      - 81:631
     volumes:
       - /opt/musiscore/print:/etc/cups
 secrets:
   db_password:
     file: ./db_password.txt
+  db_connection_string:
+    file: ./db_connection_string.txt
