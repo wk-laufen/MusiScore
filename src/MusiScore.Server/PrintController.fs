@@ -7,7 +7,7 @@ open System
 
 [<ApiController>]
 [<Route("api/print")>]
-type PrintController(db: Db) =
+type PrintController(db: Db, printer: Printer) =
     inherit ControllerBase()
 
     [<Route("compositions")>]
@@ -53,5 +53,5 @@ type PrintController(db: Db) =
                 | Duplex -> voice.File
                 | A4ToA3Duplex -> voice.File
                 | A4ToBooklet -> PDF.reorderAsBooklet voice.File
-            do! Printer.printPdf content voice.PrintSetting count
+            do! printer.PrintPdf content voice.PrintSetting count
         }

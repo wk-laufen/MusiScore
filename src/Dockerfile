@@ -18,7 +18,7 @@ RUN dotnet publish ./MusiScore.Server -c Release -o out
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:6.0-bullseye-slim-arm32v7
-RUN apt update && apt install -y lprng && rm -rf /var/lib/apt/lists/*
+RUN apt update && apt install -y cups-client && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build-env /app/out .
 ENTRYPOINT ["dotnet", "MusiScore.Server.dll"]

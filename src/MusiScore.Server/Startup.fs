@@ -28,6 +28,14 @@ type Startup() =
                 |> Option.defaultWith (fun () -> failwith "DB connection string not found")
             Db(connectionString)
         ) |> ignore
+
+        services.AddSingleton<Printer>(fun (serviceProvider: IServiceProvider) ->
+            let printConfig = serviceProvider.GetService<IConfiguration>().GetSection("Print")
+            let printServer = printConfig.GetValue("Server")
+            let printerName = printConfig.GetValue("Printer")
+            Printer(printServer, printerName)
+        ) |> ignore
+
         services.AddMvc() |> ignore
         services.AddServerSideBlazor() |> ignore
         services

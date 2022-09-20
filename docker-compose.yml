@@ -7,6 +7,8 @@ services:
       - 80:80
     environment:
       - Db_ConnectionString_File=/run/secrets/db_connection_string
+      - Print__Server=print
+      - Print__Printer=Ricoh-Aficio-3025
     secrets:
       - db_connection_string
   db:
