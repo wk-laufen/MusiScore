@@ -1,1 +1,1 @@
-.\.tools\tailwindcss.exe build -i .\Prowo.WebAsm\Client\wwwroot\css\app.css -o .\Prowo.WebAsm\Client\wwwroot\css\app.min.css -m
+.\.tools\tailwindcss.exe build -i .\src\MusiScore.Client\wwwroot\css\index.css -o .\src\MusiScore.Client\wwwroot\css\index.min.css -m
