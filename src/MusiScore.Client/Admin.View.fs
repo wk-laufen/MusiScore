@@ -150,75 +150,77 @@ let editCompositionView model dispatch =
                         attr.``class`` "text-xl small-caps mt-4"
                         "Stimmen"
                     }
-                    match editVoices with
+                    cond editVoices <| function
                     | Deferred.Loading ->
                         div {
                             attr.``class`` "mt-4"
                             "Stimmen werden geladen..."
                         }
                     | Deferred.Loaded editVoices ->
-                        ul {
-                            attr.``class`` "nav-container"
+                        concat {
+                            ul {
+                                attr.``class`` "nav-container"
 
-                            for voice in editVoices.Voices do
+                                for voice in editVoices.Voices do
+                                    li {
+                                        a {
+                                            let classes =
+                                                [
+                                                    if editVoices.SelectedVoice = Some voice.Id then "active"
+                                                    match voice.State with
+                                                    | LoadedVoice _ -> ""
+                                                    | CreatedVoice -> "text-green-500"
+                                                    | ModifiedVoice _ -> "text-yellow-500"
+                                                    | DeletedVoice _ -> "text-red-500"
+                                                ]
+                                                |> List.map (sprintf " %s")
+                                                |> String.concat ""
+                                            attr.``class`` (sprintf "nav-item%s" classes)
+                                            on.click (fun _ -> dispatch (SelectEditCompositionVoice voice.Id))
+                                            if voice.Name.Text = "" then "<leer>" else voice.Name.Text
+                                        }
+                                    }
+                                
                                 li {
                                     a {
-                                        let classes =
-                                            [
-                                                if editVoices.SelectedVoice = Some voice.Id then "active"
-                                                match voice.State with
-                                                | LoadedVoice _ -> ""
-                                                | CreatedVoice -> "text-green-500"
-                                                | ModifiedVoice _ -> "text-yellow-500"
-                                                | DeletedVoice _ -> "text-red-500"
-                                            ]
-                                            |> List.map (sprintf " %s")
-                                            |> String.concat ""
-                                        attr.``class`` (sprintf "nav-item%s" classes)
-                                        on.click (fun _ -> dispatch (SelectEditCompositionVoice voice.Id))
-                                        if voice.Name.Text = "" then "<leer>" else voice.Name.Text
+                                        attr.``class`` "nav-item"
+                                        on.click (fun _ -> dispatch AddEditCompositionVoice)
+                                        "+ Neue Stimme"
                                     }
                                 }
-                            
-                            li {
-                                a {
-                                    attr.``class`` "nav-item"
-                                    on.click (fun _ -> dispatch AddEditCompositionVoice)
-                                    "+ Neue Stimme"
-                                }
                             }
-                        }
-                        cond (EditVoicesModel.tryGetSelectedVoice editVoices) <| function
-                        | Some voice ->
-                            div {
-                                formInputText "Name" (SetVoiceName >> SetEditCompositionFormInput >> dispatch) voice.Name
-                                formInputFile "PDF-Datei" (fun e -> dispatch (SetEditCompositionFormInput (SetVoiceFile e.File))) voice.File
-                                cond (snd model.VoicePrintSettings) <| function
-                                    | None
-                                    | Some Deferred.Loading -> empty()
-                                    | Some (Deferred.Loaded printSettings) ->
-                                        let printSettingOptions =
-                                            printSettings
-                                            |> List.map (fun v -> (v.Key, v.Name))
-                                        formInputSelect "Druckeinstellung" (SetPrintSetting >> SetEditCompositionFormInput >> dispatch) voice.PrintSetting printSettingOptions
-                                    | Some (Deferred.LoadFailed e) ->
-                                        ViewComponents.errorNotificationWithRetry "Fehler beim Laden der Druckeinstellungen" (fun () -> dispatch LoadEditCompositionVoicePrintSettings)
-                                let hasLoadPdfModuleError =
-                                    match model.PdfModule with
-                                    | Some (Error _) -> true
-                                    | _ -> false
-                                let hasRenderError =
-                                    match editVoices.RenderPreviewError with
-                                    | Some _ -> true
-                                    | _ -> false
-                                cond (hasLoadPdfModuleError || hasRenderError) <| function
-                                    | true -> ViewComponents.errorNotification "Fehler beim Laden der PDF-Anzeige"
-                                    | false -> empty ()
+                            cond (EditVoicesModel.tryGetSelectedVoice editVoices) <| function
+                            | Some voice ->
                                 div {
-                                    attr.``class`` "voice-preview flex flex-wrap gap-4 p-4"
+                                    formInputText "Name" (SetVoiceName >> SetEditCompositionFormInput >> dispatch) voice.Name
+                                    formInputFile "PDF-Datei" (fun e -> dispatch (SetEditCompositionFormInput (SetVoiceFile e.File))) voice.File
+                                    cond (snd model.VoicePrintSettings) <| function
+                                        | None
+                                        | Some Deferred.Loading -> empty()
+                                        | Some (Deferred.Loaded printSettings) ->
+                                            let printSettingOptions =
+                                                printSettings
+                                                |> List.map (fun v -> (v.Key, v.Name))
+                                            formInputSelect "Druckeinstellung" (SetPrintSetting >> SetEditCompositionFormInput >> dispatch) voice.PrintSetting printSettingOptions
+                                        | Some (Deferred.LoadFailed e) ->
+                                            ViewComponents.errorNotificationWithRetry "Fehler beim Laden der Druckeinstellungen" (fun () -> dispatch LoadEditCompositionVoicePrintSettings)
+                                    let hasLoadPdfModuleError =
+                                        match model.PdfModule with
+                                        | Some (Error _) -> true
+                                        | _ -> false
+                                    let hasRenderError =
+                                        match editVoices.RenderPreviewError with
+                                        | Some _ -> true
+                                        | _ -> false
+                                    cond (hasLoadPdfModuleError || hasRenderError) <| function
+                                        | true -> ViewComponents.errorNotification "Fehler beim Laden der PDF-Anzeige"
+                                        | false -> empty ()
+                                    div {
+                                        attr.``class`` "voice-preview flex flex-wrap gap-4 p-4"
+                                    }
                                 }
-                            }
-                        | None -> empty()
+                            | None -> empty()
+                        }
                     | Deferred.LoadFailed _ ->
                         ViewComponents.errorNotificationWithRetry "Fehler beim Laden" (fun () -> dispatch LoadEditCompositionVoices)
                 }
@@ -264,7 +266,7 @@ let commandBar model dispatch =
         div {
             attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 gap-4"
             
-            match model with
+            cond model <| function
             | ListCompositions _ ->
                 button {
                     attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
@@ -272,25 +274,27 @@ let commandBar model dispatch =
                     "Neues Stück hinzufügen"
                 }
             | Model.EditComposition subModel ->
-                button {
-                    attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
-                    on.click (fun _ -> dispatch LoadCompositions)
-                    "Zurück"
-                }
-                button {
-                    let classes =
-                        [
-                            match totalSaveState with
-                            | None
-                            | Some (Deferred.Loaded ())
-                            | Some (Deferred.LoadFailed _) -> ()
-                            | Some Deferred.Loading -> "btn-loading"
-                        ]
-                        |> List.map (sprintf " %s")
-                        |> String.concat ""
-                    attr.``class`` (sprintf "btn btn-solid btn-gold !px-8 !py-4%s" classes)
-                    on.click (fun _ -> dispatch SaveComposition)
-                    "Speichern"
+                concat {
+                    button {
+                        attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
+                        on.click (fun _ -> dispatch LoadCompositions)
+                        "Zurück"
+                    }
+                    button {
+                        let classes =
+                            [
+                                match totalSaveState with
+                                | None
+                                | Some (Deferred.Loaded ())
+                                | Some (Deferred.LoadFailed _) -> ()
+                                | Some Deferred.Loading -> "btn-loading"
+                            ]
+                            |> List.map (sprintf " %s")
+                            |> String.concat ""
+                        attr.``class`` (sprintf "btn btn-solid btn-gold !px-8 !py-4%s" classes)
+                        on.click (fun _ -> dispatch SaveComposition)
+                        "Speichern"
+                    }
                 }
         }
     }
@@ -307,7 +311,7 @@ let view (model: Model) dispatch =
         div {
             attr.``class`` "grow overflow-y-auto"
 
-            match model with
+            cond model <| function
             | ListCompositions Deferred.Loading -> ViewComponents.loading
             | ListCompositions (Deferred.LoadFailed e) ->
                 ViewComponents.errorNotificationWithRetry "Fehler beim Laden." (fun () -> dispatch LoadCompositions)

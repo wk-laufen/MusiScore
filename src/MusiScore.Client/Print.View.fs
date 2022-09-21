@@ -26,7 +26,7 @@ let voiceListView (composition: ActiveCompositionDto) loadedVoices dispatch =
         div {
             attr.``class`` "flex flex-wrap items-stretch justify-center gap-2 m-4"
             for voice in loadedVoices.Voices do
-            cond loadedVoices.SelectedVoice <| function
+                cond loadedVoices.SelectedVoice <| function
                 | Some (selectedVoice, Some (Deferred.LoadFailed _)) when selectedVoice = voice ->
                     button {
                         attr.``class`` "btn btn-blue w-60"
@@ -72,11 +72,11 @@ let commandBar model dispatch =
     div {
         attr.``class`` "basis-auto grow-0 shrink-0 flex flex-row-reverse m-4"
 
-        match model.Compositions with
+        cond model.Compositions <| function
         | Deferred.Loading -> empty ()
         | Deferred.LoadFailed e -> empty ()
         | Deferred.Loaded loadedCompositions ->
-            match loadedCompositions.SelectedComposition with
+            cond loadedCompositions.SelectedComposition <| function
             | None
             | Some (_, Deferred.Loading) -> empty ()
             | Some (_, Deferred.LoadFailed _e) ->
@@ -97,12 +97,12 @@ let view model dispatch =
         div {
             attr.``class`` "grow overflow-y-auto"
 
-            match model.Compositions with
+            cond model.Compositions <| function
             | Deferred.Loading -> ViewComponents.loading
             | Deferred.LoadFailed e ->
                 ViewComponents.errorNotificationWithRetry "Fehler beim Laden." (fun () -> dispatch LoadCompositions)
             | Deferred.Loaded loadedCompositions ->
-                match loadedCompositions.SelectedComposition with
+                cond loadedCompositions.SelectedComposition <| function
                 | None -> compositionListView loadedCompositions None dispatch
                 | Some (composition, Deferred.Loading) ->
                     compositionListView loadedCompositions (Some composition) dispatch
