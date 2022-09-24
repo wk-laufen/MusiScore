@@ -65,8 +65,7 @@ let formInputText (title: string) onChange formInput =
                 attr.``class`` "input-text"
                 attr.``type`` "text"
                 attr.required true
-                on.input (fun v -> onChange (v.Value :?> string))
-                attr.value formInput.Text
+                bind.input.string formInput.Text onChange
             }
             cond formInput.ValidationState <| function
                 | ValidationError msg ->
@@ -124,12 +123,11 @@ let formInputSelect (title: string) onChange value values =
             }
             select {
                 attr.``class`` "px-3 py-1.5 border border-gray-300 rounded transition ease-in-out focus:border-blue-600"
-                on.change (fun v -> onChange (v.Value :?> string))
+                bind.input.string value onChange
 
-                for (key, text: string) in values do
+                for (key: string, text: string) in values do
                     option {
                         attr.value key
-                        attr.selected (value = key)
                         text
                     }
             }
