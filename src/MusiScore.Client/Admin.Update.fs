@@ -30,6 +30,22 @@ module private Optics =
                 | x -> x
             (getter, setter)
 
+    module CompositionListDto =
+        let compositions_ : Lens<_, _> =
+            (fun v -> v.Compositions),
+            (fun v x -> { x with Compositions = v })
+
+    module List =
+        let item_ item : Prism<_, _> =
+            let getter = List.tryFind ((=) item)
+            let setter v = List.map (fun x -> if x = item then v else x)
+            (getter, setter)
+
+    module ExistingCompositionDto =
+        let isActive_ : Lens<_, _> =
+            (fun (v: ExistingCompositionDto) -> v.IsActive),
+            (fun v x -> { x with IsActive = v })
+
     module EditCompositionModel =
         let state_ : Lens<_, _> =
             (fun v -> v.State),
@@ -154,6 +170,8 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
                     model |> Optic.set (loadedVoiceWithId_ selectedVoiceId) v
                 | None -> model
         (getter, setter)
+    let listCompositionsItem_ item =
+        Model.listCompositions_ >?> Deferred.loaded_ >?> CompositionListDto.compositions_ >?> Array.list_ >?> List.item_ item
 
     let validateVoiceName text =
         if text <> "" then ValidationSuccess text
@@ -215,6 +233,23 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     | LoadCompositionsResult (Error e), model ->
         model |> Optic.set Model.listCompositions_ (Deferred.LoadFailed e),
         Cmd.none
+    | ToggleActivateComposition composition, ListCompositions (Deferred.Loaded _) ->
+        let newComposition = composition |> Optic.map ExistingCompositionDto.isActive_ not
+        let send () = task {
+            let! response = httpClient.PatchAsync(composition.UpdateUrl, JsonContent.Create { Title = None; IsActive = Some newComposition.IsActive })
+            return! response.Content.ReadFromJsonAsync<ExistingCompositionDto>()
+        }
+        model |> Optic.set (listCompositionsItem_ composition) newComposition,
+        Cmd.OfTask.either send () (fun v -> UpdateCompositionResult (newComposition, v, Ok ())) (fun e -> UpdateCompositionResult (newComposition, composition, Error e))
+    | ToggleActivateComposition _, model -> model, Cmd.none
+    | UpdateCompositionResult (currentComposition, newComposition, Ok ()), ListCompositions (Deferred.Loaded _) ->
+        model |> Optic.set (listCompositionsItem_ currentComposition) newComposition,
+        Cmd.none
+    | UpdateCompositionResult (currentComposition, newComposition, Error e), ListCompositions (Deferred.Loaded _) ->
+        // TODO show error?
+        model |> Optic.set (listCompositionsItem_ currentComposition) newComposition,
+        Cmd.none
+    | UpdateCompositionResult _, model -> model, Cmd.none
     | CreateComposition, ListCompositions (Deferred.Loaded compositionList) ->
         Model.EditComposition {
             State = CreatedComposition

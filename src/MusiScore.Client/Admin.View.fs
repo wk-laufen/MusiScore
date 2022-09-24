@@ -29,6 +29,7 @@ let compositionListView (loadedCompositions: CompositionListDto) loadingComposit
                             button {
                                 attr.``class`` "p-4"
                                 attr.title (if composition.IsActive then "Markierung entfernen" else "Als aktuelles Stück markieren")
+                                on.click (fun _ -> dispatch (ToggleActivateComposition composition))
                                 i {
                                     attr.``class`` (sprintf "%s fa-star" (if composition.IsActive then "fa-solid" else "fa-regular"))
                                 }

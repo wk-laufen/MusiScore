@@ -140,6 +140,8 @@ type SetEditCompositionFormInput =
 type Message =
     | LoadCompositions
     | LoadCompositionsResult of Result<CompositionListDto, exn>
+    | ToggleActivateComposition of ExistingCompositionDto
+    | UpdateCompositionResult of currentComposition: ExistingCompositionDto * newComposition: ExistingCompositionDto * Result<unit, exn>
     | CreateComposition
     | EditComposition of ExistingCompositionDto
     | LoadEditCompositionVoices
