@@ -22,6 +22,17 @@ let divider (text: string) =
         div { attr.``class`` "grow border-t mt-px border-gray-400" }
     }
 
+let infoNotification (text: string) =
+    div {
+        attr.``class`` "flex items-center justify-center gap-2"
+        i { attr.``class`` "fa-solid fa-circle-info fa-lg text-blue-700" }
+        span {
+            attr.``class`` "text-lg text-blue-700"
+            text
+        }
+    }
+
+
 let errorNotification (text: string) =
     div {
         attr.``class`` "flex items-center justify-center gap-2"

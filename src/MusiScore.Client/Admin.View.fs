@@ -8,43 +8,48 @@ open MusiScore.Shared.DataTransfer.Admin
 let compositionListView (loadedCompositions: CompositionListDto) loadingComposition dispatch =
     div {
         attr.``class`` "flex flex-col items-stretch m-4"
-        let compositionsByFirstChar =
-            loadedCompositions.Compositions
-            |> Seq.groupBy (fun v -> Seq.tryHead v.Title)
-        for (firstChar, compositions) in compositionsByFirstChar do
-            ViewComponents.divider (firstChar |> Option.map string |> Option.defaultValue "<leer>")
-            div {
-                attr.``class`` "flex flex-wrap items-stretch gap-2 m-4"
-                for composition in compositions do
-                    div {
-                        attr.``class`` "flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500"
-                        span {
-                            attr.``class`` "grow flex items-center justify-center text-center !p-8 w-60"
-                            composition.Title
-                        }
-                        button {
-                            attr.``class`` "p-4"
-                            attr.title (if composition.IsActive then "Markierung entfernen" else "Als aktuelles Stück markieren")
-                            i {
-                                attr.``class`` (sprintf "%s fa-star" (if composition.IsActive then "fa-solid" else "fa-regular"))
-                            }
-                        }
+        cond (Array.isEmpty loadedCompositions.Compositions) <| function
+        | true ->
+            ViewComponents.infoNotification "Keine Stücke vorhanden."
+        | false -> concat {
+            let compositionsByFirstChar =
+                loadedCompositions.Compositions
+                |> Array.groupBy (fun v -> Seq.tryHead v.Title)
+            for (firstChar, compositions) in compositionsByFirstChar do
+                ViewComponents.divider (firstChar |> Option.map string |> Option.defaultValue "<leer>")
+                div {
+                    attr.``class`` "flex flex-wrap items-stretch gap-2 m-4"
+                    for composition in compositions do
                         div {
-                            attr.``class`` "flex flex-col justify-items-stretch divide-y divide-blue-500"
-                            button {
-                                attr.``class`` "p-4 grow"
-                                attr.title "Bearbeiten"
-                                on.click (fun _ -> dispatch (EditComposition composition))
-                                i { attr.``class`` "fa-solid fa-pencil" }
+                            attr.``class`` "flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500"
+                            span {
+                                attr.``class`` "grow flex items-center justify-center text-center !p-8 w-60"
+                                composition.Title
                             }
                             button {
-                                attr.``class`` "p-4 grow"
-                                attr.title "Löschen"
-                                i { attr.``class`` "fa-solid fa-trash-can" }
+                                attr.``class`` "p-4"
+                                attr.title (if composition.IsActive then "Markierung entfernen" else "Als aktuelles Stück markieren")
+                                i {
+                                    attr.``class`` (sprintf "%s fa-star" (if composition.IsActive then "fa-solid" else "fa-regular"))
+                                }
+                            }
+                            div {
+                                attr.``class`` "flex flex-col justify-items-stretch divide-y divide-blue-500"
+                                button {
+                                    attr.``class`` "p-4 grow"
+                                    attr.title "Bearbeiten"
+                                    on.click (fun _ -> dispatch (EditComposition composition))
+                                    i { attr.``class`` "fa-solid fa-pencil" }
+                                }
+                                button {
+                                    attr.``class`` "p-4 grow"
+                                    attr.title "Löschen"
+                                    i { attr.``class`` "fa-solid fa-trash-can" }
+                                }
                             }
                         }
-                    }
-            }
+                }
+        }
     }
 
 let formInputText (title: string) onChange formInput =

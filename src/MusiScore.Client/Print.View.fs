@@ -7,12 +7,17 @@ open MusiScore.Shared.DataTransfer.Print
 let compositionListView (loadedCompositions: LoadedCompositionsModel) loadingComposition dispatch =
     div {
         attr.``class`` "flex flex-wrap items-stretch justify-center gap-2 m-4"
-        for composition in loadedCompositions.Compositions do
-            let isLoading = (Some composition = loadingComposition)
-            button {
-                attr.``class`` (sprintf "relative btn btn-blue !p-8 w-60%s" (if isLoading then " btn-loading" else ""))
-                on.click (if isLoading then ignore else (fun _ -> dispatch (SelectComposition composition)))
-                composition.Title
+        cond (List.isEmpty loadedCompositions.Compositions) <| function
+            | true ->
+                ViewComponents.infoNotification "Keine aktiven Stücke vorhanden."
+            | false -> concat {
+                for composition in loadedCompositions.Compositions do
+                    let isLoading = (Some composition = loadingComposition)
+                    button {
+                        attr.``class`` (sprintf "relative btn btn-blue !p-8 w-60%s" (if isLoading then " btn-loading" else ""))
+                        on.click (if isLoading then ignore else (fun _ -> dispatch (SelectComposition composition)))
+                        composition.Title
+                    }
             }
     }
 
@@ -25,39 +30,44 @@ let voiceListView (composition: ActiveCompositionDto) loadedVoices dispatch =
         }
         div {
             attr.``class`` "flex flex-wrap items-stretch justify-center gap-2 m-4"
-            for voice in loadedVoices.Voices do
-                cond loadedVoices.SelectedVoice <| function
-                | Some (selectedVoice, Some (Deferred.LoadFailed _)) when selectedVoice = voice ->
-                    button {
-                        attr.``class`` "btn btn-blue w-60"
-                        on.click (fun _ -> dispatch (SelectVoice voice))
-                        div {
-                            attr.``class`` "flex flex-col items-center justify-center"
-                            span { voice.Name }
-                            span { attr.``class`` "text-red-500"; "Drucken fehlgeschlagen" }
-                        }
-                    }
-                | Some (selectedVoice, Some Deferred.Loading) when selectedVoice = voice ->
-                    button {
-                        attr.``class`` "relative btn btn-blue !p-8 w-60 opacity-50 after:inline-block after:absolute after:left-1/2 after:top-1/2 after:w-4 after:h-4 after:-ml-2 after:-mt-2 after:border-b-2 after:border-blue-500 after:rounded-full after:animate-spin"
-                        voice.Name
-                    }
-                | Some (selectedVoice, None) when selectedVoice = voice ->
-                    button {
-                        attr.``class`` "btn btn-solid btn-blue w-60"
-                        on.click (fun _ -> dispatch PrintSelectedVoice)
-                        div {
-                            attr.``class`` "flex flex-col items-center justify-center"
-                            span { voice.Name }
-                            span { "Drucken" }
-                        }
-                    }
-                | _ ->
-                    button {
-                        attr.``class`` "btn btn-blue !p-8 w-60"
-                        on.click (fun _ -> dispatch (SelectVoice voice))
-                        voice.Name
-                    }
+            cond (List.isEmpty loadedVoices.Voices) <| function
+                | true ->
+                    ViewComponents.infoNotification "Keine Stimmen vorhanden."
+                | false -> concat {
+                    for voice in loadedVoices.Voices do
+                        cond loadedVoices.SelectedVoice <| function
+                        | Some (selectedVoice, Some (Deferred.LoadFailed _)) when selectedVoice = voice ->
+                            button {
+                                attr.``class`` "btn btn-blue w-60"
+                                on.click (fun _ -> dispatch (SelectVoice voice))
+                                div {
+                                    attr.``class`` "flex flex-col items-center justify-center"
+                                    span { voice.Name }
+                                    span { attr.``class`` "text-red-500"; "Drucken fehlgeschlagen" }
+                                }
+                            }
+                        | Some (selectedVoice, Some Deferred.Loading) when selectedVoice = voice ->
+                            button {
+                                attr.``class`` "relative btn btn-blue !p-8 w-60 opacity-50 after:inline-block after:absolute after:left-1/2 after:top-1/2 after:w-4 after:h-4 after:-ml-2 after:-mt-2 after:border-b-2 after:border-blue-500 after:rounded-full after:animate-spin"
+                                voice.Name
+                            }
+                        | Some (selectedVoice, None) when selectedVoice = voice ->
+                            button {
+                                attr.``class`` "btn btn-solid btn-blue w-60"
+                                on.click (fun _ -> dispatch PrintSelectedVoice)
+                                div {
+                                    attr.``class`` "flex flex-col items-center justify-center"
+                                    span { voice.Name }
+                                    span { "Drucken" }
+                                }
+                            }
+                        | _ ->
+                            button {
+                                attr.``class`` "btn btn-blue !p-8 w-60"
+                                on.click (fun _ -> dispatch (SelectVoice voice))
+                                voice.Name
+                            }
+                }
         }
     }
 
