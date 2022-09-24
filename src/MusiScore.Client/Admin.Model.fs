@@ -83,6 +83,11 @@ type EditVoicesModel = {
     RenderPreviewError: exn option
 }
 module EditVoicesModel =
+    let ``new`` = {
+        SelectedVoice = None
+        Voices = []
+        RenderPreviewError = None
+    }
     let tryGetSelectedVoice model =
         model.Voices
         |> List.tryFind (fun v -> model.SelectedVoice = Some v.Id )
