@@ -26,16 +26,18 @@ type ExistingVoiceData = {
 }
 
 type EditVoiceState =
-    | LoadedVoice of ExistingVoiceData
+    | LoadedVoice of isMarkedForDeletion: bool * ExistingVoiceData
     | CreatedVoice
-    | ModifiedVoice of ExistingVoiceData
-    | DeletedVoice of ExistingVoiceData
+    | ModifiedVoice of isMarkedForDeletion: bool * ExistingVoiceData
 module EditVoiceState =
     let modify = function
         | CreatedVoice -> CreatedVoice
-        | LoadedVoice data
-        | ModifiedVoice data -> ModifiedVoice data
-        | DeletedVoice data -> DeletedVoice data
+        | LoadedVoice (_, data)
+        | ModifiedVoice (_, data) -> ModifiedVoice (false, data)
+    let toggleDelete = function
+        | CreatedVoice -> CreatedVoice
+        | LoadedVoice (isMarkedForDeletion, data) -> LoadedVoice (not isMarkedForDeletion, data)
+        | ModifiedVoice (isMarkedForDeletion, data) -> ModifiedVoice (not isMarkedForDeletion, data)
 
 type EditVoiceModel = {
     Id: System.Guid
@@ -43,7 +45,6 @@ type EditVoiceModel = {
     Name: FormInput<string>
     File: Result<byte[], exn> option
     PrintSetting: string
-    SaveState: Deferred<unit, exn> option
 }
 module EditVoiceModel =
     let ``new`` printSetting = {
@@ -52,8 +53,8 @@ module EditVoiceModel =
         Name = FormInput.empty
         File = None
         PrintSetting = printSetting
-        SaveState = None
     }
+
     let validateNewVoiceForm v : CreateVoiceDto option =
         match v.Name, v.File, v.PrintSetting with
         | { ValidationState = ValidationSuccess name }, Some (Ok file), printSetting ->
@@ -62,20 +63,17 @@ module EditVoiceModel =
     let validateUpdateVoiceForm v : UpdateVoiceDto option =
         let applyName =
             match v.Name with
-            | { ValidationState = ValidationSuccess name } -> Some (fun (m: UpdateVoiceDto) -> { m with Name = Some name })
-            | _ -> None
+            | { ValidationState = ValidationSuccess name } -> (fun (m: UpdateVoiceDto) -> Some { m with Name = Some name })
+            | { ValidationState = ValidationError _ } -> (fun _ -> None)
+            | { ValidationState = NotValidated } -> (fun _ -> None)
         let applyFile =
             match v.File with
-            | Some (Ok file) -> Some (fun (m: UpdateVoiceDto) -> { m with File = Some file })
-            | _ -> None
-        match [applyName; applyFile] |> List.choose id with
-        | [] -> None
-        | filter ->
-            let init = { Name = None; File = None; PrintSetting = Some v.PrintSetting }
-            (init, filter)
-            ||> List.fold (fun s t -> t s)
-            |> Some 
-        
+            | Some (Ok file) -> (fun (m: UpdateVoiceDto) -> Some { m with File = Some file })
+            | Some (Error _) -> (fun _ -> None)
+            | None -> (fun _ -> None)
+        let init = Some { Name = None; File = None; PrintSetting = Some v.PrintSetting }
+        (init, [applyName; applyFile])
+        ||> List.fold (fun s t -> s |> Option.bind t)
 
 type EditVoicesModel = {
     SelectedVoice: System.Guid option
@@ -107,16 +105,36 @@ module EditCompositionState =
         | LoadedComposition data
         | ModifiedComposition data -> ModifiedComposition data
 
+type EditCompositionSaveState = {
+    CountSaving: int
+    CountSaved: int
+    CountSaveError: int
+    CountNotSaving: int
+}
+module EditCompositionSaveState =
+    let zero = {
+        CountSaving = 0
+        CountSaved = 0
+        CountSaveError = 0
+        CountNotSaving = 0
+    }
+    let addSaving v = { v with CountSaving = v.CountSaving + 1 }
+    let savingToSaved v = { v with CountSaving = v.CountSaving - 1; CountSaved = v.CountSaved + 1 }
+    let savingToSaveError v = { v with CountSaving = v.CountSaving - 1; CountSaveError = v.CountSaveError + 1 }
+
 type EditCompositionModel = {
     State: EditCompositionState
     Title: FormInput<string>
     SaveUrl: string
-    SaveState: Deferred<unit, exn> option
+    SaveState: EditCompositionSaveState option
     Voices: Deferred<EditVoicesModel, exn> option
     VoicePrintSettings: string * Deferred<VoicePrintSettingDto list, exn> option
     PdfModule: Result<IJSObjectReference, exn> option
 }
 module EditCompositionModel =
+    let modify (v: EditCompositionModel) =
+        { v with State = EditCompositionState.modify v.State; SaveState = None }
+
     let validateNewCompositionForm v : NewCompositionDto option =
         match v.Title with
         | { ValidationState = ValidationSuccess title } -> Some { Title = title }
@@ -150,6 +168,7 @@ type Message =
     | LoadEditCompositionVoicePrintSettingsResult of Result<VoicePrintSettingDto array, exn>
     | SelectEditCompositionVoice of System.Guid
     | AddEditCompositionVoice
+    | DeleteEditCompositionVoice of System.Guid
     | LoadPdfLib
     | LoadPdfLibResult of Result<IJSObjectReference, exn>
     | RenderVoicePreview

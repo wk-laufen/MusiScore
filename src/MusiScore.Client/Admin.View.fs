@@ -170,24 +170,40 @@ let editCompositionView model dispatch =
                                         a {
                                             let classes =
                                                 [
+                                                    "nav-item"
+                                                    "!pr-2"
                                                     if editVoices.SelectedVoice = Some voice.Id then "active"
-                                                    match voice.State with
-                                                    | LoadedVoice _ -> ""
-                                                    | CreatedVoice -> "text-green-500"
-                                                    | ModifiedVoice _ -> "text-yellow-500"
-                                                    | DeletedVoice _ -> "text-red-500"
                                                 ]
-                                                |> List.map (sprintf " %s")
-                                                |> String.concat ""
-                                            attr.``class`` (sprintf "nav-item%s" classes)
+                                                |> String.concat " "
+                                            attr.``class`` classes
                                             on.click (fun _ -> dispatch (SelectEditCompositionVoice voice.Id))
-                                            if voice.Name.Text = "" then "<leer>" else voice.Name.Text
+                                            span {
+                                                let classes =
+                                                    [
+                                                        match voice.State with
+                                                        | LoadedVoice (false, _) -> ()
+                                                        | CreatedVoice -> "text-green-500"
+                                                        | ModifiedVoice (false, _) -> "text-yellow-500"
+                                                        | LoadedVoice (true, _)
+                                                        | ModifiedVoice (true, _) -> "text-red-500 line-through"
+                                                    ]
+                                                    |> String.concat " "
+                                                attr.``class`` classes
+                                                if voice.Name.Text = "" then "<leer>" else voice.Name.Text
+                                            }
+                                            button {
+                                                attr.``class`` "p-2"
+                                                attr.title "Löschen"
+                                                on.click (fun _ -> dispatch (DeleteEditCompositionVoice voice.Id))
+                                                on.stopPropagation "onclick" true
+                                                i { attr.``class`` "fa-solid fa-trash-can" }
+                                            }
                                         }
                                     }
                                 
                                 li {
                                     a {
-                                        attr.``class`` "nav-item"
+                                        attr.``class`` "nav-item !py-5"
                                         on.click (fun _ -> dispatch AddEditCompositionVoice)
                                         "+ Neue Stimme"
                                     }
@@ -231,27 +247,11 @@ let editCompositionView model dispatch =
     }
 
 let commandBar model dispatch =
-    let totalSaveState =
-        match model with
-        | Model.EditComposition ({ Voices = Some (Deferred.Loaded editVoicesModel) } as editCompositionModel) ->
-            let saveStates =
-                [
-                    editCompositionModel.SaveState
-                    yield! editVoicesModel.Voices |> List.map (fun v -> v.SaveState)
-                ]
-            let countSaving = saveStates |> List.sumBy (function | Some Deferred.Loading -> 1 | _ -> 0)
-            let countSaved = saveStates |> List.sumBy (function | Some (Deferred.Loaded ()) -> 1 | _ -> 0)
-            let countSaveError = saveStates |> List.sumBy (function | Some (Deferred.LoadFailed _) -> 1 | _ -> 0)
-            if countSaving > 0 then Some Deferred.Loading
-            elif countSaveError > 0 then Some (Deferred.LoadFailed (exn "Dummy"))
-            elif countSaved > 0 then Some (Deferred.Loaded ())
-            else None
-        | _ -> None
     concat {
-        cond totalSaveState <| function
-            | None
-            | Some Deferred.Loading -> empty()
-            | Some (Deferred.LoadFailed _) ->
+        cond model <| function
+            | Model.EditComposition ({ SaveState = Some saveState }) when saveState.CountSaving > 0 ->
+                empty ()
+            | Model.EditComposition ({ SaveState = Some saveState }) when saveState.CountSaveError > 0 ->
                 div {
                     attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 mb-0"
                     span {
@@ -259,7 +259,7 @@ let commandBar model dispatch =
                         "Fehler beim Speichern."
                     }
                 }
-            | Some (Deferred.Loaded ()) ->
+            | Model.EditComposition ({ SaveState = Some saveState }) when saveState.CountSaved > 0 ->
                 div {
                     attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 mb-0"
                     span {
@@ -267,6 +267,7 @@ let commandBar model dispatch =
                         "Stück erfolgreich gespeichert."
                     }
                 }
+            | _ -> empty ()
         div {
             attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 gap-4"
             
@@ -287,15 +288,13 @@ let commandBar model dispatch =
                     button {
                         let classes =
                             [
-                                match totalSaveState with
-                                | None
-                                | Some (Deferred.Loaded ())
-                                | Some (Deferred.LoadFailed _) -> ()
-                                | Some Deferred.Loading -> "btn-loading"
+                                "btn btn-solid btn-gold !px-8 !py-4"
+                                match model with
+                                | Model.EditComposition ({ SaveState = Some saveState }) when saveState.CountSaving > 0 -> "btn-loading"
+                                | _ -> ()
                             ]
-                            |> List.map (sprintf " %s")
-                            |> String.concat ""
-                        attr.``class`` (sprintf "btn btn-solid btn-gold !px-8 !py-4%s" classes)
+                            |> String.concat " "
+                        attr.``class`` classes
                         on.click (fun _ -> dispatch SaveComposition)
                         "Speichern"
                     }

@@ -52,7 +52,7 @@ html, body {
 }
 
 .nav-container {
-  @apply flex flex-row flex-wrap list-none;
+  @apply flex flex-row flex-wrap items-center list-none;
 }
 .nav-item {
   @apply block text-sm cursor-pointer border-b-2 border-transparent px-6 py-3 mt-2 hover:bg-gray-100;
