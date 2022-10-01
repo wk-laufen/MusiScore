@@ -1,6 +1,7 @@
 module MusiScore.Client.ViewComponents
 
 open Bolero.Html
+open Microsoft.AspNetCore.Components.Forms
 
 let loading =
     div {
@@ -57,3 +58,87 @@ let errorNotificationWithRetry text onRetry =
             }
         }
     }
+
+module Form =
+    module Input =
+        let text (title: string) onChange formInput =
+            div {
+                label {
+                    attr.``class`` "input"
+
+                    span {
+                        attr.``class`` "input-label"
+                        title
+                    }
+                    input {
+                        attr.``class`` "input-text"
+                        attr.``type`` "text"
+                        attr.required true
+                        bind.input.string formInput.Text onChange
+                    }
+                    cond formInput.ValidationState <| function
+                        | ValidationError msg ->
+                            span {
+                                attr.``class`` "text-sm text-pink-600"
+                                msg
+                            }
+                        | NotValidated
+                        | ValidationSuccess _ -> empty ()
+                }
+            }
+
+        let file (title: string) onChange value =
+            div {
+                label {
+                    attr.``class`` "input"
+
+                    span {
+                        attr.``class`` "input-label"
+                        title
+                    }
+                    comp<InputFile> {
+                        attr.``class`` "hidden"
+                        attr.accept ".pdf" 
+                        attr.callback "OnChange" (fun (e: InputFileChangeEventArgs) -> onChange e)
+                    }
+                    div {
+                        attr.``class`` "flex gap-4 items-center"
+
+                        div {
+                            attr.``class`` "btn btn-blue"
+                            "Auswählen"
+                        }
+
+                        cond value <| function
+                            | None
+                            | Some (Ok _) -> empty ()
+                            | Some (Error _) ->
+                                span {
+                                    attr.``class`` "text-red-500"
+                                    "Fehler beim Laden der Datei"
+                                }
+                    }
+                }
+            }
+
+        let select (title: string) onChange value values =
+            div {
+                label {
+                    attr.``class`` "input"
+
+                    span {
+                        attr.``class`` "input-label"
+                        title
+                    }
+                    select {
+                        attr.``class`` "px-3 py-1.5 border border-gray-300 rounded transition ease-in-out focus:border-blue-600"
+                        bind.input.string value onChange
+
+                        for (key: string, text: string) in values do
+                            option {
+                                attr.value key
+                                text
+                            }
+                    }
+                }
+            }

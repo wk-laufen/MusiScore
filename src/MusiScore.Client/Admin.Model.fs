@@ -5,21 +5,6 @@ open Microsoft.AspNetCore.Components.Forms
 open Microsoft.JSInterop
 open MusiScore.Shared.DataTransfer.Admin
 
-type FormInputValidation<'a> =
-    | NotValidated
-    | ValidationError of string
-    | ValidationSuccess of 'a
-
-type FormInput<'a> = {
-    Text: string
-    ValidationState: FormInputValidation<'a>
-}
-module FormInput =
-    let empty =
-        { Text = ""; ValidationState = NotValidated }
-    let validated text value =
-        { Text = text; ValidationState = ValidationSuccess value }
-
 type ExistingVoiceData = {
     UpdateUrl: string
     DeleteUrl: string

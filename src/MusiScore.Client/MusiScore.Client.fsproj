@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Deferred.fs" />
+    <Compile Include="FormInput.fs" />
     <Compile Include="ViewComponents.fs" />
     <Compile Include="Print.Model.fs" />
     <Compile Include="Print.Update.fs" />
