@@ -1,13 +1,13 @@
 version: "3.9"
 services:
-  web:
-    build: ./src
-    ports:
-      - 8080:80
-    environment:
-      - ConnectionStrings__Db=Host=db;Database=musiscore;User ID=musiscore;Password=test1234;
-      - Print__Server=print
-      - Print__Printer=Ricoh-Aficio-3025
+  # web:
+  #   build: ./src
+  #   ports:
+  #     - 8080:80
+  #   environment:
+  #     - ConnectionStrings__Db=Host=db;Database=musiscore;User ID=musiscore;Password=test1234;
+  #     - Print__Server=print
+  #     - Print__Printer=Ricoh-Aficio-3025
   db:
     image: postgres
     ports:
