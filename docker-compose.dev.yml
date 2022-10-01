@@ -17,7 +17,11 @@ services:
     environment:
       - POSTGRES_USER=musiscore
       - POSTGRES_PASSWORD=test1234
+  adminer:
+    image: adminer
+    ports:
+      - 8081:8080
   print:
     image: ydkn/cups
     ports:
-      - 8081:631
+      - 8082:631
