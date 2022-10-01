@@ -16,6 +16,6 @@ let tests =
             Expect.equal actual expected "Page order should match"
         testCase "works for 6 pages" <| fun _ ->
             let expected = [None; Some 1; Some 2; None; Some 6; Some 3; Some 4; Some 5]
-            let actual = PDF.getBookletPageOrder 8
+            let actual = PDF.getBookletPageOrder 6
             Expect.equal actual expected "Page order should match"
     ]

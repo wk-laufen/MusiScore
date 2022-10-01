@@ -11,7 +11,7 @@ module PDF =
             [ n - i + 1; i; i + 1; n - i ]
         )
         |> List.map (fun i ->
-            if i <= n then Some i else None
+            if i <= pageCount then Some i else None
         )
 
     let reorderAsBooklet (content: byte[]) =
