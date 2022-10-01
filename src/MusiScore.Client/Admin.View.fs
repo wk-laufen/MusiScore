@@ -62,23 +62,52 @@ let compositionView (composition: ExistingCompositionDto) compositionDeleteState
         }
     }
 
-let compositionListView (loadedCompositions: ListCompositionsModel) loadingComposition dispatch =
-    div {
-        attr.``class`` "flex flex-col items-stretch m-4"
-        cond (List.isEmpty loadedCompositions.Compositions) <| function
-        | true ->
-            ViewComponents.infoNotification "Keine Stücke vorhanden."
-        | false -> concat {
-            let compositionsByFirstChar =
-                loadedCompositions.Compositions
-                |> List.groupBy (fun v -> Seq.tryHead v.Title)
-            for (firstChar, compositions) in compositionsByFirstChar do
-                ViewComponents.divider (firstChar |> Option.map string |> Option.defaultValue "<leer>")
-                div {
-                    attr.``class`` "flex flex-wrap items-stretch gap-2 m-4"
-                    for composition in compositions do
-                        compositionView composition loadedCompositions.CompositionDeleteState dispatch
+let compositionListView (loadedCompositions: ListCompositionsModel) dispatch =
+    concat {
+        div {
+            attr.``class`` "flex items-center gap-2 m-4"
+            div {
+                input {
+                    attr.``class`` "input-text"
+                    attr.``type`` "search"
+                    attr.placeholder "Filter"
+                    bind.input.string loadedCompositions.CompositionFilter.Text (ChangeCompositionFilterText >> dispatch)
                 }
+            }
+            div {
+                label {
+                    input {
+                        attr.``class`` "appearance-none h-4 w-4 border border-gray-300 rounded-sm bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none transition duration-200 mt-1 align-top bg-no-repeat bg-center bg-contain float-left mr-2 cursor-pointer"
+                        attr.``type`` "checkbox"
+                        bind.``checked`` loadedCompositions.CompositionFilter.ActiveOnly (ShowActiveCompositionsOnly >> dispatch)
+                    }
+                    "Nur aktuelle Stücke anzeigen"
+                }
+            }
+        }
+        let filteredCompositions =
+            loadedCompositions.Compositions
+            |> List.filter (fun v ->
+                v.Title.Contains(loadedCompositions.CompositionFilter.Text, System.StringComparison.InvariantCultureIgnoreCase) &&
+                    (not loadedCompositions.CompositionFilter.ActiveOnly || v.IsActive)
+            )
+        div {
+            attr.``class`` "flex flex-col items-stretch m-4"
+            cond (List.isEmpty filteredCompositions) <| function
+            | true ->
+                ViewComponents.infoNotification "Keine Stücke vorhanden."
+            | false -> concat {
+                let compositionsByFirstChar =
+                    filteredCompositions
+                    |> List.groupBy (fun v -> Seq.tryHead v.Title)
+                for (firstChar, compositions) in compositionsByFirstChar do
+                    ViewComponents.divider (firstChar |> Option.map string |> Option.defaultValue "<leer>")
+                    div {
+                        attr.``class`` "flex flex-wrap items-stretch gap-2 m-4"
+                        for composition in compositions do
+                            compositionView composition loadedCompositions.CompositionDeleteState dispatch
+                    }
+            }
         }
     }
 
@@ -268,7 +297,7 @@ let view (model: Model) dispatch =
             | ListCompositions (Deferred.LoadFailed e) ->
                 ViewComponents.errorNotificationWithRetry "Fehler beim Laden." (fun () -> dispatch LoadCompositions)
             | ListCompositions (Deferred.Loaded loadedCompositions) ->
-                compositionListView loadedCompositions None dispatch
+                compositionListView loadedCompositions dispatch
             | Model.EditComposition subModel ->
                 editCompositionView subModel dispatch
         }

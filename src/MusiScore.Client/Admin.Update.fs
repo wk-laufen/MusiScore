@@ -37,6 +37,17 @@ module private Optics =
         let compositionDeleteState_ : Lens<_, _> =
             (fun (v: ListCompositionsModel) -> v.CompositionDeleteState),
             (fun v x -> { x with CompositionDeleteState = v })
+        let compositionFilter_ : Lens<_, _> =
+            (fun (v: ListCompositionsModel) -> v.CompositionFilter),
+            (fun v x -> { x with CompositionFilter = v })
+
+    module CompositionFilter =
+        let text_ : Lens<_, _> =
+            (fun v -> v.Text),
+            (fun v x -> { x with Text = v })
+        let activeOnly_ : Lens<_, _> =
+            (fun v -> v.ActiveOnly),
+            (fun v x -> { x with ActiveOnly = v })
 
     module List =
         let item_ item : Prism<_, _> =
@@ -94,7 +105,7 @@ module private Optics =
 
     module FormInput =
         let text_ : Lens<_, _> =
-            (fun v -> v.Text),
+            (fun (v: FormInput<_>) -> v.Text),
             (fun v x -> { x with Text = v })
         let validationState_ : Lens<_, _> =
             (fun v -> v.ValidationState),
@@ -260,6 +271,14 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     | UpdateCompositionResult (currentComposition, newComposition, Error e), model ->
         // TODO show error?
         model |> Optic.set (listCompositionsItem_ currentComposition) newComposition,
+        Cmd.none
+    | ChangeCompositionFilterText text, model ->
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositionFilter_ >?> CompositionFilter.text_) text,
+        Cmd.none
+    | ShowActiveCompositionsOnly value, model ->
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositionFilter_ >?> CompositionFilter.activeOnly_) value,
         Cmd.none
     | CreateComposition, ListCompositions (Deferred.Loaded compositionList) ->
         Model.EditComposition {

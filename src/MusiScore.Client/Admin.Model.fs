@@ -5,8 +5,19 @@ open Microsoft.AspNetCore.Components.Forms
 open Microsoft.JSInterop
 open MusiScore.Shared.DataTransfer.Admin
 
+type CompositionFilter = {
+    Text: string
+    ActiveOnly: bool
+}
+module CompositionFilter =
+    let ``new`` = {
+        Text = ""
+        ActiveOnly = false
+    }
+
 type ListCompositionsModel = {
     Compositions: ExistingCompositionDto list
+    CompositionFilter: CompositionFilter
     GetPrintSettingsUrl: string
     CreateCompositionUrl: string
     CompositionDeleteState: (ExistingCompositionDto * Deferred<unit, exn> option) option
@@ -14,6 +25,7 @@ type ListCompositionsModel = {
 module ListCompositionsModel =
     let init (compositions: CompositionListDto) = {
         Compositions = compositions.Compositions |> Array.toList
+        CompositionFilter = CompositionFilter.``new``
         GetPrintSettingsUrl = compositions.GetPrintSettingsUrl
         CreateCompositionUrl = compositions.CreateCompositionUrl
         CompositionDeleteState = None
@@ -191,6 +203,8 @@ type Message =
     | LoadCompositionsResult of Result<CompositionListDto, exn>
     | ToggleActivateComposition of ExistingCompositionDto
     | UpdateCompositionResult of currentComposition: ExistingCompositionDto * newComposition: ExistingCompositionDto * Result<unit, exn>
+    | ChangeCompositionFilterText of string
+    | ShowActiveCompositionsOnly of bool
     | CreateComposition
     | EditComposition of ExistingCompositionDto
     | DeleteComposition of ExistingCompositionDto
