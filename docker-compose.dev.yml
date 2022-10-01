@@ -10,6 +10,8 @@ services:
       - Print__Printer=Ricoh-Aficio-3025
   db:
     image: postgres
+    ports:
+      - 5432:5432
     volumes:
       - ./data:/app/data
       - ./db-schema.sql:/docker-entrypoint-initdb.d/01-db-schema.sql
