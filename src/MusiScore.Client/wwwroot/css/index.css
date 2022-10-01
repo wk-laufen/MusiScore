@@ -38,6 +38,16 @@ html, body {
   @apply shadow-gold;
 }
 
+.spinner {
+  @apply w-8 h-8 border-b-2 rounded-full animate-spin;
+}
+.spinner-gold {
+  @apply border-gold;
+}
+.spinner-blue {
+  @apply border-blue-500;
+}
+
 .input {
   @apply inline-flex flex-col justify-items-start items-start mt-6;
 }

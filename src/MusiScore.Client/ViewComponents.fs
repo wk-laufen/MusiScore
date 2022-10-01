@@ -7,7 +7,7 @@ let loading =
     div {
         attr.``class`` "flex flex-col items-center justify-center m-4"
         div {
-            attr.``class`` "w-8 h-8 border-b-2 border-gold rounded-full animate-spin mb-4"
+            attr.``class`` "spinner spinner-gold mb-4"
         }
         span { "Laden. Bitte warten..." }
     }

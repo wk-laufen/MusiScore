@@ -5,6 +5,20 @@ open Microsoft.AspNetCore.Components.Forms
 open Microsoft.JSInterop
 open MusiScore.Shared.DataTransfer.Admin
 
+type ListCompositionsModel = {
+    Compositions: ExistingCompositionDto list
+    GetPrintSettingsUrl: string
+    CreateCompositionUrl: string
+    CompositionDeleteState: (ExistingCompositionDto * Deferred<unit, exn> option) option
+}
+module ListCompositionsModel =
+    let init (compositions: CompositionListDto) = {
+        Compositions = compositions.Compositions |> Array.toList
+        GetPrintSettingsUrl = compositions.GetPrintSettingsUrl
+        CreateCompositionUrl = compositions.CreateCompositionUrl
+        CompositionDeleteState = None
+    }
+
 type ExistingVoiceData = {
     UpdateUrl: string
     DeleteUrl: string
@@ -162,7 +176,7 @@ module EditCompositionModel =
         | _ -> None
 
 type Model =
-    | ListCompositions of Deferred<CompositionListDto, exn>
+    | ListCompositions of Deferred<ListCompositionsModel, exn>
     | EditComposition of EditCompositionModel
 
 type SetEditCompositionFormInput =
@@ -179,6 +193,8 @@ type Message =
     | UpdateCompositionResult of currentComposition: ExistingCompositionDto * newComposition: ExistingCompositionDto * Result<unit, exn>
     | CreateComposition
     | EditComposition of ExistingCompositionDto
+    | DeleteComposition of ExistingCompositionDto
+    | DeleteCompositionResult of Result<unit, exn>
     | LoadEditCompositionVoices
     | LoadEditCompositionVoicesResult of Result<ExistingVoiceDto array, exn>
     | LoadEditCompositionVoicePrintSettings

@@ -30,10 +30,13 @@ module private Optics =
                 | x -> x
             (getter, setter)
 
-    module CompositionListDto =
+    module ListCompositionsModel =
         let compositions_ : Lens<_, _> =
-            (fun v -> v.Compositions),
+            (fun (v: ListCompositionsModel) -> v.Compositions),
             (fun v x -> { x with Compositions = v })
+        let compositionDeleteState_ : Lens<_, _> =
+            (fun (v: ListCompositionsModel) -> v.CompositionDeleteState),
+            (fun v x -> { x with CompositionDeleteState = v })
 
     module List =
         let item_ item : Prism<_, _> =
@@ -167,7 +170,7 @@ module private Optics =
                 | None -> model
         (getter, setter)
     let listCompositionsItem_ item =
-        Model.listCompositions_ >?> Deferred.loaded_ >?> CompositionListDto.compositions_ >?> Array.list_ >?> List.item_ item
+        Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositions_ >?> List.item_ item
 
 let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     let httpGet (url: string) = async {
@@ -240,7 +243,7 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
         ListCompositions Deferred.Loading,
         Cmd.OfAsync.either httpGet "/api/admin/compositions" (Ok >> LoadCompositionsResult) (Error >> LoadCompositionsResult)
     | LoadCompositionsResult (Ok compositionList), model ->
-        model |> Optic.set Model.listCompositions_ (Deferred.Loaded compositionList),
+        model |> Optic.set Model.listCompositions_ (Deferred.Loaded (ListCompositionsModel.init compositionList)),
         Cmd.none
     | LoadCompositionsResult (Error e), model ->
         model |> Optic.set Model.listCompositions_ (Deferred.LoadFailed e),
@@ -289,6 +292,25 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
             Cmd.ofMsg LoadPdfLib
         ]
     | EditComposition _, model -> model, Cmd.none
+    | DeleteComposition composition, ListCompositions (Deferred.Loaded { CompositionDeleteState = Some (compositionToDelete, None) })
+    | DeleteComposition composition, ListCompositions (Deferred.Loaded { CompositionDeleteState = Some (compositionToDelete, Some (Deferred.LoadFailed _)) }) when composition = compositionToDelete ->
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositionDeleteState_ >?> Option.value_ >?> snd_) (Some Deferred.Loading),
+        Cmd.OfAsync.either httpDelete composition.DeleteUrl (Ok >> DeleteCompositionResult) (Error >> DeleteCompositionResult)
+    | DeleteComposition composition, model ->
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositionDeleteState_) (Some (composition, None)),
+        Cmd.none
+    | DeleteCompositionResult (Ok ()), ListCompositions (Deferred.Loaded { CompositionDeleteState = Some (compositionToDelete, Some Deferred.Loading) }) ->
+        model
+        |> Optic.map (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositions_) (List.filter ((<>) compositionToDelete))
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositionDeleteState_) None,
+        Cmd.none
+    | DeleteCompositionResult (Error e), ListCompositions (Deferred.Loaded { CompositionDeleteState = Some (compositionToDelete, Some Deferred.Loading) }) ->
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositionDeleteState_ >?> Option.value_ >?> snd_ >?> Option.value_) (Deferred.LoadFailed e),
+        Cmd.none
+    | DeleteCompositionResult _, model -> model, Cmd.none
     | LoadEditCompositionVoices, Model.EditComposition { State = LoadedComposition data }
     | LoadEditCompositionVoices, Model.EditComposition { State = ModifiedComposition data } ->
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.voices_) (Some Deferred.Loading),

@@ -1,11 +1,10 @@
 module MusiScore.Client.Admin.View
 
 open Bolero.Html
-open Microsoft.AspNetCore.Components.Forms
 open MusiScore.Client
 open MusiScore.Shared.DataTransfer.Admin
 
-let compositionView (composition: ExistingCompositionDto) dispatch =
+let compositionView (composition: ExistingCompositionDto) compositionDeleteState dispatch =
     div {
         attr.``class`` "flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500"
         span {
@@ -28,30 +27,57 @@ let compositionView (composition: ExistingCompositionDto) dispatch =
                 on.click (fun _ -> dispatch (EditComposition composition))
                 i { attr.``class`` "fa-solid fa-pencil" }
             }
-            button {
-                attr.``class`` "p-4 grow"
-                attr.title "Löschen"
-                i { attr.``class`` "fa-solid fa-trash-can" }
-            }
+            cond compositionDeleteState <| function
+                | Some (compositionToDelete, None) when compositionToDelete = composition ->
+                    button {
+                        attr.``class`` "p-4 grow bg-blue-500"
+                        attr.title "Wirklich löschen"
+                        on.click (fun _ -> dispatch (DeleteComposition composition))
+                        i { attr.``class`` "fa-solid fa-trash-can text-white" }
+                    }
+                | Some (compositionToDelete, Some Deferred.Loading) when compositionToDelete = composition ->
+                    div {
+                        attr.``class`` "px-2 py-3 grow"
+                        div {
+                            attr.``class`` "spinner spinner-blue"
+                        }
+                    }
+                | Some (compositionToDelete, Some (Deferred.LoadFailed _)) when compositionToDelete = composition ->
+                    button {
+                        attr.``class`` "p-4 grow bg-blue-500"
+                        attr.title "Löschen erneut versuchen"
+                        on.click (fun _ -> dispatch (DeleteComposition composition))
+                        i { attr.``class`` "text-red-500 fa-solid fa-trash-can" }
+                    }
+                | Some (compositionToDelete, Some (Deferred.Loaded ())) when compositionToDelete = composition ->
+                    empty ()
+                | Some (_, _)
+                | None ->
+                    button {
+                        attr.``class`` "p-4 grow"
+                        attr.title "Löschen"
+                        on.click (fun _ -> dispatch (DeleteComposition composition))
+                        i { attr.``class`` "fa-solid fa-trash-can" }
+                    }
         }
     }
 
-let compositionListView (loadedCompositions: CompositionListDto) loadingComposition dispatch =
+let compositionListView (loadedCompositions: ListCompositionsModel) loadingComposition dispatch =
     div {
         attr.``class`` "flex flex-col items-stretch m-4"
-        cond (Array.isEmpty loadedCompositions.Compositions) <| function
+        cond (List.isEmpty loadedCompositions.Compositions) <| function
         | true ->
             ViewComponents.infoNotification "Keine Stücke vorhanden."
         | false -> concat {
             let compositionsByFirstChar =
                 loadedCompositions.Compositions
-                |> Array.groupBy (fun v -> Seq.tryHead v.Title)
+                |> List.groupBy (fun v -> Seq.tryHead v.Title)
             for (firstChar, compositions) in compositionsByFirstChar do
                 ViewComponents.divider (firstChar |> Option.map string |> Option.defaultValue "<leer>")
                 div {
                     attr.``class`` "flex flex-wrap items-stretch gap-2 m-4"
                     for composition in compositions do
-                        compositionView composition dispatch
+                        compositionView composition loadedCompositions.CompositionDeleteState dispatch
                 }
         }
     }
