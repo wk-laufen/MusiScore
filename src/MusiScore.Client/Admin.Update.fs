@@ -146,7 +146,6 @@ module private Optics =
                 Deferred.map (fun _ -> v) x
             (getter, setter)
 
-let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     let editVoices_ =
         Model.editComposition_ >?> EditCompositionModel.voices_ >?> Option.value_ >?> Deferred.loaded_
     let loadedVoices_ =
@@ -170,6 +169,23 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     let listCompositionsItem_ item =
         Model.listCompositions_ >?> Deferred.loaded_ >?> CompositionListDto.compositions_ >?> Array.list_ >?> List.item_ item
 
+let update (httpClient: HttpClient) (js: IJSRuntime) message model =
+    let httpGet (url: string) = async {
+        return! httpClient.GetFromJsonAsync<_>(url) |> Async.AwaitTask
+    }
+    let httpPost (url: string, data) = async {
+        let! response = httpClient.PostAsJsonAsync(url, data) |> Async.AwaitTask
+        return! response.Content.ReadFromJsonAsync<_>() |> Async.AwaitTask
+    }
+    let httpPatch (url: string, data) = async {
+        let! response = httpClient.PatchAsync(url, JsonContent.Create data) |> Async.AwaitTask
+        return! response.Content.ReadFromJsonAsync<_>() |> Async.AwaitTask
+    }
+    let httpDelete (url: string) = async {
+        let! response = httpClient.DeleteAsync(url) |> Async.AwaitTask
+        response.EnsureSuccessStatusCode() |> ignore
+    }
+
     let validateVoiceName text =
         if text <> "" then ValidationSuccess text
         else ValidationError "Name darf nicht leer sein"
@@ -188,11 +204,10 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
                 | CreatedVoice ->
                     match EditVoiceModel.validateNewVoiceForm voice with
                     | Some dto ->
-                        let send () = task {
-                            let! response = httpClient.PostAsJsonAsync(editCompositionData.CreateVoiceUrl, dto)
-                            return! response.Content.ReadFromJsonAsync<ExistingVoiceDto>()
-                        }
-                        let cmd = Cmd.OfTask.either send () (fun v -> SaveVoiceResult (voice.Id, Ok v)) (fun v -> SaveVoiceResult (voice.Id, Error v))
+                        let cmd =
+                            Cmd.OfAsync.either httpPost (editCompositionData.CreateVoiceUrl, dto)
+                                (fun v -> SaveVoiceResult (voice.Id, Ok v))
+                                (fun v -> SaveVoiceResult (voice.Id, Error v))
                         model
                         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.addSaving,
                         Cmd.batch [ cmds; cmd ]
@@ -200,18 +215,20 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
                 | ModifiedVoice (false, existingVoiceData) ->
                     match EditVoiceModel.validateUpdateVoiceForm voice with
                     | Some dto ->
-                        let send () = task {
-                            let! response = httpClient.PatchAsync(existingVoiceData.UpdateUrl, JsonContent.Create(dto))
-                            return! response.Content.ReadFromJsonAsync<ExistingVoiceDto>()
-                        }
-                        let cmd = Cmd.OfTask.either send () (fun v -> SaveVoiceResult (voice.Id, Ok v)) (fun v -> SaveVoiceResult (voice.Id, Error v))
+                        let cmd =
+                            Cmd.OfAsync.either httpPatch (existingVoiceData.UpdateUrl, dto)
+                                (fun v -> SaveVoiceResult (voice.Id, Ok v))
+                                (fun v -> SaveVoiceResult (voice.Id, Error v))
                         model
                         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.addSaving,
                         Cmd.batch [ cmds; cmd ]
                     | None -> model, cmds
                 | LoadedVoice (true, existingVoiceData)
                 | ModifiedVoice (true, existingVoiceData) ->
-                    let cmd = Cmd.OfTask.either (fun () -> httpClient.DeleteAsync(existingVoiceData.DeleteUrl)) () (fun v -> DeleteVoiceResult (voice.Id, Ok ())) (fun v -> DeleteVoiceResult (voice.Id, Error v))
+                    let cmd =
+                        Cmd.OfAsync.either httpDelete existingVoiceData.DeleteUrl
+                            (fun v -> DeleteVoiceResult (voice.Id, Ok ()))
+                            (fun v -> DeleteVoiceResult (voice.Id, Error v))
                     model
                     |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.addSaving,
                     Cmd.batch [ cmds; cmd ]
@@ -221,30 +238,26 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     match message, model with
     | LoadCompositions, _ ->
         ListCompositions Deferred.Loading,
-        Cmd.OfTask.either (fun (url: string) -> httpClient.GetFromJsonAsync<CompositionListDto>(url)) "/api/admin/compositions" (Ok >> LoadCompositionsResult) (Error >> LoadCompositionsResult)
+        Cmd.OfAsync.either httpGet "/api/admin/compositions" (Ok >> LoadCompositionsResult) (Error >> LoadCompositionsResult)
     | LoadCompositionsResult (Ok compositionList), model ->
         model |> Optic.set Model.listCompositions_ (Deferred.Loaded compositionList),
         Cmd.none
     | LoadCompositionsResult (Error e), model ->
         model |> Optic.set Model.listCompositions_ (Deferred.LoadFailed e),
         Cmd.none
-    | ToggleActivateComposition composition, ListCompositions (Deferred.Loaded _) ->
+    | ToggleActivateComposition composition, model ->
         let newComposition = composition |> Optic.map ExistingCompositionDto.isActive_ not
-        let send () = task {
-            let! response = httpClient.PatchAsync(composition.UpdateUrl, JsonContent.Create { Title = None; IsActive = Some newComposition.IsActive })
-            return! response.Content.ReadFromJsonAsync<ExistingCompositionDto>()
-        }
         model |> Optic.set (listCompositionsItem_ composition) newComposition,
-        Cmd.OfTask.either send () (fun v -> UpdateCompositionResult (newComposition, v, Ok ())) (fun e -> UpdateCompositionResult (newComposition, composition, Error e))
-    | ToggleActivateComposition _, model -> model, Cmd.none
-    | UpdateCompositionResult (currentComposition, newComposition, Ok ()), ListCompositions (Deferred.Loaded _) ->
+        Cmd.OfAsync.either httpPatch (composition.UpdateUrl, { Title = None; IsActive = Some newComposition.IsActive })
+            (fun v -> UpdateCompositionResult (newComposition, v, Ok ()))
+            (fun e -> UpdateCompositionResult (newComposition, composition, Error e))
+    | UpdateCompositionResult (currentComposition, newComposition, Ok ()), model ->
         model |> Optic.set (listCompositionsItem_ currentComposition) newComposition,
         Cmd.none
-    | UpdateCompositionResult (currentComposition, newComposition, Error e), ListCompositions (Deferred.Loaded _) ->
+    | UpdateCompositionResult (currentComposition, newComposition, Error e), model ->
         // TODO show error?
         model |> Optic.set (listCompositionsItem_ currentComposition) newComposition,
         Cmd.none
-    | UpdateCompositionResult _, model -> model, Cmd.none
     | CreateComposition, ListCompositions (Deferred.Loaded compositionList) ->
         Model.EditComposition {
             State = CreatedComposition
@@ -279,27 +292,12 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     | LoadEditCompositionVoices, Model.EditComposition { State = LoadedComposition data }
     | LoadEditCompositionVoices, Model.EditComposition { State = ModifiedComposition data } ->
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.voices_) (Some Deferred.Loading),
-        Cmd.OfTask.either (fun (url: string) -> httpClient.GetFromJsonAsync<ExistingVoiceDto array>(url)) data.GetVoicesUrl (Ok >> LoadEditCompositionVoicesResult) (Error >> LoadEditCompositionVoicesResult)
+        Cmd.OfAsync.either httpGet data.GetVoicesUrl (Ok >> LoadEditCompositionVoicesResult) (Error >> LoadEditCompositionVoicesResult)
     | LoadEditCompositionVoices, model -> model, Cmd.none
     | LoadEditCompositionVoicesResult (Ok voices), Model.EditComposition { Voices = Some Deferred.Loading } ->
-        let editVoices =
-            voices
-            |> Seq.sortBy (fun v -> v.Name)
-            |> Seq.map (fun (voice: ExistingVoiceDto) ->
-                {
-                    Id = System.Guid.NewGuid()
-                    State = LoadedVoice (false, { UpdateUrl = voice.UpdateUrl; DeleteUrl = voice.DeleteUrl })
-                    Name = FormInput.validated voice.Name voice.Name
-                    File = Some (Ok voice.File)
-                    PrintSetting = voice.PrintSetting
-                }
-            )
-            |> Seq.toList
-        let editVoicesModel = {
-            SelectedVoice = editVoices |> List.tryHead |> Option.map (fun v -> v.Id)
-            Voices = editVoices
-            RenderPreviewError = None
-        }
+        let editVoicesModel =
+            EditVoiceModel.fromExistingVoices voices
+            |> EditVoicesModel.init
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.voices_) (Some (Deferred.Loaded editVoicesModel)),
         Cmd.ofMsg RenderVoicePreview
     | LoadEditCompositionVoicesResult (Error e), Model.EditComposition { Voices = Some Deferred.Loading } ->
@@ -308,7 +306,7 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
     | LoadEditCompositionVoicesResult _, model -> model, Cmd.none
     | LoadEditCompositionVoicePrintSettings, Model.EditComposition { VoicePrintSettings = (getPrintSettingsUrl, _) } ->
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.voicePrintSettings_) (Some Deferred.Loading),
-        Cmd.OfTask.either (fun (url: string) -> httpClient.GetFromJsonAsync(url)) getPrintSettingsUrl (Ok >> LoadEditCompositionVoicePrintSettingsResult) (Error >> LoadEditCompositionVoicePrintSettingsResult)
+        Cmd.OfAsync.either httpGet getPrintSettingsUrl (Ok >> LoadEditCompositionVoicePrintSettingsResult) (Error >> LoadEditCompositionVoicePrintSettingsResult)
     | LoadEditCompositionVoicePrintSettings, model -> model, Cmd.none
     | LoadEditCompositionVoicePrintSettingsResult (Ok printSettings), Model.EditComposition { VoicePrintSettings = (_, Some Deferred.Loading) } ->
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.voicePrintSettings_) (Some (Deferred.Loaded (Array.toList printSettings))),
@@ -317,10 +315,9 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.voicePrintSettings_) (Some (Deferred.LoadFailed e)),
         Cmd.none
     | LoadEditCompositionVoicePrintSettingsResult _, model -> model, Cmd.none
-    | LoadPdfLib, Model.EditComposition _  ->
+    | LoadPdfLib, model  ->
         model,
         Cmd.OfTask.either (fun () -> js.InvokeAsync("import", "./pdf.js").AsTask()) () (Ok >> LoadPdfLibResult) (Error >> LoadPdfLibResult)
-    | LoadPdfLib, model -> model, Cmd.none
     | LoadPdfLibResult (Ok pdfLib), Model.EditComposition _ ->
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.pdfModule_) (Some (Ok pdfLib)),
         Cmd.ofMsg RenderVoicePreview
@@ -328,22 +325,21 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
         printfn "LoadPdfLib Error: %A" e
         model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.pdfModule_) (Some (Error e)),
         Cmd.none
-    | LoadPdfLibResult _, _ -> model, Cmd.none
-    | SelectEditCompositionVoice voiceId, Model.EditComposition _ ->
+    | LoadPdfLibResult _, model -> model, Cmd.none
+    | SelectEditCompositionVoice voiceId, model ->
         model |> Optic.set (editVoices_ >?> EditVoicesModel.selectedVoice_) (Some voiceId),
         Cmd.ofMsg RenderVoicePreview
-    | SelectEditCompositionVoice _, model -> model, Cmd.none
     | AddEditCompositionVoice, Model.EditComposition { Voices = Some (Deferred.Loaded { Voices = voices }); VoicePrintSettings = (_, Some (Deferred.Loaded printSettings)) } ->
         let newVoice = EditVoiceModel.``new`` printSettings.Head.Key
         model |> Optic.set (editVoices_ >?> EditVoicesModel.voices_) (voices @ [ newVoice ]),
         Cmd.ofMsg (SelectEditCompositionVoice newVoice.Id)
     | AddEditCompositionVoice, model -> model, Cmd.none
-    | DeleteEditCompositionVoice voiceId, _ ->
+    | DeleteEditCompositionVoice voiceId, model ->
         match model |> Optic.get (loadedVoiceWithId_ voiceId) with
         | Some { State = CreatedVoice } ->
             model,
             Cmd.ofMsg (DeleteVoiceResult (voiceId, Ok ()))
-        | Some voice ->
+        | Some _ ->
             model
             |> Optic.map (loadedVoiceWithId_ voiceId >?> EditVoiceModel.state_) EditVoiceState.toggleDelete,
             Cmd.none
@@ -357,11 +353,11 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
         model,
         Cmd.OfTask.either (fun () -> pdfLib.InvokeAsync("renderVoice", [| data :> obj |]).AsTask()) () (Ok >> RenderVoicePreviewsResult) (Error >> RenderVoicePreviewsResult)
     | RenderVoicePreview, model -> model, Cmd.none
-    | RenderVoicePreviewsResult result, _ ->
+    | RenderVoicePreviewsResult result, model ->
         printfn "RenderVoicePreviews %A" result
         model |> Optic.set (editVoices_ >?> EditVoicesModel.renderPreviewError_) (Result.errorToOption result),
         Cmd.none
-    | SetEditCompositionFormInput (SetTitle text), Model.EditComposition _ ->
+    | SetEditCompositionFormInput (SetTitle text), model ->
         let validationState =
             if text <> "" then ValidationSuccess text
             else ValidationError "Titel darf nicht leer sein"
@@ -370,14 +366,12 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
         |> Optic.set (Model.editComposition_ >?> EditCompositionModel.title_ >?> FormInput.text_) text
         |> Optic.set (Model.editComposition_ >?> EditCompositionModel.title_ >?> FormInput.validationState_) validationState,
         Cmd.none
-    | SetEditCompositionFormInput (SetTitle _), model -> model, Cmd.none
-    | SetEditCompositionFormInput (SetVoiceName text), Model.EditComposition { Voices = Some (Deferred.Loaded { SelectedVoice = Some _ }) } ->
+    | SetEditCompositionFormInput (SetVoiceName text), model ->
         model
         |> Optic.map (selectedVoice_ >?> EditVoiceModel.state_) EditVoiceState.modify
         |> Optic.set (selectedVoice_ >?> EditVoiceModel.name_ >?> FormInput.text_) text
         |> Optic.set (selectedVoice_ >?> EditVoiceModel.name_ >?> FormInput.validationState_) (validateVoiceName text),
         Cmd.none
-    | SetEditCompositionFormInput (SetVoiceName _), model -> model, Cmd.none
     | SetEditCompositionFormInput (SetVoiceFile file), (Model.EditComposition { Voices = Some (Deferred.Loaded { SelectedVoice = Some _ }); PdfModule = Some (Ok pdfLib) }) ->
         let validate () = async {
             let! content = file.OpenReadStream(maxAllowedSize = 20L * 1024L * 1024L) |> Stream.readAllBytes
@@ -387,95 +381,65 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
         model,
         Cmd.OfAsync.either validate () (fun data -> Ok (System.IO.Path.GetFileNameWithoutExtension file.Name, data) |> SetVoiceFileData |> SetEditCompositionFormInput) (Error >> SetVoiceFileData >> SetEditCompositionFormInput)
     | SetEditCompositionFormInput (SetVoiceFile _), model -> model, Cmd.none
-    | SetEditCompositionFormInput (SetVoiceFileData (Ok (voiceName, content))), Model.EditComposition { Voices = Some (Deferred.Loaded { SelectedVoice = Some _ }) } ->
+    | SetEditCompositionFormInput (SetVoiceFileData (Ok (voiceName, content))), model ->
         model
         |> Optic.map (selectedVoice_ >?> EditVoiceModel.state_) EditVoiceState.modify
         |> Optic.set (selectedVoice_ >?> EditVoiceModel.file_) (Some (Ok content))
         |> Optic.set (selectedVoice_ >?> EditVoiceModel.emptyName_) { Text = voiceName; ValidationState = validateVoiceName voiceName },
         Cmd.ofMsg RenderVoicePreview
-    | SetEditCompositionFormInput (SetVoiceFileData (Error e)), Model.EditComposition { Voices = Some (Deferred.Loaded { SelectedVoice = Some _ }) } ->
+    | SetEditCompositionFormInput (SetVoiceFileData (Error e)), model ->
         printfn "SetVoiceFileData Error: %A" e
         model
         |> Optic.set (selectedVoice_ >?> EditVoiceModel.file_) (Some (Error e)),
         Cmd.ofMsg RenderVoicePreview
-    | SetEditCompositionFormInput (SetVoiceFileData _), model -> model, Cmd.none
-    | SetEditCompositionFormInput (SetPrintSetting key), Model.EditComposition { Voices = Some (Deferred.Loaded { SelectedVoice = Some _ }) } ->
+    | SetEditCompositionFormInput (SetPrintSetting key), model ->
         model
         |> Optic.map (selectedVoice_ >?> EditVoiceModel.state_) EditVoiceState.modify
         |> Optic.set (selectedVoice_ >?> EditVoiceModel.printSetting_) key,
         Cmd.none
-    | SetEditCompositionFormInput (SetPrintSetting _), model -> model, Cmd.none
-    | SaveComposition, Model.EditComposition ({ SaveState = Some saveState }) when saveState.CountSaving > 0 -> model, Cmd.none
-    | SaveComposition, Model.EditComposition subModel ->
-        match subModel.State with
-        | LoadedComposition _ ->
-            model
-            |> Optic.set (Model.editComposition_ >?> EditCompositionModel.saveState_) (Some EditCompositionSaveState.zero)
-            |> saveVoices
-        | CreatedComposition ->
-            match EditCompositionModel.validateNewCompositionForm subModel with
-            | Some dto ->
-                let send (url: string, body: NewCompositionDto) = task {
-                    let! response = httpClient.PostAsJsonAsync(url, body)
-                    return! response.Content.ReadFromJsonAsync<ExistingCompositionDto>()
-                }
-                model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.saveState_) (Some { EditCompositionSaveState.zero with CountSaving = 1 }),
-                Cmd.OfTask.either send (subModel.SaveUrl, dto) (Ok >> SaveCompositionResult) (Error >> SaveCompositionResult)
-            | None -> model, Cmd.none
-        | ModifiedComposition _ ->
-            match EditCompositionModel.validateUpdateCompositionForm subModel with
-            | Some dto ->
-                let send (url: string, body: CompositionUpdateDto) = task {
-                    let! response = httpClient.PatchAsync(url, JsonContent.Create(body))
-                    return! response.Content.ReadFromJsonAsync<ExistingCompositionDto>()
-                }
-                model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.saveState_) (Some { EditCompositionSaveState.zero with CountSaving = 1 }),
-                Cmd.OfTask.either send (subModel.SaveUrl, dto) (Ok >> SaveCompositionResult) (Error >> SaveCompositionResult)
-            | None -> model, Cmd.none
+    | SaveComposition, Model.EditComposition { SaveState = Some saveState } when saveState.CountSaving > 0 -> model, Cmd.none
+    | SaveComposition, Model.EditComposition { State = LoadedComposition _ }  ->
+        model
+        |> Optic.set (Model.editComposition_ >?> EditCompositionModel.saveState_) (Some EditCompositionSaveState.zero)
+        |> saveVoices
+    | SaveComposition, Model.EditComposition ({ State = CreatedComposition _ } as subModel) ->
+        match EditCompositionModel.validateNewCompositionForm subModel with
+        | Some dto ->
+            model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.saveState_) (Some { EditCompositionSaveState.zero with CountSaving = 1 }),
+            Cmd.OfAsync.either httpPost (subModel.SaveUrl, dto) (Ok >> SaveCompositionResult) (Error >> SaveCompositionResult)
+        | None -> model, Cmd.none
+    | SaveComposition, Model.EditComposition ({ State = ModifiedComposition _ } as subModel) ->
+        match EditCompositionModel.validateUpdateCompositionForm subModel with
+        | Some dto ->
+            model |> Optic.set (Model.editComposition_ >?> EditCompositionModel.saveState_) (Some { EditCompositionSaveState.zero with CountSaving = 1 }),
+            Cmd.OfAsync.either httpPatch (subModel.SaveUrl, dto) (Ok >> SaveCompositionResult) (Error >> SaveCompositionResult)
+        | None -> model, Cmd.none
     | SaveComposition, model -> model, Cmd.none
-    | SaveCompositionResult (Ok composition), Model.EditComposition { SaveState = Some _ } ->
+    | SaveCompositionResult (Ok composition), model ->
         model
         |> Optic.set (Model.editComposition_ >?> EditCompositionModel.state_) (LoadedComposition { GetVoicesUrl = composition.GetVoicesUrl; CreateVoiceUrl = composition.CreateVoiceUrl })
         |> Optic.set (Model.editComposition_ >?> EditCompositionModel.saveUrl_) composition.UpdateUrl
         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.savingToSaved
         |> saveVoices
-    | SaveCompositionResult (Error e), Model.EditComposition { SaveState = Some _ } ->
+    | SaveCompositionResult (Error e), model ->
         model
         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.savingToSaveError,
         Cmd.none
-    | SaveCompositionResult _, model -> model, Cmd.none
-    | SaveVoiceResult (voiceId, Ok voiceData), Model.EditComposition _ ->
+    | SaveVoiceResult (voiceId, Ok voiceData), model ->
         model
         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.savingToSaved
         |> Optic.set (loadedVoiceWithId_ voiceId >?> EditVoiceModel.state_) (LoadedVoice (false, { UpdateUrl = voiceData.UpdateUrl; DeleteUrl = voiceData.DeleteUrl })),
         Cmd.none
-    | SaveVoiceResult (voiceId, Error e), Model.EditComposition _ ->
+    | SaveVoiceResult (voiceId, Error e), model ->
         model
         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.savingToSaveError,
         Cmd.none
-    | SaveVoiceResult _, model -> model, Cmd.none
-    | DeleteVoiceResult (voiceId, Ok ()), Model.EditComposition _ ->
+    | DeleteVoiceResult (voiceId, Ok ()), model ->
         model
         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.savingToSaved
-        |> Optic.map editVoices_ (fun editVoices ->
-            match editVoices.Voices |> List.tryFindIndex (fun v -> Some v.Id = editVoices.SelectedVoice) with
-            | Some index ->
-                let selectedVoice =
-                    let isDeletedVoiceSelected = editVoices.SelectedVoice = Some voiceId
-                    if isDeletedVoiceSelected then
-                        editVoices.Voices |> List.tryItem (index + 1)
-                        |> Option.orElse (editVoices.Voices |> List.tryItem (index - 1))
-                        |> Option.map (fun v -> v.Id)
-                    else
-                        editVoices.SelectedVoice
-                editVoices
-                |> Optic.map EditVoicesModel.voices_ (List.filter (fun v -> v.Id <> voiceId))
-                |> Optic.set EditVoicesModel.selectedVoice_ selectedVoice
-            | None -> editVoices
-        ),
+        |> Optic.map editVoices_ (EditVoicesModel.remove voiceId),
         Cmd.none
-    | DeleteVoiceResult (voiceId, Error e), Model.EditComposition _ ->
+    | DeleteVoiceResult (voiceId, Error e), model ->
         model
         |> Optic.map (Model.editComposition_ >?> EditCompositionModel.saveState_ >?> Option.value_) EditCompositionSaveState.savingToSaveError,
         Cmd.none
-    | DeleteVoiceResult _, model -> model, Cmd.none

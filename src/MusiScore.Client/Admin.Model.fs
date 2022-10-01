@@ -54,7 +54,18 @@ module EditVoiceModel =
         File = None
         PrintSetting = printSetting
     }
-
+    let fromExistingVoices : ExistingVoiceDto seq -> EditVoiceModel list =
+        Seq.sortBy (fun v -> v.Name)
+        >> Seq.map (fun v ->
+            {
+                Id = System.Guid.NewGuid()
+                State = LoadedVoice (false, { UpdateUrl = v.UpdateUrl; DeleteUrl = v.DeleteUrl })
+                Name = FormInput.validated v.Name v.Name
+                File = Some (Ok v.File)
+                PrintSetting = v.PrintSetting
+            }
+        )
+        >> Seq.toList
     let validateNewVoiceForm v : CreateVoiceDto option =
         match v.Name, v.File, v.PrintSetting with
         | { ValidationState = ValidationSuccess name }, Some (Ok file), printSetting ->
@@ -86,9 +97,30 @@ module EditVoicesModel =
         Voices = []
         RenderPreviewError = None
     }
+    let init voices = {
+        SelectedVoice = voices |> List.tryHead |> Option.map (fun v -> v.Id)
+        Voices = voices
+        RenderPreviewError = None
+    }
     let tryGetSelectedVoice model =
         model.Voices
         |> List.tryFind (fun v -> model.SelectedVoice = Some v.Id )
+    let remove voiceId model =
+        match model.Voices |> List.tryFindIndex (fun v -> Some v.Id = model.SelectedVoice) with
+        | Some index ->
+            let selectedVoice =
+                let isDeletedVoiceSelected = model.SelectedVoice = Some voiceId
+                if isDeletedVoiceSelected then
+                    model.Voices |> List.tryItem (index + 1)
+                    |> Option.orElse (model.Voices |> List.tryItem (index - 1))
+                    |> Option.map (fun v -> v.Id)
+                else
+                    model.SelectedVoice
+            { model with
+                Voices = model.Voices |> List.filter (fun v -> v.Id <> voiceId)
+                SelectedVoice = selectedVoice
+            }
+        | None -> model
 
 type ExistingCompositionData = {
     GetVoicesUrl: string
