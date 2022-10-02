@@ -40,13 +40,16 @@ module private Optics =
         let compositionFilter_ : Lens<_, _> =
             (fun (v: ListCompositionsModel) -> v.CompositionFilter),
             (fun v x -> { x with CompositionFilter = v })
+        let exportCompositionsState_ : Lens<_, _> =
+            (fun (v: ListCompositionsModel) -> v.ExportCompositionsState),
+            (fun v x -> { x with ExportCompositionsState = v })
 
     module CompositionFilter =
         let text_ : Lens<_, _> =
-            (fun v -> v.Text),
+            (fun (v: CompositionFilter) -> v.Text),
             (fun v x -> { x with Text = v })
         let activeOnly_ : Lens<_, _> =
-            (fun v -> v.ActiveOnly),
+            (fun (v: CompositionFilter) -> v.ActiveOnly),
             (fun v x -> { x with ActiveOnly = v })
 
     module List =
@@ -280,6 +283,23 @@ let update (httpClient: HttpClient) (js: IJSRuntime) message model =
         model
         |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.compositionFilter_ >?> CompositionFilter.activeOnly_) value,
         Cmd.none
+    | ExportCompositions, ListCompositions (Deferred.Loaded subModel) ->
+        let url =
+            let filterText = System.Uri.EscapeDataString(subModel.CompositionFilter.Text)
+            sprintf $"%s{subModel.ExportCompositionsUrl}?filterText=%s{filterText}&activeOnly=%b{subModel.CompositionFilter.ActiveOnly}"
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.exportCompositionsState_) (Some Deferred.Loading),
+        Cmd.OfTask.either (fun () -> js.InvokeAsync("window.open", [| url :> obj |]).AsTask()) () (Ok >> ExportCompositionsResult) (Error >> ExportCompositionsResult)
+    | ExportCompositions, model -> model, Cmd.none
+    | ExportCompositionsResult (Ok ()), ListCompositions (Deferred.Loaded { ExportCompositionsState = Some Deferred.Loading }) ->
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.exportCompositionsState_) (Some (Deferred.Loaded ())),
+        Cmd.none
+    | ExportCompositionsResult (Error e), ListCompositions (Deferred.Loaded { ExportCompositionsState = Some Deferred.Loading }) ->
+        model
+        |> Optic.set (Model.listCompositions_ >?> Deferred.loaded_ >?> ListCompositionsModel.exportCompositionsState_) (Some (Deferred.LoadFailed e)),
+        Cmd.none
+    | ExportCompositionsResult _, model -> model, Cmd.none
     | CreateComposition, ListCompositions (Deferred.Loaded compositionList) ->
         Model.EditComposition {
             State = CreatedComposition

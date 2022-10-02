@@ -251,10 +251,17 @@ let commandBar model dispatch =
             
             cond model <| function
             | ListCompositions _ ->
-                button {
-                    attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
-                    on.click (fun _ -> dispatch CreateComposition)
-                    "Neues Stück hinzufügen"
+                concat {
+                    button {
+                        attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
+                        on.click (fun _ -> dispatch ExportCompositions)
+                        "Exportieren"
+                    }
+                    button {
+                        attr.``class`` "btn btn-solid btn-gold !px-8 !py-4"
+                        on.click (fun _ -> dispatch CreateComposition)
+                        "Neues Stück hinzufügen"
+                    }
                 }
             | Model.EditComposition subModel ->
                 concat {

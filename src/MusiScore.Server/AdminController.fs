@@ -2,6 +2,8 @@
 
 open Microsoft.AspNetCore.Mvc
 open MusiScore.Shared.DataTransfer.Admin
+open System
+open System.Text
 
 [<ApiController>]
 [<Route("api/admin")>]
@@ -28,6 +30,7 @@ type AdminController(db: Db) =
                     |> Seq.toArray
                 GetPrintSettingsUrl = this.Url.Action(nameof(this.GetPrintSettings))
                 CreateCompositionUrl = this.Url.Action(nameof(this.CreateComposition))
+                ExportCompositionsUrl = this.Url.Action(nameof(this.ExportCompositions))
             }
         }
 
@@ -61,6 +64,38 @@ type AdminController(db: Db) =
                 }
                 return this.Ok(result) :> IActionResult
             | Error message -> return this.BadRequest(message) :> IActionResult
+        }
+
+    [<Route("compositions/export")>]
+    member _.ExportCompositions ([<FromQuery>]filterText: string, [<FromQuery>]activeOnly: bool) =
+        async {
+            let filterText = filterText |> Option.ofObj |> Option.defaultValue ""
+            let! compositions = db.GetCompositions()
+            let filteredCompositions =
+                compositions
+                |> List.filter (fun v ->
+                    v.Title.Contains(filterText, StringComparison.InvariantCultureIgnoreCase) &&
+                        (not activeOnly || v.IsActive)
+                )
+            let! compositionsWithVoices =
+                filteredCompositions
+                |> List.map (fun v -> async {
+                    let! voices = db.GetFullCompositionVoices(v.Id)
+                    return (v, voices)
+                })
+                |> Async.Parallel
+            let archive =
+                compositionsWithVoices
+                |> Seq.map (fun (composition, voices) ->
+                    Folder (composition.Title, [
+                        File (".metadata.toml", Toml.getCompositionMetadata composition voices |> Encoding.UTF8.GetBytes)
+                        yield!
+                            voices
+                            |> List.map (fun v -> File ($"{v.Name}.pdf", v.File))
+                    ])
+                )
+                |> Zip.create
+            return FileStreamResult(new IO.MemoryStream(archive), "application/zip", FileDownloadName = "MusiScore.zip")
         }
 
     [<Route("compositions/{compositionId}")>]

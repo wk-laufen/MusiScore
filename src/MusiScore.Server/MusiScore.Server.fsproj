@@ -6,8 +6,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PDF.fs" />
+    <Compile Include="Zip.fs" />
     <Compile Include="TemporaryFile.fs" />
     <Compile Include="Domain.fs" />
+    <Compile Include="Toml.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Printer.fs" />
     <Compile Include="PrintController.fs" />
@@ -25,5 +27,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="6.0.*" />
     <PackageReference Include="Npgsql" Version="6.0.7" />
     <PackageReference Include="Resta.UriTemplates" Version="1.4.0" />
+    <PackageReference Include="System.IO.Compression" Version="4.3.0" />
+    <PackageReference Include="Tomlyn" Version="0.15.0" />
   </ItemGroup>
 </Project>

@@ -25,6 +25,7 @@ module Admin =
         Compositions: ExistingCompositionDto array
         GetPrintSettingsUrl: string
         CreateCompositionUrl: string
+        ExportCompositionsUrl: string
     }
 
     type VoicePrintSettingDto = {

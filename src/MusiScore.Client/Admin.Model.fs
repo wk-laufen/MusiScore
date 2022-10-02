@@ -20,6 +20,8 @@ type ListCompositionsModel = {
     CompositionFilter: CompositionFilter
     GetPrintSettingsUrl: string
     CreateCompositionUrl: string
+    ExportCompositionsUrl: string
+    ExportCompositionsState: Deferred<unit, exn> option
     CompositionDeleteState: (ExistingCompositionDto * Deferred<unit, exn> option) option
 }
 module ListCompositionsModel =
@@ -28,6 +30,8 @@ module ListCompositionsModel =
         CompositionFilter = CompositionFilter.``new``
         GetPrintSettingsUrl = compositions.GetPrintSettingsUrl
         CreateCompositionUrl = compositions.CreateCompositionUrl
+        ExportCompositionsUrl = compositions.ExportCompositionsUrl
+        ExportCompositionsState = None
         CompositionDeleteState = None
     }
 
@@ -205,6 +209,8 @@ type Message =
     | UpdateCompositionResult of currentComposition: ExistingCompositionDto * newComposition: ExistingCompositionDto * Result<unit, exn>
     | ChangeCompositionFilterText of string
     | ShowActiveCompositionsOnly of bool
+    | ExportCompositions
+    | ExportCompositionsResult of Result<unit, exn>
     | CreateComposition
     | EditComposition of ExistingCompositionDto
     | DeleteComposition of ExistingCompositionDto
