@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   web:
-    image: johannesegger/musiscore:0.8
+    image: johannesegger/musiscore:0.9
     restart: unless-stopped
     ports:
       - 80:80
