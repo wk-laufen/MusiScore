@@ -3,7 +3,8 @@
 open System
 open System.IO
 
-type TemporaryFile(path) =
+type TemporaryFile(extension) =
+    let path = Path.ChangeExtension(Path.GetTempFileName(), extension)
     member _.Path with get() = path
     interface IDisposable with
         member _.Dispose() =
@@ -11,8 +12,8 @@ type TemporaryFile(path) =
                 File.Delete(path)
             with :? FileNotFoundException -> ()
 module TemporaryFile =
-    let create extension content = async {
-        let path = Path.ChangeExtension(Path.GetTempFileName(), extension)
-        do! File.WriteAllBytesAsync(path, content) |> Async.AwaitTask
-        return new TemporaryFile(path)
+    let createWithContent extension content = async {
+        let file = new TemporaryFile(extension)
+        do! File.WriteAllBytesAsync(file.Path, content) |> Async.AwaitTask
+        return file
     }

@@ -3,6 +3,7 @@
 open Microsoft.AspNetCore.Mvc
 open MusiScore.Shared.DataTransfer.Admin
 open System
+open System.IO
 open System.Text
 
 [<ApiController>]
@@ -67,7 +68,7 @@ type AdminController(db: Db) =
         }
 
     [<Route("compositions/export")>]
-    member _.ExportCompositions ([<FromQuery>]filterText: string, [<FromQuery>]activeOnly: bool) =
+    member this.ExportCompositions ([<FromQuery>]filterText: string, [<FromQuery>]activeOnly: bool) =
         async {
             let filterText = filterText |> Option.ofObj |> Option.defaultValue ""
             let! compositions = db.GetCompositions()
@@ -77,25 +78,24 @@ type AdminController(db: Db) =
                     v.Title.Contains(filterText, StringComparison.InvariantCultureIgnoreCase) &&
                         (not activeOnly || v.IsActive)
                 )
-            let! compositionsWithVoices =
+            let! archivePath =
                 filteredCompositions
-                |> List.map (fun v -> async {
-                    let! voices = db.GetFullCompositionVoices(v.Id)
-                    return (v, voices)
-                })
-                |> Async.Parallel
-            let archive =
-                compositionsWithVoices
-                |> Seq.map (fun (composition, voices) ->
-                    Folder (composition.Title, [
-                        File (".metadata.toml", Toml.getCompositionMetadata composition voices |> Encoding.UTF8.GetBytes)
-                        yield!
-                            voices
-                            |> List.map (fun v -> File ($"{v.Name}.pdf", v.File))
-                    ])
+                |> List.map (fun composition ->
+                    ArchiveFolder (composition.Title,
+                        async {
+                            let! voices = db.GetFullCompositionVoices(composition.Id)
+                            return [
+                                ArchiveFile (".metadata.toml", Toml.getCompositionMetadata composition voices |> Encoding.UTF8.GetBytes)
+                                yield!
+                                    voices
+                                    |> List.map (fun v -> ArchiveFile ($"{v.Name}.pdf", v.File))
+                            ]
+                        }
+                    )
                 )
-                |> Zip.create
-            return FileStreamResult(new IO.MemoryStream(archive), "application/zip", FileDownloadName = "MusiScore.zip")
+                |> Zip.createFile
+            let archiveStream = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.None, 4096, FileOptions.DeleteOnClose)
+            return this.File(archiveStream, "application/zip", "MusiScore.zip")
         }
 
     [<Route("compositions/{compositionId}")>]
