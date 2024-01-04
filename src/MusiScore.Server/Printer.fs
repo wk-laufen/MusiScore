@@ -8,7 +8,7 @@ type Printer(printServer: string, printerName) =
             match printSetting with
             | Duplex -> "-o media=A4 -o sides=two-sided-long-edge"
             | A4ToA3Duplex
-            | A4ToBooklet -> "-o number-up=2 -o media=A3 -o sides=two-sided-long-edge"
+            | A4ToBooklet -> "-o number-up=2 -o media=A3 -o sides=two-sided-short-edge"
         use! temporaryFile = TemporaryFile.createWithContent ".pdf" content
         let psi = ProcessStartInfo("lp", $"-h %s{printServer} -d %s{printerName} %s{printOptions} -n %d{count} %s{temporaryFile.Path}")
         printfn $"Running \"%s{psi.FileName} %s{psi.Arguments}\""
