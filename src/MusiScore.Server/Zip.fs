@@ -36,5 +36,5 @@ module Zip =
             |> Seq.map (addArchiveItem "")
             |> Async.Sequential
             |> Async.Ignore
-        return file.Path
+        return file.Path // TODO delete temporary file
     }
