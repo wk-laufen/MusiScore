@@ -5,6 +5,7 @@ import { groupBy } from 'lodash-es'
 import InfoNotification from './InfoNotification.vue'
 import HorizontalDivider from './HorizontalDivider.vue'
 import CompositionItem from './CompositionItem.vue'
+import uiFetch from './UIFetch'
 
 const props = defineProps<{
   compositions: CompositionListItem[]
@@ -19,6 +20,25 @@ const filteredCompositions = computed(() =>
 const filteredCompositionsByFirstChar = computed(() => {
   return groupBy(filteredCompositions.value, (v: CompositionListItem) => v.title.length > 0 ? v.title[0].toLocaleUpperCase() : '<leer>')
 })
+
+const isTogglingActivate = ref(false)
+const hasTogglingActivateFailed = ref(false)
+const toggleActivate = async (composition: CompositionListItem) => {
+  const currentValue = composition.isActive
+  const newValue = !currentValue
+  composition.isActive = newValue
+
+  const result = await uiFetch(isTogglingActivate,hasTogglingActivateFailed, composition.links.self, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive: newValue }),
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  if (!result.succeeded) {
+    composition.isActive = currentValue
+  }
+}
 
 </script>
 
@@ -40,7 +60,7 @@ const filteredCompositionsByFirstChar = computed(() => {
     <template v-else v-for="(compositions, firstChar) in filteredCompositionsByFirstChar" :key="JSON.stringify(compositions)">
       <HorizontalDivider>{{ firstChar }}</HorizontalDivider>
       <div class="flex flex-wrap items-stretch gap-2 m-4">
-        <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition" />
+        <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition" @toggle-activate="toggleActivate(composition)" />
       </div>
     </template>
   </div>

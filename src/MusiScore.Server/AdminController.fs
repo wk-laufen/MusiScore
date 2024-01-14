@@ -24,7 +24,7 @@ type AdminController(db: Db) =
                         Title = v.Title
                         IsActive = v.IsActive
                         Links = {|
-                            Self = this.Url.Action(nameof(this.UpdateComposition))
+                            Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
                             VoiceList = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
                             Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
                         |}
