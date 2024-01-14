@@ -15,17 +15,20 @@ module Admin =
     type ExistingCompositionDto = {
         Title: string
         IsActive: bool
-        UpdateUrl: string
-        DeleteUrl: string
-        GetVoicesUrl: string
-        CreateVoiceUrl: string
+        Links: {|
+            Self: string
+            VoiceList: string
+            Voice: string
+        |}
     }
 
     type CompositionListDto = {
         Compositions: ExistingCompositionDto array
-        GetPrintSettingsUrl: string
-        CreateCompositionUrl: string
-        ExportCompositionsUrl: string
+        Links: {|
+            PrintSettings: string
+            Composition: string
+            Export: string
+        |}
     }
 
     type VoicePrintSettingDto = {

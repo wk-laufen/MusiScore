@@ -2,7 +2,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <UserSecretsId>8142a02c-eba6-4c27-a476-4d2aec9860d0</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="TemporaryFile.fs" />
@@ -17,7 +16,6 @@
     <Compile Include="Startup.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MusiScore.Client\MusiScore.Client.fsproj" />
     <ProjectReference Include="..\MusiScore.Shared\MusiScore.Shared.fsproj" />
   </ItemGroup>
   <ItemGroup>

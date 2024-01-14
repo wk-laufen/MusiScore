@@ -23,15 +23,18 @@ type AdminController(db: Db) =
                     |> Seq.map (fun v -> {
                         Title = v.Title
                         IsActive = v.IsActive
-                        UpdateUrl = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
-                        DeleteUrl = this.Url.Action(nameof(this.DeleteComposition), {| compositionId = v.Id |})
-                        GetVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
-                        CreateVoiceUrl = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
+                        Links = {|
+                            Self = this.Url.Action(nameof(this.UpdateComposition))
+                            VoiceList = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
+                            Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
+                        |}
                     })
                     |> Seq.toArray
-                GetPrintSettingsUrl = this.Url.Action(nameof(this.GetPrintSettings))
-                CreateCompositionUrl = this.Url.Action(nameof(this.CreateComposition))
-                ExportCompositionsUrl = this.Url.Action(nameof(this.ExportCompositions))
+                Links = {|
+                    PrintSettings = this.Url.Action(nameof(this.GetPrintSettings))
+                    Composition = this.Url.Action(nameof(this.CreateComposition))
+                    Export = this.Url.Action(nameof(this.ExportCompositions))
+                |}
             }
         }
 
@@ -58,10 +61,11 @@ type AdminController(db: Db) =
                 let result = {
                     Title = newComposition.Title
                     IsActive = newComposition.IsActive
-                    UpdateUrl = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
-                    DeleteUrl = this.Url.Action(nameof(this.DeleteComposition), {| compositionId = compositionId |})
-                    GetVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = compositionId |})
-                    CreateVoiceUrl = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                    Links = {|
+                        Self = this.Url.Action(nameof(this.UpdateComposition))
+                        VoiceList = this.Url.Action(nameof(this.GetVoices), {| compositionId = compositionId |})
+                        Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                    |}
                 }
                 return this.Ok(result) :> IActionResult
             | Error message -> return this.BadRequest(message) :> IActionResult
@@ -108,10 +112,11 @@ type AdminController(db: Db) =
                 let result = {
                     Title = updatedComposition.Title
                     IsActive = updatedComposition.IsActive
-                    UpdateUrl = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
-                    DeleteUrl = this.Url.Action(nameof(this.DeleteComposition), {| compositionId = compositionId |})
-                    GetVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = compositionId |})
-                    CreateVoiceUrl = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                    Links = {|
+                        Self = this.Url.Action(nameof(this.UpdateComposition))
+                        VoiceList = this.Url.Action(nameof(this.GetVoices), {| compositionId = compositionId |})
+                        Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                    |}
                 }
                 return this.Ok(result) :> IActionResult
             | Error message -> return this.BadRequest(message) :> IActionResult

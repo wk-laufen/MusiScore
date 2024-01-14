@@ -1,0 +1,47 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { type CompositionListItem } from './AdminTypes'
+import { groupBy } from 'lodash-es'
+import InfoNotification from './InfoNotification.vue'
+import HorizontalDivider from './HorizontalDivider.vue'
+import CompositionItem from './CompositionItem.vue'
+
+const props = defineProps<{
+  compositions: CompositionListItem[]
+}>()
+
+const filterText = ref("")
+const showActiveCompositionsOnly = ref(false)
+
+const filteredCompositions = computed(() =>
+  props.compositions.filter(v => v.title.toLocaleLowerCase().includes(filterText.value.toLocaleLowerCase()) && (!showActiveCompositionsOnly.value || v.isActive))
+)
+const filteredCompositionsByFirstChar = computed(() => {
+  return groupBy(filteredCompositions.value, (v: CompositionListItem) => v.title.length > 0 ? v.title[0].toLocaleUpperCase() : '<leer>')
+})
+
+</script>
+
+<template>
+  <div v-if="filteredCompositions.length > 0" class="flex items-center gap-2 m-4">
+    <div>
+      <input class="input-text" type="search" placeholder="Filter" v-model="filterText" />
+    </div>
+    <div>
+      <input id="show-active-compositions-only"
+        class="h-4 w-4 mt-1 mr-2"
+        type="checkbox"
+        v-model="showActiveCompositionsOnly" />
+      <label for="show-active-compositions-only" class="select-none">Nur aktuelle Stücke anzeigen</label>
+    </div>
+  </div>
+  <div class="flex flex-col items-stretch m-4">
+    <InfoNotification v-if="filteredCompositions.length === 0">Keine Stücke vorhanden.</InfoNotification>
+    <template v-else v-for="(compositions, firstChar) in filteredCompositionsByFirstChar" :key="JSON.stringify(compositions)">
+      <HorizontalDivider>{{ firstChar }}</HorizontalDivider>
+      <div class="flex flex-wrap items-stretch gap-2 m-4">
+        <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition" />
+      </div>
+    </template>
+  </div>
+</template>
