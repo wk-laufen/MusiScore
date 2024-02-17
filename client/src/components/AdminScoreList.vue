@@ -45,6 +45,7 @@ const exportCompositions = async () => {
 type EditComposition = {
   type: 'create' | 'edit'
   printSettingsUrl: string
+  compositionUrl: string
 }
 const editComposition = ref<EditComposition>()
 
@@ -53,11 +54,12 @@ const createComposition = () => {
 
   editComposition.value = {
     type: 'create',
-    printSettingsUrl: compositionList.value.links.printSettings
+    printSettingsUrl: compositionList.value.links.printSettings,
+    compositionUrl: compositionList.value.links.composition
   }
 }
 
-const compositionSaved = async (oldComposition: CompositionListItem | undefined, newComposition: CompositionListItem) => {
+const compositionSaved = (oldComposition: CompositionListItem | undefined, newComposition: CompositionListItem) => {
   if (!compositionList.value || !editComposition.value) return
 
   editComposition.value = undefined
@@ -76,8 +78,11 @@ const compositionSaved = async (oldComposition: CompositionListItem | undefined,
   <div class="grow overflow-y-auto m-4">
     <LoadingBar v-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
-    <CompositionList v-else-if="compositionList !== undefined" :compositions="compositionList?.compositions" />
-    <CompositionForm v-else-if="editComposition" :type="editComposition.type" :print-settings-url="editComposition.printSettingsUrl" @saved="compositionSaved" />
+    <CompositionList v-else-if="compositionList !== undefined && editComposition === undefined" :compositions="compositionList?.compositions" />
+    <CompositionForm v-else-if="editComposition"
+      :type="editComposition.type"
+      :print-settings-url="editComposition.printSettingsUrl"
+      :composition-url="editComposition.compositionUrl" />
   </div>
   <div id="command-bar" class="basis-auto grow-0 shrink-0 flex justify-end m-4 gap-4">
     <button v-if="compositionList !== undefined && compositionList.compositions.length > 0" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>

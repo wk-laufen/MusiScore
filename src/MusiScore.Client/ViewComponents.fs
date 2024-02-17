@@ -114,7 +114,7 @@ module Form =
                             | Some (Ok _) -> empty ()
                             | Some (Error _) ->
                                 span {
-                                    attr.``class`` "text-red-500"
+                                    attr.``class`` "text-musi-red"
                                     "Fehler beim Laden der Datei"
                                 }
                     }

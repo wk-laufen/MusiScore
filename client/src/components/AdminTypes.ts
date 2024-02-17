@@ -8,9 +8,14 @@ export type CompositionListItem = {
   }
 }
 
+export type PrintSetting = {
+  key: string
+  name: string
+}
+
 export type Voice = {
   title: string
-  file: Uint8Array
+  file: ArrayBuffer
   printSetting: string
   links: {
     self: string
@@ -22,7 +27,7 @@ export type FullComposition = {
   isActive: boolean
   links: {
     self: string
-    voice: string
+    voice?: string
   }
   voices: Voice[]
 }
@@ -35,6 +40,6 @@ export type CompositionData = {
 
 export type VoiceData = {
   title: string
-  file: Uint8Array
+  file: ArrayBuffer
   printSetting: string
 }

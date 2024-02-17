@@ -1,42 +1,149 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import uiFetch from './UIFetch'
-import type { CompositionListItem, FullComposition } from './AdminTypes'
+import type { CompositionListItem, FullComposition, PrintSetting, Voice } from './AdminTypes'
+import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
+import TextInput from './TextInput.vue'
+import FileInput from './FileInput.vue'
+import SelectInput from './SelectInput.vue'
+import PdfPreview from './PdfPreview.vue'
 
 const emit = defineEmits<{
-  (e: 'compositionSaved', oldComposition: CompositionListItem | undefined, newComposition: CompositionListItem) : void
+  (e: 'compositionSaved', newComposition: CompositionListItem) : void
 }>()
 
 const props = defineProps<{
   type: 'create' | 'edit'
+  printSettingsUrl: string
   compositionUrl: string
 }>()
 
-const composition = ref<FullComposition>()
+const printSettings = ref<PrintSetting[]>()
+const isLoadingPrintSettings = ref(false)
+const hasLoadingPrintSettingsFailed = ref(false)
+const loadPrintSettings = async () => {
+  const result = await uiFetch(isLoadingPrintSettings, hasLoadingPrintSettingsFailed, props.printSettingsUrl)
+  if (result.succeeded) {
+    printSettings.value = (await result.response.json() as PrintSetting[])
+  }
+}
+loadPrintSettings()
 
+type EditableVoiceState =
+    | { type: 'loadedVoice', isMarkedForDeletion: boolean, links: { self: string } }
+    | { type: 'newVoice' }
+    | { type: 'modifiedVoice', isMarkedForDeletion: boolean, links: { self: string } }
+type EditableVoice = Omit<Voice, 'links' | 'file'> & {
+  state: EditableVoiceState,
+  title: string,
+  titleValidationState: ValidationState,
+  file?: ArrayBuffer,
+  fileValidationState: ValidationState,
+  printSetting: string
+  printSettingValidationState: ValidationState,
+}
+type EditableComposition = Omit<FullComposition, 'voices'> & { voices: EditableVoice[] }
+
+const parseLoadedComposition = (loadedComposition: FullComposition) : EditableComposition => {
+  const { voices, ...props } = loadedComposition
+  return {
+    ...props,
+    voices: voices.map((voice) : EditableVoice => (
+      {
+        state: { type: 'loadedVoice', isMarkedForDeletion: false, links: voice.links },
+        title: voice.title,
+        titleValidationState: { type: 'success' },
+        file: voice.file,
+        fileValidationState: { type: 'success' },
+        printSetting: voice.printSetting,
+        printSettingValidationState: { type: 'success' },
+      }))
+  }
+}
+
+const composition = ref<EditableComposition>()
 const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
 const loadComposition = async () => {
+  if (props.type !== 'edit') return
+
   const result = await uiFetch(isLoading, hasLoadingFailed, props.compositionUrl)
   if (result.succeeded) {
-    composition.value = (await result.response.json() as FullComposition)
+    const loadedComposition = (await result.response.json() as FullComposition)
+    composition.value = parseLoadedComposition(loadedComposition)
   }
 }
 loadComposition()
+composition.value = {
+  title: "",
+  isActive: true,
+  links: {
+    self: props.compositionUrl,
+    voice: undefined
+  },
+  voices: []
+}
+
+const titleValidationState = ref<ValidationState>({type: "notValidated"})
+
+const activeVoice = ref<EditableVoice>()
+
+const activeVoiceFile = ref<File>()
+watch(activeVoiceFile, async v =>
+{
+  if (activeVoice.value === undefined) return
+  if (v === undefined) {
+    activeVoice.value = undefined
+    return
+  }
+  activeVoice.value.file = await v.arrayBuffer()
+})
+
+const addVoice = () => {
+  if (composition.value === undefined) return
+
+  composition.value.voices.push({
+    state: { type: 'newVoice' },
+    title: '',
+    titleValidationState: { type: 'notValidated' },
+    file: undefined,
+    fileValidationState: { type: 'notValidated' },
+    printSetting: '',
+    printSettingValidationState: { type: 'notValidated' },
+  })
+}
+
+const deleteVoice = (voice: EditableVoice) => {
+  if (composition.value === undefined) return
+
+  if (voice.state.type === 'newVoice') {
+    composition.value.voices = composition.value.voices.filter(v => v !== voice)
+    // TODO select next voice
+  }
+  else {
+    voice.state.isMarkedForDeletion = !voice.state.isMarkedForDeletion
+  }
+}
 
 const isSavingComposition = ref(false)
 const hasSavingCompositionFailed = ref(false)
 const saveComposition = async () => {
-  if (!compositionList.value || !editComposition.value) return
+  if (composition.value === undefined) return
+  
+  if (composition.value.title === '') titleValidationState.value = { type: 'error', error: 'Bitte geben Sie den Titel des Stücks ein.' }
+  else titleValidationState.value = { type: 'success' }
+
+  if (titleValidationState.value.type !== 'success') return
 
   const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, props.compositionUrl, {
     method: props.type === 'create' ? 'POST' : 'PUT',
     body: JSON.stringify(composition)
   })
   if (result.succeeded) {
-    emit('compositionSaved', oldComposition, newComposition)
+    const compositionListItem = await result.response.json() as CompositionListItem
+    emit('compositionSaved', compositionListItem)
   }
 }
 </script>
@@ -50,62 +157,36 @@ const saveComposition = async () => {
     <LoadingBar v-if="isLoading" />
     <ErrorWithRetry v-if="hasLoadingFailed" @retry="loadComposition">Fehler beim Laden.</ErrorWithRetry>
     <template v-else-if="composition !== undefined">
-      <TextInput title="Titel" v-model="composition.title" />
-        <!-- ViewComponents.Form.Input.text "Titel" (SetTitle >> SetEditCompositionFormInput >> dispatch) model.Title
-
-        cond model.Voices <| function
-            | None -> empty ()
-            | Some editVoices ->
-                concat {
-                    h3 {
-                        attr.``class`` "text-xl small-caps mt-4"
-                        "Stimmen"
-                    }
-                    cond editVoices <| function
-                    | Deferred.Loading ->
-                        div {
-                            attr.``class`` "mt-4"
-                            "Stimmen werden geladen..."
-                        }
-                    | Deferred.Loaded editVoices ->
-                        concat {
-                            voicesTabs editVoices dispatch
-                            cond (EditVoicesModel.tryGetSelectedVoice editVoices) <| function
-                            | Some voice ->
-                                div {
-                                    ViewComponents.Form.Input.text "Name" (SetVoiceName >> SetEditCompositionFormInput >> dispatch) voice.Name
-                                    ViewComponents.Form.Input.file "PDF-Datei" (fun e -> dispatch (SetEditCompositionFormInput (SetVoiceFile e.File))) voice.File
-                                    cond (snd model.VoicePrintSettings) <| function
-                                        | None
-                                        | Some Deferred.Loading -> empty()
-                                        | Some (Deferred.Loaded printSettings) ->
-                                            let printSettingOptions =
-                                                printSettings
-                                                |> List.map (fun v -> (v.Key, v.Name))
-                                            ViewComponents.Form.Input.select "Druckeinstellung" (SetPrintSetting >> SetEditCompositionFormInput >> dispatch) voice.PrintSetting printSettingOptions
-                                        | Some (Deferred.LoadFailed e) ->
-                                            ViewComponents.errorNotificationWithRetry "Fehler beim Laden der Druckeinstellungen" (fun () -> dispatch LoadEditCompositionVoicePrintSettings)
-                                    let hasLoadPdfModuleError =
-                                        match model.PdfModule with
-                                        | Some (Error _) -> true
-                                        | _ -> false
-                                    let hasRenderError =
-                                        match editVoices.RenderPreviewError with
-                                        | Some _ -> true
-                                        | _ -> false
-                                    cond (hasLoadPdfModuleError || hasRenderError) <| function
-                                        | true -> ViewComponents.errorNotification "Fehler beim Laden der PDF-Anzeige"
-                                        | false -> empty ()
-                                    div {
-                                        attr.``class`` "voice-preview flex flex-wrap gap-4 p-4"
-                                    }
-                                }
-                            | None -> empty()
-                        }
-                    | Deferred.LoadFailed _ ->
-                        ViewComponents.errorNotificationWithRetry "Fehler beim Laden" (fun () -> dispatch LoadEditCompositionVoices)
-                } -->
-        </template>
+      <TextInput title="Titel" :validation-state="titleValidationState" v-model="composition.title" />
+      <h3 class="text-xl small-caps mt-4">Stimmen</h3>
+      <ul class="nav-container">
+        <li v-for="voice in composition.voices" :key="JSON.stringify(voice)">
+          <a @click="activeVoice = voice" class="nav-item !pr-2" :class="{ active: activeVoice === voice }">
+            <span :class="{
+              'text-green-500': voice.state.type === 'newVoice',
+              'text-yellow-500': voice.state.type === 'modifiedVoice' && !voice.state.isMarkedForDeletion,
+              'text-musi-red line-through': (voice.state.type === 'loadedVoice' || voice.state.type === 'modifiedVoice') && voice.state.isMarkedForDeletion }">
+              {{ voice.title || '<leer>' }}
+            </span>
+            <button class="p-2" title="Löschen" @click.stop="deleteVoice(voice)">
+              <font-awesome-icon class="mr-2" :icon="['fas', 'trash']" />
+            </button>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item !py-5" @click="addVoice()">+ Neue Stimme</a>
+        </li>
+      </ul>
+      <div v-if="activeVoice !== undefined">
+        <TextInput title="Name" :validation-state="activeVoice.titleValidationState" v-model="activeVoice.title" />
+        <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" />
+        <div class="flex gap-2">
+          <SelectInput v-if="printSettings !== undefined" title="Druckeinstellung" :options="printSettings.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printSettingValidationState" v-model="activeVoice.printSetting" />
+          <ErrorWithRetry v-else-if="hasLoadingPrintSettingsFailed" type="inline" @retry="loadPrintSettings" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
+        </div>
+        <PdfPreview :file="activeVoice.file" />
+      </div>
+    </template>
   </div>
 
   <Teleport to="#command-bar">

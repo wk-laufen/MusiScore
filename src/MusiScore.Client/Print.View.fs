@@ -43,7 +43,7 @@ let voiceListView (composition: ActiveCompositionDto) loadedVoices dispatch =
                                 div {
                                     attr.``class`` "flex flex-col items-center justify-center"
                                     span { voice.Name }
-                                    span { attr.``class`` "text-red-500"; "Drucken fehlgeschlagen" }
+                                    span { attr.``class`` "text-musi-red"; "Drucken fehlgeschlagen" }
                                 }
                             }
                         | Some (selectedVoice, Some Deferred.Loading) when selectedVoice = voice ->

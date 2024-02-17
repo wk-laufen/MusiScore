@@ -20,5 +20,13 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
-  }
+  },
+  optimizeDeps: {
+    include: [ 'pdfjs-dist' ],
+    esbuildOptions: {
+      supported: {
+        'top-level-await': true
+      },
+    },
+  },
 })

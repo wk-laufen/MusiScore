@@ -47,7 +47,7 @@ let compositionView (composition: ExistingCompositionDto) compositionDeleteState
                         attr.``class`` "p-4 grow bg-blue-500"
                         attr.title "Löschen erneut versuchen"
                         on.click (fun _ -> dispatch (DeleteComposition composition))
-                        i { attr.``class`` "text-red-500 fa-solid fa-trash-can" }
+                        i { attr.``class`` "text-musi-red fa-solid fa-trash-can" }
                     }
                 | Some (compositionToDelete, Some (Deferred.Loaded ())) when compositionToDelete = composition ->
                     empty ()
@@ -135,7 +135,7 @@ let voicesTabs (editVoices: EditVoicesModel) dispatch =
                                 | CreatedVoice -> "text-green-500"
                                 | ModifiedVoice (false, _) -> "text-yellow-500"
                                 | LoadedVoice (true, _)
-                                | ModifiedVoice (true, _) -> "text-red-500 line-through"
+                                | ModifiedVoice (true, _) -> "text-musi-red line-through"
                             ]
                             |> String.concat " "
                         attr.``class`` classes
@@ -233,7 +233,7 @@ let commandBar model dispatch =
                 div {
                     attr.``class`` "basis-auto grow-0 shrink-0 flex justify-end m-4 mb-0"
                     span {
-                        attr.``class`` "text-sm text-red-500"
+                        attr.``class`` "text-sm text-musi-red"
                         "Fehler beim Speichern."
                     }
                 }

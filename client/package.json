@@ -19,6 +19,8 @@
     "@fortawesome/free-solid-svg-icons": "^5.15.4",
     "@fortawesome/vue-fontawesome": "^3.0.5",
     "lodash-es": "^4.17.21",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.0.379",
     "tailwindcss-opentype": "^1.1.0",
     "vue": "^3.3.11",
     "vue-router": "^4.2.5"
