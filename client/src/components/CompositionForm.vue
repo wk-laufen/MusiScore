@@ -184,7 +184,7 @@ const saveComposition = async () => {
           <SelectInput v-if="printSettings !== undefined" title="Druckeinstellung" :options="printSettings.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printSettingValidationState" v-model="activeVoice.printSetting" />
           <ErrorWithRetry v-else-if="hasLoadingPrintSettingsFailed" type="inline" @retry="loadPrintSettings" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
         </div>
-        <PdfPreview :file="activeVoice.file" />
+        <PdfPreview :file="activeVoice.file" class="mt-6" />
       </div>
     </template>
   </div>
