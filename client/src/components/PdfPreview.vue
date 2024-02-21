@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { type PDFDocumentProxy, getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import { range } from 'lodash-es'
 import PdfPage from './PdfPage.vue'
@@ -14,11 +14,11 @@ const props = defineProps<{
 const pdfDoc = ref<PDFDocumentProxy>()
 const loadPDFDocument = async (file?: ArrayBuffer) =>
 {
-  if (file === undefined) {
-    pdfDoc.value = undefined
-    return
-  }
+  // clear preview first because pageNumber key is reused for a different page
+  pdfDoc.value = undefined
+  if (file === undefined) return
 
+  await nextTick()
   pdfDoc.value = await getDocument(file).promise
 }
 watch(() => props.file, loadPDFDocument)
