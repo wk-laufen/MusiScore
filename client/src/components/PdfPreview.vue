@@ -3,6 +3,9 @@ import { ref, watch } from 'vue'
 import { type PDFDocumentProxy, getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import { range } from 'lodash-es'
 import PdfPage from './PdfPage.vue'
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
+
+GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
 const props = defineProps<{
   file?: ArrayBuffer
@@ -16,7 +19,6 @@ const loadPDFDocument = async (file?: ArrayBuffer) =>
     return
   }
 
-  GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.mjs' // TODO use local path
   pdfDoc.value = await getDocument(file).promise
 }
 watch(() => props.file, loadPDFDocument)
