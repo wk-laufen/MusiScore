@@ -98,6 +98,9 @@ watch(activeVoiceFile, async v =>
     activeVoice.value = undefined
     return
   }
+  if (!activeVoice.value.title) {
+    activeVoice.value.title = v.name.substring(0, v.name.lastIndexOf('.'))
+  }
   activeVoice.value.file = await v.arrayBuffer()
 })
 
