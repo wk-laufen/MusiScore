@@ -43,7 +43,7 @@ type NewComposition = {
 }
 module NewComposition =
     let tryParseDto (v: MusiScore.Shared.DataTransfer.Admin.NewCompositionDto) isActive =
-        if System.String.IsNullOrWhiteSpace v.Title then Error "Invalid composition title"
+        if System.String.IsNullOrWhiteSpace v.Title then Error "EmptyTitle"
         else Ok { Title = v.Title; IsActive = isActive }
 
 type CompositionUpdate = {
@@ -68,9 +68,10 @@ type CreateVoice = {
 module CreateVoice =
     let tryParseDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) =
         match v.Name, v.File, PrintSetting.tryParseDto v.PrintSetting with
-        | name, _, _ when System.String.IsNullOrWhiteSpace name -> Error "Invalid voice name"
-        | _, file, _ when isNull file || Array.isEmpty file -> Error "Invalid voice file" // TODO check if valid pdf?
-        | _, _, Error printSettingMessage -> Error printSettingMessage
+        | name, _, _ when System.String.IsNullOrWhiteSpace name -> Error "EmptyName"
+        | _, file, _ when isNull file || Array.isEmpty file -> Error "EmptyFile"
+        // TODO check InvalidFile
+        | _, _, Error msg -> Error "UnknownPrintSetting"
         | name, file, Ok printSetting ->
             Ok { Name = name; File = file; PrintSetting = printSetting }
 
@@ -80,15 +81,17 @@ type UpdateVoice = {
     PrintSetting: PrintSetting option
 }
 module UpdateVoice =
+    // TODO unify with CreateVoice.tryParseDto
     let tryParseDto (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDto) =
         let printSetting =
             match v.PrintSetting |> Option.map PrintSetting.tryParseDto with
             | Some (Ok printSetting) -> Ok (Some printSetting)
-            | Some (Error printSettingMessage) -> Error printSettingMessage
+            | Some (Error msg) -> Error "UnknownPrintSetting"
             | None -> Ok None
         match v.Name, v.File, printSetting with
-        | Some name, _, _ when System.String.IsNullOrWhiteSpace name -> Error "Invalid voice name"
-        | _, Some file, _ when isNull file || Array.isEmpty file -> Error "Invalid voice file" // TODO check if valid pdf?
+        | Some name, _, _ when System.String.IsNullOrWhiteSpace name -> Error "EmptyName"
+        | _, Some file, _ when isNull file || Array.isEmpty file -> Error "EmptyFile"
+        // TODO check InvalidFile
         | _, _, Error printSettingMessage -> Error printSettingMessage
         | name, file, Ok printSetting ->
             Ok { Name = name; File = file; PrintSetting = printSetting }

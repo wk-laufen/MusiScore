@@ -25,8 +25,7 @@ type AdminController(db: Db) =
                         IsActive = v.IsActive
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
-                            VoiceList = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
-                            Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
+                            Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
                         |}
                     })
                     |> Seq.toArray
@@ -62,13 +61,12 @@ type AdminController(db: Db) =
                     Title = newComposition.Title
                     IsActive = newComposition.IsActive
                     Links = {|
-                        Self = this.Url.Action(nameof(this.UpdateComposition))
-                        VoiceList = this.Url.Action(nameof(this.GetVoices), {| compositionId = compositionId |})
-                        Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                        Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
+                        Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
                     |}
                 }
                 return this.Ok(result) :> IActionResult
-            | Error message -> return this.BadRequest(message) :> IActionResult
+            | Error code -> return this.BadRequest({| ErrorCode = code |}) :> IActionResult
         }
 
     [<Route("compositions/export")>]
@@ -114,8 +112,7 @@ type AdminController(db: Db) =
                     IsActive = updatedComposition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition))
-                        VoiceList = this.Url.Action(nameof(this.GetVoices), {| compositionId = compositionId |})
-                        Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                        Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
                     |}
                 }
                 return this.Ok(result) :> IActionResult
@@ -140,8 +137,7 @@ type AdminController(db: Db) =
                     Name = v.Name
                     File = v.File
                     PrintSetting = PrintSetting.toDto v.PrintSetting
-                    UpdateUrl = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |})
-                    DeleteUrl = this.Url.Action(nameof(this.DeleteVoice), {| compositionId = compositionId; voiceId = v.Id |})
+                    Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |}) |}
                 })
                 |> Seq.toArray
         }
@@ -157,8 +153,9 @@ type AdminController(db: Db) =
                     Name = createVoice.Name
                     File = createVoice.File
                     PrintSetting = PrintSetting.toDto createVoice.PrintSetting
-                    UpdateUrl = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
-                    DeleteUrl = this.Url.Action(nameof(this.DeleteVoice), {| compositionId = compositionId; voiceId = voiceId |})
+                    Links = {|
+                        Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
+                    |}
                 }
                 return this.Ok(result) :> IActionResult
             | Error message -> return this.BadRequest(message) :> IActionResult
@@ -175,8 +172,7 @@ type AdminController(db: Db) =
                     Name = updatedVoice.Name
                     File = updatedVoice.File
                     PrintSetting = PrintSetting.toDto updatedVoice.PrintSetting
-                    UpdateUrl = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
-                    DeleteUrl = this.Url.Action(nameof(this.DeleteVoice), {| compositionId = compositionId; voiceId = voiceId |})
+                    Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |}) |}
                 }
                 return this.Ok(result) :> IActionResult
             | Error message -> return this.BadRequest(message) :> IActionResult

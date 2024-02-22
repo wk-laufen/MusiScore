@@ -3,8 +3,7 @@ export type CompositionListItem = {
   isActive: boolean
   links: {
     self: string
-    voiceList: string
-    voice: string
+    voices: string
   }
 }
 
@@ -14,8 +13,8 @@ export type PrintSetting = {
 }
 
 export type Voice = {
-  title: string
-  file: ArrayBuffer
+  name: string
+  file: Uint8Array
   printSetting: string
   links: {
     self: string
@@ -43,3 +42,11 @@ export type VoiceData = {
   file: ArrayBuffer
   printSetting: string
 }
+
+export type SaveCompositionServerError = { errorCode: "EmptyTitle" }
+export type SaveVoiceServerError =
+  | { errorCode: "EmptyName" }
+  | { errorCode: "EmptyFile" }
+  | { errorCode: "InvalidFile" }
+  | { errorCode: "UnknownPrintSetting" }
+export type SaveVoiceServerErrors = SaveVoiceServerError[]

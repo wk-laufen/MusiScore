@@ -8,18 +8,18 @@ import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
 GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
 const props = defineProps<{
-  file?: ArrayBuffer
+  file?: Uint8Array
 }>()
 
 const pdfDoc = ref<PDFDocumentProxy>()
-const loadPDFDocument = async (file?: ArrayBuffer) =>
+const loadPDFDocument = async (file?: Uint8Array) =>
 {
   // clear preview first because pageNumber key is reused for a different page
   pdfDoc.value = undefined
   if (file === undefined) return
 
   await nextTick()
-  pdfDoc.value = await getDocument(file).promise
+  pdfDoc.value = await getDocument(file.slice()).promise
 }
 watch(() => props.file, loadPDFDocument)
 

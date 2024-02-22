@@ -17,8 +17,7 @@ module Admin =
         IsActive: bool
         Links: {|
             Self: string
-            VoiceList: string
-            Voice: string
+            Voices: string
         |}
     }
 
@@ -55,8 +54,7 @@ module Admin =
         Name: string
         File: byte[]
         PrintSetting: string
-        UpdateUrl: string
-        DeleteUrl: string
+        Links: {| Self: string |}
     }
 
     type UpdateVoiceDto = {
