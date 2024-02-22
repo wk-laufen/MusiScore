@@ -116,14 +116,26 @@ const addVoice = () => {
     printSetting: '',
     printSettingValidationState: { type: 'notValidated' },
   })
+  activeVoice.value = composition.value.voices[composition.value.voices.length - 1]
 }
 
 const deleteVoice = (voice: EditableVoice) => {
   if (composition.value === undefined) return
 
   if (voice.state.type === 'newVoice') {
+    const voiceIndex = composition.value.voices.indexOf(voice)
+    if (activeVoice.value === voice) {
+      if (voiceIndex + 1 < composition.value.voices.length) {
+        activeVoice.value = composition.value.voices[voiceIndex + 1]
+      }
+      else if (voiceIndex - 1 >= 0) {
+        activeVoice.value = composition.value.voices[voiceIndex - 1]
+      }
+      else {
+        activeVoice.value = undefined
+      }
+    }
     composition.value.voices = composition.value.voices.filter(v => v !== voice)
-    // TODO select next voice
   }
   else {
     voice.state.isMarkedForDeletion = !voice.state.isMarkedForDeletion
@@ -142,7 +154,8 @@ const saveComposition = async () => {
 
   const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, props.compositionUrl, {
     method: props.type === 'create' ? 'POST' : 'PUT',
-    body: JSON.stringify(composition)
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(composition.value)
   })
   if (result.succeeded) {
     const compositionListItem = await result.response.json() as CompositionListItem
