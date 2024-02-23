@@ -1,16 +1,26 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { type CompositionListItem } from './AdminTypes'
+import uiFetch from './UIFetch';
 
-defineEmits(['toggleActivate', 'edit', 'delete'])
+const emit = defineEmits<{
+  'toggleActivate': []
+  'edit': []
+  'deleted': []
+}>()
 
-defineProps<{
+const props = defineProps<{
   composition: CompositionListItem
 }>()
 
 const isMarkedForDeletion = ref(false)
 const isDeleting = ref(false)
 const hasDeletingFailed = ref(false)
+const deleteComposition = async () => {
+  if (await uiFetch(isDeleting, hasDeletingFailed, props.composition.links.self, { method: 'DELETE' })) {
+    emit('deleted')
+  }
+}
 </script>
 
 <template>
@@ -26,20 +36,20 @@ const hasDeletingFailed = ref(false)
       <button class="p-4 grow" title="Bearbeiten" @click="$emit('edit')">
         <font-awesome-icon :icon="['fas', 'pen']" />
       </button>
-      <button v-if="isMarkedForDeletion"
-        class="p-4 grow bg-blue-500"
-        title="Wirklich löschen"
-        @click="$emit('delete')">
-        <font-awesome-icon :icon="['fas', 'trash']" class="text-white" />
-      </button>
-      <div v-else-if="isDeleting" class="px-2 py-3 grow">
+      <div v-if="isDeleting" class="px-2 py-3 grow">
         <div class="spinner spinner-blue"></div>
       </div>
       <button v-else-if="hasDeletingFailed"
         class="p-4 grow bg-blue-500"
         title="Löschen erneut versuchen"
-        @click="$emit('delete')">
+        @click="deleteComposition">
         <font-awesome-icon :icon="['fas', 'trash']" class="text-musi-red" />
+      </button>
+      <button v-else-if="isMarkedForDeletion"
+        class="p-4 grow bg-blue-500"
+        title="Wirklich löschen"
+        @click="deleteComposition">
+        <font-awesome-icon :icon="['fas', 'trash']" class="text-white" />
       </button>
       <button v-else class="p-4 grow" title="Löschen" @click="isMarkedForDeletion = true">
         <font-awesome-icon :icon="['fas', 'trash']" />

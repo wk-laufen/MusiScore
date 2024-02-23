@@ -11,6 +11,10 @@ const props = defineProps<{
   compositions: CompositionListItem[]
 }>()
 
+defineEmits<{
+  deleted: [composition: CompositionListItem]
+}>()
+
 const filterText = ref("")
 const showActiveCompositionsOnly = ref(false)
 
@@ -60,7 +64,9 @@ const toggleActivate = async (composition: CompositionListItem) => {
     <template v-else v-for="(compositions, firstChar) in filteredCompositionsByFirstChar" :key="JSON.stringify(compositions)">
       <HorizontalDivider>{{ firstChar }}</HorizontalDivider>
       <div class="flex flex-wrap items-stretch gap-2 m-4">
-        <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition" @toggle-activate="toggleActivate(composition)" />
+        <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition"
+          @toggle-activate="toggleActivate(composition)"
+          @deleted="$emit('deleted', composition)" />
       </div>
     </template>
   </div>

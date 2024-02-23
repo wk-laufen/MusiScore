@@ -68,6 +68,12 @@ const compositionSaved = (oldComposition: CompositionListItem | undefined, newCo
   compositions.sort((a, b) => a.title.localeCompare(b.title))
   compositionList.value.compositions = compositions
 }
+
+const compositionDeleted = (composition: CompositionListItem) => {
+  if (compositionList.value === undefined) return
+
+  compositionList.value.compositions = compositionList.value.compositions.filter(v => v !== composition)
+}
 </script>
 
 <template>
@@ -78,7 +84,8 @@ const compositionSaved = (oldComposition: CompositionListItem | undefined, newCo
   <div class="grow overflow-y-auto m-4">
     <LoadingBar v-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
-    <CompositionList v-else-if="compositionList !== undefined && editComposition === undefined" :compositions="compositionList?.compositions" />
+    <CompositionList v-else-if="compositionList !== undefined && editComposition === undefined" :compositions="compositionList?.compositions"
+      @deleted="compositionDeleted" />
     <CompositionForm v-else-if="editComposition"
       :type="editComposition.type"
       :print-settings-url="editComposition.printSettingsUrl"
