@@ -32,7 +32,7 @@ const toggleActivate = async (composition: CompositionListItem) => {
   const newValue = !currentValue
   composition.isActive = newValue
 
-  const result = await uiFetch(isTogglingActivate,hasTogglingActivateFailed, composition.links.self, {
+  const result = await uiFetch(isTogglingActivate, hasTogglingActivateFailed, composition.links.self, {
     method: 'PATCH',
     body: JSON.stringify({ isActive: newValue }),
     headers: {
@@ -43,7 +43,6 @@ const toggleActivate = async (composition: CompositionListItem) => {
     composition.isActive = currentValue
   }
 }
-
 </script>
 
 <template>
