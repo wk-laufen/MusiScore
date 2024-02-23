@@ -60,7 +60,7 @@ const toggleActivate = async (composition: CompositionListItem) => {
   </div>
   <div class="flex flex-col items-stretch m-4">
     <InfoNotification v-if="filteredCompositions.length === 0">Keine Stücke vorhanden.</InfoNotification>
-    <template v-else v-for="(compositions, firstChar) in filteredCompositionsByFirstChar" :key="JSON.stringify(compositions)">
+    <template v-else v-for="(compositions, firstChar) in filteredCompositionsByFirstChar" :key="firstChar">
       <HorizontalDivider>{{ firstChar }}</HorizontalDivider>
       <div class="flex flex-wrap items-stretch gap-2 m-4">
         <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition"
