@@ -4,6 +4,14 @@ open iText.Kernel.Pdf
 open System.IO
 
 module PDF =
+    let isValid (content: byte array) =
+        try
+            use docStream = new MemoryStream(content)
+            use doc = new PdfDocument(new PdfReader(docStream))
+            let _ = doc.GetNumberOfPages()
+            true
+        with _ -> false
+
     let getBookletPageOrder pageCount =
         let n = if pageCount % 4 = 0 then pageCount else pageCount + (4 - pageCount % 4)
         [1 .. 2 .. n / 2]

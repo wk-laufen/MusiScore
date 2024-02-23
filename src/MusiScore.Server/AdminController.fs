@@ -54,7 +54,7 @@ type AdminController(db: Db) =
     [<HttpPost>]
     member this.CreateComposition ([<FromBody>]composition: NewCompositionDto) =
         async {
-            match NewComposition.tryParseDto composition false with
+            match Parse.newCompositionDto composition false with
             | Ok newComposition ->
                 let! compositionId = db.CreateComposition newComposition
                 let result = {
@@ -66,7 +66,7 @@ type AdminController(db: Db) =
                     |}
                 }
                 return this.Ok(result) :> IActionResult
-            | Error code -> return this.BadRequest({| ErrorCode = code |}) :> IActionResult
+            | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
     [<Route("compositions/export")>]
@@ -104,7 +104,7 @@ type AdminController(db: Db) =
     [<HttpPatch>]
     member this.UpdateComposition (compositionId: string, [<FromBody>]composition: CompositionUpdateDto) =
         async {
-            match CompositionUpdate.tryParseDto composition with
+            match Parse.compositionUpdateDto composition with
             | Ok compositionUpdate ->
                 let! updatedComposition = db.UpdateComposition compositionId compositionUpdate
                 let result = {
@@ -116,7 +116,7 @@ type AdminController(db: Db) =
                     |}
                 }
                 return this.Ok(result) :> IActionResult
-            | Error message -> return this.BadRequest(message) :> IActionResult
+            | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
     [<Route("compositions/{compositionId}")>]
@@ -146,7 +146,7 @@ type AdminController(db: Db) =
     [<HttpPost>]
     member this.CreateVoice (compositionId: string, [<FromBody>]voice: CreateVoiceDto) =
         async {
-            match CreateVoice.tryParseDto voice with
+            match Parse.createVoiceDto voice with
             | Ok createVoice ->
                 let! voiceId = db.CreateVoice compositionId createVoice
                 let result = {
@@ -158,14 +158,14 @@ type AdminController(db: Db) =
                     |}
                 }
                 return this.Ok(result) :> IActionResult
-            | Error message -> return this.BadRequest(message) :> IActionResult
+            | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
     [<Route("compositions/{compositionId}/voices/{voiceId}")>]
     [<HttpPatch>]
     member this.UpdateVoice (compositionId: string, voiceId: string, [<FromBody>]voice: UpdateVoiceDto) =
         async {
-            match UpdateVoice.tryParseDto voice with
+            match Parse.updateVoiceDto voice with
             | Ok updateVoice ->
                 let! updatedVoice = db.UpdateVoice compositionId voiceId updateVoice
                 let result = {
@@ -175,7 +175,7 @@ type AdminController(db: Db) =
                     Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |}) |}
                 }
                 return this.Ok(result) :> IActionResult
-            | Error message -> return this.BadRequest(message) :> IActionResult
+            | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
     [<Route("compositions/{compositionId}/voices/{voiceId}")>]
