@@ -126,20 +126,30 @@ type AdminController(db: Db) =
             do! db.DeleteComposition compositionId
         }
 
-    [<Route("compositions/{compositionId}/voices")>]
+    [<Route("compositions/{compositionId}")>]
     [<HttpGet>]
-    member this.GetVoices (compositionId: string) =
+    member this.GetFullComposition (compositionId: string) =
         async {
+            let! composition = db.GetComposition(compositionId)
             let! voices = db.GetFullCompositionVoices(compositionId)
             return
-                voices
-                |> Seq.map (fun v -> {
-                    Name = v.Name
-                    File = v.File
-                    PrintSetting = PrintSetting.toDto v.PrintSetting
-                    Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |}) |}
-                })
-                |> Seq.toArray
+                {
+                    Title = composition.Title
+                    IsActive = composition.IsActive
+                    Links = {|
+                        Self = this.Url.Action(nameof(this.UpdateComposition))
+                        Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                    |}
+                    Voices =
+                        voices
+                        |> Seq.map (fun v -> {
+                            Name = v.Name
+                            File = v.File
+                            PrintSetting = PrintSetting.toDto v.PrintSetting
+                            Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |}) |}
+                        })
+                        |> Seq.toArray
+                }
         }
 
     [<Route("compositions/{compositionId}/voices")>]

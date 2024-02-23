@@ -59,6 +59,16 @@ const createComposition = () => {
   }
 }
 
+const startEditComposition = (composition: CompositionListItem) => {
+  if (!compositionList.value) return
+
+  editComposition.value = {
+    type: 'edit',
+    printSettingsUrl: compositionList.value.links.printSettings,
+    compositionUrl: composition.links.self
+  }
+}
+
 const compositionSaved = (oldComposition: CompositionListItem | undefined, newComposition: CompositionListItem) => {
   if (!compositionList.value || !editComposition.value) return
 
@@ -85,6 +95,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
     <LoadingBar v-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
     <CompositionList v-else-if="compositionList !== undefined && editComposition === undefined" :compositions="compositionList?.compositions"
+      @edit="startEditComposition"
       @deleted="compositionDeleted" />
     <CompositionForm v-else-if="editComposition"
       :type="editComposition.type"

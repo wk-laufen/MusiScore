@@ -57,6 +57,13 @@ module Admin =
         Links: {| Self: string |}
     }
 
+    type FullCompositionDto = {
+        Title: string
+        IsActive: bool
+        Links: {| Self: string; Voice: string |}
+        Voices: ExistingVoiceDto array
+    }
+
     type UpdateVoiceDto = {
         Name: string option
         File: byte[] option

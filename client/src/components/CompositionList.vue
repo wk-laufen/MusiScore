@@ -12,6 +12,7 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
+  edit: [composition: CompositionListItem]
   deleted: [composition: CompositionListItem]
 }>()
 
@@ -65,6 +66,7 @@ const toggleActivate = async (composition: CompositionListItem) => {
       <div class="flex flex-wrap items-stretch gap-2 m-4">
         <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition"
           @toggle-activate="toggleActivate(composition)"
+          @edit="$emit('edit', composition)"
           @deleted="$emit('deleted', composition)" />
       </div>
     </template>

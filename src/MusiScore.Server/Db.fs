@@ -106,6 +106,12 @@ type Db(connectionString: string) =
             |> Seq.toList
     }
 
+    member _.GetComposition (compositionId: string) = async {
+        use connection = createConnection()
+        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask
+        return DbComposition.toDomain composition
+    }
+
     member _.CreateComposition (newComposition: NewComposition) = async {
         use connection = createConnection()
         connection.Open()

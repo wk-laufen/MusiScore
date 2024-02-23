@@ -10,6 +10,18 @@ import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
 import PdfPreview from './PdfPreview.vue'
 
+const deserializeFile = (text?: string) => {
+  if (text === undefined) return undefined
+
+  return Uint8Array.from(atob(text), m => m.codePointAt(0) as number)
+}
+
+const serializeFile = (content?: ArrayBuffer) => {
+  if (content === undefined) return undefined
+
+  return btoa(String.fromCodePoint(...new Uint8Array(content)))
+}
+
 const props = defineProps<{
   type: 'create' | 'edit'
   printSettingsUrl: string
@@ -47,7 +59,7 @@ const parseLoadedVoice = (voice: Voice) : EditableVoice => {
     state: { type: 'loadedVoice', isMarkedForDeletion: false, links: voice.links },
     name: voice.name,
     nameValidationState: { type: 'success' },
-    file: voice.file,
+    file: deserializeFile(voice.file),
     fileValidationState: { type: 'success' },
     printSetting: voice.printSetting,
     printSettingValidationState: { type: 'success' },
@@ -65,31 +77,36 @@ const parseLoadedComposition = (loadedComposition: FullComposition) : EditableCo
 }
 
 const composition = ref<EditableComposition>()
+const activeVoice = ref<EditableVoice>()
 const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
 const loadComposition = async () => {
-  if (props.type !== 'edit') return
-
-  const result = await uiFetch(isLoading, hasLoadingFailed, props.compositionUrl)
-  if (result.succeeded) {
-    const loadedComposition = (await result.response.json() as FullComposition)
-    composition.value = parseLoadedComposition(loadedComposition)
+  switch (props.type) {
+    case 'create':
+      composition.value = {
+        title: "",
+        isActive: true,
+        links: {
+          self: props.compositionUrl,
+          voices: undefined
+        },
+        voices: []
+      }
+      break
+    case 'edit': {
+      const result = await uiFetch(isLoading, hasLoadingFailed, props.compositionUrl)
+      if (result.succeeded) {
+        const loadedComposition = (await result.response.json() as FullComposition)
+        composition.value = parseLoadedComposition(loadedComposition)
+        activeVoice.value = composition.value.voices.length > 0 ? composition.value.voices[0] : undefined
+      }
+      break
+    }
   }
 }
 loadComposition()
-composition.value = {
-  title: "",
-  isActive: true,
-  links: {
-    self: props.compositionUrl,
-    voice: undefined
-  },
-  voices: []
-}
 
-const titleValidationState = ref<ValidationState>({type: "notValidated"})
-
-const activeVoice = ref<EditableVoice>()
+const titleValidationState = ref<ValidationState>({ type: "notValidated" })
 
 const activeVoiceFile = ref<File>()
 watch(activeVoiceFile, async v =>
@@ -147,13 +164,6 @@ const deleteVoice = (voice: EditableVoice) => {
 
 const isSavingComposition = ref(false)
 const hasSavingCompositionFailed = ref(false)
-
-const serializeFile = (content?: ArrayBuffer) => {
-  if (content === undefined) return undefined
-
-  return btoa(String.fromCodePoint(...new Uint8Array(content)))
-}
-
 const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
   // TODO get existing voice url from voice
   const result = await uiFetch(toRef(voice.isSaving), toRef(voice.hasSavingFailed), newVoiceUrl, {

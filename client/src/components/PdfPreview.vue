@@ -21,7 +21,7 @@ const loadPDFDocument = async (file?: Uint8Array) =>
   await nextTick()
   pdfDoc.value = await getDocument(file.slice()).promise
 }
-watch(() => props.file, loadPDFDocument)
+watch(() => props.file, loadPDFDocument, { immediate: true })
 
 </script>
 

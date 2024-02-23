@@ -14,7 +14,7 @@ export type PrintSetting = {
 
 export type Voice = {
   name: string
-  file: Uint8Array
+  file: string // base 64 encoded
   printSetting: string
   links: {
     self: string
@@ -26,7 +26,7 @@ export type FullComposition = {
   isActive: boolean
   links: {
     self: string
-    voice?: string
+    voices?: string
   }
   voices: Voice[]
 }
