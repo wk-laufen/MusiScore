@@ -46,7 +46,7 @@ const toggleActivate = async (composition: CompositionListItem) => {
 </script>
 
 <template>
-  <div v-if="filteredCompositions.length > 0" class="flex items-center gap-2 m-4">
+  <div v-if="props.compositions.length > 0" class="flex items-center gap-2 m-4">
     <div>
       <input class="input-text" type="search" placeholder="Filter" v-model="filterText" />
     </div>
