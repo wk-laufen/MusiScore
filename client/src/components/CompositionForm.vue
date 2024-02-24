@@ -9,6 +9,7 @@ import TextInput from './TextInput.vue'
 import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
 import PdfPreview from './PdfPreview.vue'
+import { last } from 'lodash-es'
 
 const deserializeFile = (text?: string) => {
   if (text === undefined) return undefined
@@ -136,7 +137,7 @@ const addVoice = () => {
     isSaving: false,
     hasSavingFailed: false
   })
-  activeVoice.value = composition.value.voices[composition.value.voices.length - 1]
+  activeVoice.value = last(composition.value.voices)
 }
 
 const deleteVoice = (voice: EditableVoice) => {
