@@ -43,10 +43,5 @@ export type VoiceData = {
   printSetting: string
 }
 
-export type SaveCompositionServerError = { errorCode: "EmptyTitle" }
-export type SaveVoiceServerError =
-  | { errorCode: "EmptyName" }
-  | { errorCode: "EmptyFile" }
-  | { errorCode: "InvalidFile" }
-  | { errorCode: "UnknownPrintSetting" }
-export type SaveVoiceServerErrors = SaveVoiceServerError[]
+export type SaveCompositionServerError = 'EmptyTitle'
+export type SaveVoiceServerError = 'EmptyName' | 'EmptyFile' | 'InvalidFile' | 'UnknownPrintSetting'

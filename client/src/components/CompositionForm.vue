@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef } from 'vue'
 import uiFetch from './UIFetch'
-import type { CompositionListItem, FullComposition, PrintSetting, SaveCompositionServerError, SaveVoiceServerErrors, Voice } from './AdminTypes'
+import type { CompositionListItem, FullComposition, PrintSetting, SaveCompositionServerError, SaveVoiceServerError, Voice } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -9,7 +9,7 @@ import TextInput from './TextInput.vue'
 import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
 import PdfPreview from './PdfPreview.vue'
-import { last } from 'lodash-es'
+import { first, last } from 'lodash-es'
 
 const deserializeFile = (text?: string) => {
   if (text === undefined) return undefined
@@ -53,7 +53,7 @@ type EditableVoice = Omit<Voice, 'links' | 'file'> & {
   isSaving: boolean
   hasSavingFailed: boolean
 }
-type EditableComposition = Omit<FullComposition, 'voices'> & { voices: EditableVoice[] }
+type EditableComposition = { title: string, titleValidationState: ValidationState, voices: EditableVoice[] }
 
 const parseLoadedVoice = (voice: Voice) : EditableVoice => {
   return {
@@ -70,13 +70,14 @@ const parseLoadedVoice = (voice: Voice) : EditableVoice => {
 }
 
 const parseLoadedComposition = (loadedComposition: FullComposition) : EditableComposition => {
-  const { voices, ...props } = loadedComposition
   return {
-    ...props,
-    voices: voices.map(parseLoadedVoice)
+    title: loadedComposition.title,
+    titleValidationState: { type: 'success' },
+    voices: loadedComposition.voices.map(parseLoadedVoice)
   }
 }
 
+const loadedComposition = ref<FullComposition>()
 const composition = ref<EditableComposition>()
 const activeVoice = ref<EditableVoice>()
 const isLoading = ref(false)
@@ -84,30 +85,29 @@ const hasLoadingFailed = ref(false)
 const loadComposition = async () => {
   switch (props.type) {
     case 'create':
-      composition.value = {
-        title: "",
-        isActive: true,
+      loadedComposition.value = {
+        title: '',
+        isActive: false,
         links: {
           self: props.compositionUrl,
           voices: undefined
         },
         voices: []
       }
+      composition.value = parseLoadedComposition(loadedComposition.value)
       break
     case 'edit': {
       const result = await uiFetch(isLoading, hasLoadingFailed, props.compositionUrl)
       if (result.succeeded) {
-        const loadedComposition = (await result.response.json() as FullComposition)
-        composition.value = parseLoadedComposition(loadedComposition)
-        activeVoice.value = composition.value.voices.length > 0 ? composition.value.voices[0] : undefined
+        loadedComposition.value = (await result.response.json() as FullComposition)
+        composition.value = parseLoadedComposition(loadedComposition.value)
+        activeVoice.value = first(composition.value.voices)
       }
       break
     }
   }
 }
 loadComposition()
-
-const titleValidationState = ref<ValidationState>({ type: "notValidated" })
 
 const activeVoiceFile = ref<File>()
 watch(activeVoiceFile, async v =>
@@ -181,18 +181,18 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
     return parseLoadedVoice(voice)
   }
   else if (result.response !== undefined) {
-    const errors = await result.response.json() as SaveVoiceServerErrors
+    const errors = await result.response.json() as SaveVoiceServerError[]
     for (const error of errors) {
-      if (error.errorCode === 'EmptyName') {
+      if (error === 'EmptyName') {
         voice.nameValidationState = { type: 'error', error: 'Bitte geben Sie den Namen der Stimme ein.' }
       }
-      if (error.errorCode === 'EmptyFile') {
+      if (error === 'EmptyFile') {
         voice.fileValidationState = { type: 'error', error: 'Bitte wählen Sie eine PDF-Datei aus.' }
       }
-      else if (error.errorCode === 'InvalidFile') {
+      else if (error === 'InvalidFile') {
         voice.fileValidationState = { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
       }
-      if (error.errorCode === 'UnknownPrintSetting') {
+      if (error === 'UnknownPrintSetting') {
         voice.fileValidationState = { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
       }
     }
@@ -208,26 +208,35 @@ const saveVoices = async (newVoiceUrl: string) => {
 }
 
 const saveComposition = async () => {
-  if (composition.value === undefined) return
+  if (composition.value === undefined || loadedComposition.value === undefined) return
 
-  titleValidationState.value = { type: 'notValidated' }
-  
-  const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, props.compositionUrl, {
-    method: props.type === 'create' ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: composition.value.title })
-  })
-  if (result.succeeded) {
-    const compositionListItem = await result.response.json() as CompositionListItem
-    saveVoices(compositionListItem.links.voices)
-  }
-  else if (result.response !== undefined) {
-    const error = await result.response.json() as SaveCompositionServerError
-    if (error.errorCode === 'EmptyTitle') {
-      titleValidationState.value = { type: 'error', error: 'Bitte geben Sie den Titel des Stücks ein.' }
+  switch (props.type) {
+    case 'create': {
+      composition.value.titleValidationState = { type: 'notValidated' }
+
+      const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, loadedComposition.value.links.self, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: composition.value.title })
+      })
+      if (result.succeeded) {
+        const compositionListItem = await result.response.json() as CompositionListItem
+        saveVoices(compositionListItem.links.voices)
+      }
+      else if (result.response !== undefined) {
+        const errors = await result.response.json() as SaveCompositionServerError[]
+        for (const error of errors) {
+          if (error === 'EmptyTitle') {
+            composition.value.titleValidationState = { type: 'error', error: 'Bitte geben Sie den Titel des Stücks ein.' }
+          }
+        }
+      }
+      break
+    }
+    case 'edit': {
+      break
     }
   }
-  // TODO else?
 }
 </script>
 
@@ -240,7 +249,7 @@ const saveComposition = async () => {
     <LoadingBar v-if="isLoading" />
     <ErrorWithRetry v-if="hasLoadingFailed" @retry="loadComposition">Fehler beim Laden.</ErrorWithRetry>
     <template v-else-if="composition !== undefined">
-      <TextInput title="Titel" :validation-state="titleValidationState" v-model="composition.title" />
+      <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" />
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
         <li v-for="voice in composition.voices" :key="JSON.stringify(voice)">
