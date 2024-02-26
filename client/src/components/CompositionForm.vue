@@ -193,7 +193,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
         voice.fileValidationState = { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
       }
       if (error === 'UnknownPrintSetting') {
-        voice.fileValidationState = { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
+        voice.printSettingValidationState = { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' }
       }
     }
     return voice

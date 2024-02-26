@@ -92,7 +92,7 @@ module Parse =
     }
 
     let voiceName (name: string) = validation {
-        if System.String.IsNullOrWhiteSpace name then return! Error "EmptyTitle"
+        if System.String.IsNullOrWhiteSpace name then return! Error "EmptyName"
         else return name
     }
 
