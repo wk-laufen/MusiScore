@@ -9,7 +9,7 @@ import TextInput from './TextInput.vue'
 import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
 import PdfPreview from './PdfPreview.vue'
-import { first, last } from 'lodash-es'
+import { chunk, first, last } from 'lodash-es'
 
 const deserializeFile = (text?: string) => {
   if (text === undefined) return undefined
@@ -20,7 +20,10 @@ const deserializeFile = (text?: string) => {
 const serializeFile = (content?: ArrayBuffer) => {
   if (content === undefined) return undefined
 
-  return btoa(String.fromCodePoint(...new Uint8Array(content)))
+  const encodedContent = chunk(new Uint8Array(content), 0x10FFF) // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/fromCodePoint
+    .map(chunk => String.fromCodePoint(...chunk))
+    .reduce((a, b) => a + b)
+  return btoa(encodedContent)
 }
 
 const props = defineProps<{
