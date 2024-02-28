@@ -170,8 +170,6 @@ const deleteVoice = (voice: EditableVoice) => {
   }
 }
 
-const isSavingComposition = ref(false)
-const hasSavingCompositionFailed = ref(false)
 const getVoiceUrl = (voice: EditableVoice) => {
   switch (voice.state.type) {
     case 'newVoice': return undefined
@@ -254,32 +252,42 @@ const updateActiveVoice = (savedVoices: (EditableVoice | undefined)[], activeVoi
     .find(v => v !== undefined)
 }
 
+const isSaving = ref(false)
+const isSavingComposition = ref(false)
+const hasSavingCompositionFailed = ref(false)
+
 const saveComposition = async () => {
   if (composition.value === undefined || loadedComposition.value === undefined) return
 
   composition.value.titleValidationState = { type: 'notValidated' }
 
-  const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, loadedComposition.value.links.self, {
-    method: getCompositionSaveMethod(),
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: composition.value.title })
-  })
-  if (result.succeeded) {
-    modifyType.value = 'edit'
-    const compositionListItem = await result.response.json() as CompositionListItem
-    const activeVoiceIndex = activeVoice.value !== undefined ? composition.value.voices.indexOf(activeVoice.value) : -1
-    const activeVoiceIndexOrFirst = activeVoiceIndex === -1 ? 0 : activeVoiceIndex
-    const savedVoices = await saveVoices(composition.value.voices, compositionListItem.links.voices)
-    composition.value.voices = savedVoices.filter(v => v !== undefined) as EditableVoice[]
-    updateActiveVoice(savedVoices, activeVoiceIndexOrFirst)
-  }
-  else if (result.response !== undefined) {
-    const errors = await result.response.json() as SaveCompositionServerError[]
-    for (const error of errors) {
-      if (error === 'EmptyTitle') {
-        composition.value.titleValidationState = { type: 'error', error: 'Bitte geben Sie den Titel des Stücks ein.' }
+  try {
+    isSaving.value = true
+    const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, loadedComposition.value.links.self, {
+      method: getCompositionSaveMethod(),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: composition.value.title })
+    })
+    if (result.succeeded) {
+      modifyType.value = 'edit'
+      const compositionListItem = await result.response.json() as CompositionListItem
+      const activeVoiceIndex = activeVoice.value !== undefined ? composition.value.voices.indexOf(activeVoice.value) : -1
+      const activeVoiceIndexOrFirst = activeVoiceIndex === -1 ? 0 : activeVoiceIndex
+      const savedVoices = await saveVoices(composition.value.voices, compositionListItem.links.voices)
+      composition.value.voices = savedVoices.filter(v => v !== undefined) as EditableVoice[]
+      updateActiveVoice(savedVoices, activeVoiceIndexOrFirst)
+    }
+    else if (result.response !== undefined) {
+      const errors = await result.response.json() as SaveCompositionServerError[]
+      for (const error of errors) {
+        if (error === 'EmptyTitle') {
+          composition.value.titleValidationState = { type: 'error', error: 'Bitte geben Sie den Titel des Stücks ein.' }
+        }
       }
     }
+  }
+  finally {
+    isSaving.value = false
   }
 }
 </script>
@@ -326,6 +334,6 @@ const saveComposition = async () => {
   </div>
 
   <Teleport to="#command-bar">
-    <button class="btn btn-solid btn-gold !px-8 !py-4" :class="{ 'btn-loading': isSavingComposition || composition?.voices.some(v => v.isSaving) }" @click="saveComposition">Speichern</button>
+    <button class="btn btn-solid btn-gold !px-8 !py-4" :class="{ 'btn-loading': isSaving }" @click="saveComposition">Speichern</button>
   </Teleport>
 </template>
