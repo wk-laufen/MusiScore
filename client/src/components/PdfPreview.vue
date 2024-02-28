@@ -26,7 +26,7 @@ watch(() => props.file, loadPDFDocument, { immediate: true })
 </script>
 
 <template>
-  <div v-if="pdfDoc !== undefined" class="flex gap-2">
+  <div v-if="pdfDoc !== undefined" class="flex gap-2 flex-wrap">
     <PdfPage v-for="pageNumber in range(1, pdfDoc.numPages + 1)" :key="pageNumber" :pdf-doc="pdfDoc" :page-number="pageNumber" />
   </div>
 </template>
