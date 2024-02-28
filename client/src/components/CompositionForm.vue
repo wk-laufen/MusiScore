@@ -191,7 +191,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
   const url = getVoiceUrl(voice) || newVoiceUrl
   const httpMethod = getVoiceSaveMethod(voice)
   if (httpMethod === 'DELETE') {
-    const result = await uiFetch(toRef(voice.isSaving), toRef(voice.hasSavingFailed), url, { method: httpMethod })
+    const result = await uiFetch(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, { method: httpMethod })
     if (result.succeeded) {
       return undefined
     }
@@ -200,7 +200,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
     }
   }
   else {
-    const result = await uiFetch(toRef(voice.isSaving), toRef(voice.hasSavingFailed), url, {
+    const result = await uiFetch(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, {
       method: httpMethod,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -326,6 +326,6 @@ const saveComposition = async () => {
   </div>
 
   <Teleport to="#command-bar">
-    <button class="btn btn-solid btn-gold !px-8 !py-4" classes="{ 'btn-loading': isSavingComposition }" @click="saveComposition">Speichern</button>
+    <button class="btn btn-solid btn-gold !px-8 !py-4" :class="{ 'btn-loading': isSavingComposition || composition?.voices.some(v => v.isSaving) }" @click="saveComposition">Speichern</button>
   </Teleport>
 </template>
