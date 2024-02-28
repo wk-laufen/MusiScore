@@ -137,7 +137,7 @@ type AdminController(db: Db) =
                     Title = composition.Title
                     IsActive = composition.IsActive
                     Links = {|
-                        Self = this.Url.Action(nameof(this.UpdateComposition))
+                        Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
                         Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
                     |}
                     Voices =

@@ -32,6 +32,8 @@ const props = defineProps<{
   compositionUrl: string
 }>()
 
+const modifyType = ref(props.type)
+
 const printSettings = ref<PrintSetting[]>()
 const isLoadingPrintSettings = ref(false)
 const hasLoadingPrintSettingsFailed = ref(false)
@@ -86,7 +88,7 @@ const activeVoice = ref<EditableVoice>()
 const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
 const loadComposition = async () => {
-  switch (props.type) {
+  switch (modifyType.value) {
     case 'create':
       loadedComposition.value = {
         title: '',
@@ -125,6 +127,8 @@ watch(activeVoiceFile, async v =>
   }
   activeVoice.value.file = new Uint8Array(await v.arrayBuffer())
 })
+
+// TODO mark voice as dirty if property changes
 
 const addVoice = () => {
   if (composition.value === undefined) return
@@ -168,76 +172,113 @@ const deleteVoice = (voice: EditableVoice) => {
 
 const isSavingComposition = ref(false)
 const hasSavingCompositionFailed = ref(false)
+const getVoiceUrl = (voice: EditableVoice) => {
+  switch (voice.state.type) {
+    case 'newVoice': return undefined
+    case 'loadedVoice':
+    case 'modifiedVoice': return voice.state.links.self
+  }
+}
+const getVoiceSaveMethod = (voice: EditableVoice) => {
+  switch (voice.state.type) {
+    case 'newVoice': return 'POST'
+    case 'loadedVoice':
+    case 'modifiedVoice':
+      return voice.state.isMarkedForDeletion ? 'DELETE' : 'PATCH'
+  }
+}
 const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
-  // TODO get existing voice url from voice
-  const result = await uiFetch(toRef(voice.isSaving), toRef(voice.hasSavingFailed), newVoiceUrl, {
-    method: props.type === 'create' ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: voice.name,
-      file: serializeFile(voice.file),
-      printSetting: voice.printSetting
-    })
-  })
-  if (result.succeeded) {
-    const voice = await result.response.json() as Voice
-    return parseLoadedVoice(voice)
-  }
-  else if (result.response !== undefined) {
-    const errors = await result.response.json() as SaveVoiceServerError[]
-    for (const error of errors) {
-      if (error === 'EmptyName') {
-        voice.nameValidationState = { type: 'error', error: 'Bitte geben Sie den Namen der Stimme ein.' }
-      }
-      if (error === 'EmptyFile') {
-        voice.fileValidationState = { type: 'error', error: 'Bitte wählen Sie eine PDF-Datei aus.' }
-      }
-      else if (error === 'InvalidFile') {
-        voice.fileValidationState = { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
-      }
-      if (error === 'UnknownPrintSetting') {
-        voice.printSettingValidationState = { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' }
-      }
+  const url = getVoiceUrl(voice) || newVoiceUrl
+  const httpMethod = getVoiceSaveMethod(voice)
+  if (httpMethod === 'DELETE') {
+    const result = await uiFetch(toRef(voice.isSaving), toRef(voice.hasSavingFailed), url, { method: httpMethod })
+    if (result.succeeded) {
+      return undefined
     }
-    return voice
+    else {
+      return voice // TODO set error
+    }
   }
-  // TODO else?
+  else {
+    const result = await uiFetch(toRef(voice.isSaving), toRef(voice.hasSavingFailed), url, {
+      method: httpMethod,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: voice.name,
+        file: serializeFile(voice.file),
+        printSetting: voice.printSetting
+      })
+    })
+    if (result.succeeded) {
+      const voice = await result.response.json() as Voice
+      return parseLoadedVoice(voice)
+    }
+    else if (result.response !== undefined) {
+      const errors = await result.response.json() as SaveVoiceServerError[]
+      for (const error of errors) {
+        if (error === 'EmptyName') {
+          voice.nameValidationState = { type: 'error', error: 'Bitte geben Sie den Namen der Stimme ein.' }
+        }
+        if (error === 'EmptyFile') {
+          voice.fileValidationState = { type: 'error', error: 'Bitte wählen Sie eine PDF-Datei aus.' }
+        }
+        else if (error === 'InvalidFile') {
+          voice.fileValidationState = { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
+        }
+        if (error === 'UnknownPrintSetting') {
+          voice.printSettingValidationState = { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' }
+        }
+      }
+      return voice
+    }
+    else {
+      return voice // TODO set error
+    }
+  }
 }
 
-const saveVoices = async (newVoiceUrl: string) => {
-  if (composition.value === undefined) return
+const saveVoices = async (voices: EditableVoice[], newVoiceUrl: string) => {
+  return await Promise.all(voices.map(voice => saveVoice(voice, newVoiceUrl)))
+}
 
-  return await Promise.all(composition.value.voices.map(voice => saveVoice(voice, newVoiceUrl)))
+const getCompositionSaveMethod = () => {
+  switch (modifyType.value) {
+    case 'create': return 'POST'
+    case 'edit': return 'PATCH'
+  }
+}
+
+const updateActiveVoice = (savedVoices: (EditableVoice | undefined)[], activeVoiceIndex: number) => {
+  activeVoice.value = savedVoices.slice(activeVoiceIndex)
+    .concat(savedVoices.slice(0, activeVoiceIndex).reverse())
+    .find(v => v !== undefined)
 }
 
 const saveComposition = async () => {
   if (composition.value === undefined || loadedComposition.value === undefined) return
 
-  switch (props.type) {
-    case 'create': {
-      composition.value.titleValidationState = { type: 'notValidated' }
+  composition.value.titleValidationState = { type: 'notValidated' }
 
-      const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, loadedComposition.value.links.self, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: composition.value.title })
-      })
-      if (result.succeeded) {
-        const compositionListItem = await result.response.json() as CompositionListItem
-        saveVoices(compositionListItem.links.voices)
+  const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, loadedComposition.value.links.self, {
+    method: getCompositionSaveMethod(),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: composition.value.title })
+  })
+  if (result.succeeded) {
+    modifyType.value = 'edit'
+    const compositionListItem = await result.response.json() as CompositionListItem
+    const activeVoiceIndex = activeVoice.value !== undefined ? composition.value.voices.indexOf(activeVoice.value) : -1
+    const activeVoiceIndexOrFirst = activeVoiceIndex === -1 ? 0 : activeVoiceIndex
+    const savedVoices = await saveVoices(composition.value.voices, compositionListItem.links.voices)
+    composition.value.voices = savedVoices.filter(v => v !== undefined) as EditableVoice[]
+    updateActiveVoice(savedVoices, activeVoiceIndexOrFirst)
+  }
+  else if (result.response !== undefined) {
+    const errors = await result.response.json() as SaveCompositionServerError[]
+    for (const error of errors) {
+      if (error === 'EmptyTitle') {
+        composition.value.titleValidationState = { type: 'error', error: 'Bitte geben Sie den Titel des Stücks ein.' }
       }
-      else if (result.response !== undefined) {
-        const errors = await result.response.json() as SaveCompositionServerError[]
-        for (const error of errors) {
-          if (error === 'EmptyTitle') {
-            composition.value.titleValidationState = { type: 'error', error: 'Bitte geben Sie den Titel des Stücks ein.' }
-          }
-        }
-      }
-      break
-    }
-    case 'edit': {
-      break
     }
   }
 }
@@ -246,7 +287,7 @@ const saveComposition = async () => {
 <template>
   <div class="p-4">
     <h2 class="text-2xl small-caps">
-        {{ type === 'create' ? "Stück anlegen" : "Stück bearbeiten" }}
+        {{ modifyType === 'create' ? "Stück anlegen" : "Stück bearbeiten" }}
     </h2>
     
     <LoadingBar v-if="isLoading" />
