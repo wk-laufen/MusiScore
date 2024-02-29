@@ -305,15 +305,16 @@ const saveComposition = async () => {
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
         <li v-for="voice in composition.voices" :key="JSON.stringify(voice)">
-          <a @click="activeVoice = voice" class="nav-item !pr-2" :class="{ active: activeVoice === voice }">
+          <a @click="activeVoice = voice" class="nav-item !flex items-center !pr-2" :class="{ active: activeVoice === voice }">
             <span :class="{
               'text-green-500': voice.state.type === 'newVoice',
               'text-yellow-500': voice.state.type === 'modifiedVoice' && !voice.state.isMarkedForDeletion,
               'text-musi-red line-through': (voice.state.type === 'loadedVoice' || voice.state.type === 'modifiedVoice') && voice.state.isMarkedForDeletion }">
               {{ voice.name || '<leer>' }}
             </span>
-            <button class="p-2" title="Löschen" @click.stop="deleteVoice(voice)">
-              <font-awesome-icon class="mr-2" :icon="['fas', 'trash']" />
+            <span v-if="voice.isSaving" class="btn-loading m-2 mr-0 w-5 h-5 inline-block"></span>
+            <button v-else class="p-2 hover:text-musi-red" title="Löschen" @click.stop="deleteVoice(voice)">
+              <font-awesome-icon :icon="['fas', 'trash']" />
             </button>
           </a>
         </li>
