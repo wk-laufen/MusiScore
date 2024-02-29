@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 const container = ref<HTMLCanvasElement>()
-watch([() => props.pdfDoc, () => props.pageNumber, container], async ([pdfDoc, pageNumber, c]) => {
+watch([() => props.pdfDoc, () => props.pageNumber, container], async ([pdfDoc, pageNumber, c], _, onCleanup) => {
   if (c === undefined) return
 
   const p = await toRaw(pdfDoc).getPage(pageNumber)
@@ -22,7 +22,8 @@ watch([() => props.pdfDoc, () => props.pageNumber, container], async ([pdfDoc, p
   c.width = Math.floor(viewport.width * outputScale)
   c.height = Math.floor(viewport.height * outputScale)
 
-  await toRaw(p).render({ canvasContext: drawingContext, viewport }).promise
+  const renderTask = toRaw(p).render({ canvasContext: drawingContext, viewport })
+  onCleanup(() => renderTask.cancel())
 })
 </script>
 
