@@ -215,7 +215,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
       const voice = await result.response.json() as Voice
       return parseLoadedVoice(voice)
     }
-    else if (result.response !== undefined) {
+    else if (result.response !== undefined && result.response.status === 400) {
       const errors = await result.response.json() as SaveVoiceServerError[]
       for (const error of errors) {
         if (error === 'EmptyName') {
@@ -281,7 +281,7 @@ const saveComposition = async () => {
       composition.value.voices = savedVoices.filter(v => v !== undefined) as EditableVoice[]
       updateActiveVoice(savedVoices, activeVoiceIndexOrFirst)
     }
-    else if (result.response !== undefined) {
+    else if (result.response !== undefined && result.response.status === 400) {
       const errors = await result.response.json() as SaveCompositionServerError[]
       for (const error of errors) {
         if (error === 'EmptyTitle') {
