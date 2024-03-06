@@ -100,7 +100,8 @@ const compositionDeleted = (composition: CompositionListItem) => {
     <CompositionForm v-else-if="editComposition"
       :type="editComposition.type"
       :print-settings-url="editComposition.printSettingsUrl"
-      :composition-url="editComposition.compositionUrl" />
+      :composition-url="editComposition.compositionUrl"
+      @cancel-edit="editComposition = undefined" />
   </div>
   <div id="command-bar" class="basis-auto grow-0 shrink-0 flex justify-end m-4 gap-4">
     <button v-if="compositionList !== undefined && compositionList.compositions.length > 0" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>

@@ -26,6 +26,10 @@ const serializeFile = (content?: ArrayBuffer) => {
   return btoa(encodedContent)
 }
 
+defineEmits<{
+  'cancelEdit': []
+}>()
+
 const props = defineProps<{
   type: 'create' | 'edit'
   printSettingsUrl: string
@@ -341,6 +345,7 @@ const saveComposition = async () => {
   </div>
 
   <Teleport to="#command-bar">
+    <button class="btn btn-solid btn-gold !px-8 !py-4" :disabled="isSaving" @click="$emit('cancelEdit')">Zurück zur Übersicht</button>
     <button class="btn btn-solid btn-gold !px-8 !py-4" :class="{ 'btn-loading': isSaving }" @click="saveComposition">Speichern</button>
   </Teleport>
 </template>
