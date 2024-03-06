@@ -194,7 +194,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
       return undefined
     }
     else {
-      return voice // TODO set error
+      return voice
     }
   }
   else {
@@ -230,7 +230,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
       return voice
     }
     else {
-      return voice // TODO set error
+      return voice
     }
   }
 }
@@ -301,6 +301,7 @@ const saveComposition = async () => {
     <LoadingBar v-if="isLoading" />
     <ErrorWithRetry v-if="hasLoadingFailed" @retry="loadComposition">Fehler beim Laden.</ErrorWithRetry>
     <template v-else-if="composition !== undefined">
+      <p v-if="hasSavingCompositionFailed" class="mt-4 text-musi-red">Fehler beim Speichern des Stücks.</p>
       <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" />
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
@@ -313,9 +314,14 @@ const saveComposition = async () => {
               {{ voice.name || '<leer>' }}
             </span>
             <span v-if="voice.isSaving" class="btn-loading m-2 mr-0 w-5 h-5 inline-block"></span>
-            <button v-else class="p-2 hover:text-musi-red" title="Löschen" @click.stop="deleteVoice(voice)">
-              <font-awesome-icon :icon="['fas', 'trash']" />
-            </button>
+            <template v-else>
+              <button class="p-2 hover:text-musi-red" title="Löschen" @click.stop="deleteVoice(voice)">
+                <font-awesome-icon :icon="['fas', 'trash']" />
+              </button>
+              <span v-if="voice.hasSavingFailed" class="p-2 text-musi-red" title="Fehler beim Speichern">
+                <font-awesome-icon :icon="['fas', 'info-circle']" />
+              </span>
+            </template>
           </a>
         </li>
         <li>
