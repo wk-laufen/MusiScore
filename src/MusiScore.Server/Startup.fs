@@ -36,7 +36,10 @@ let main args =
     ) |> ignore
 
     builder.Services
-        .AddControllers()
+        .AddControllers(fun o ->
+            if builder.Environment.IsDevelopment() then
+                o.Filters.Add(FaultInjectionFilter()) |> ignore
+        )
         .AddJsonOptions(fun o ->
             Assembly.GetExecutingAssembly().ExportedTypes
             |> Seq.filter(fun v -> v.BaseType <> null && not v.ContainsGenericParameters && typeof<JsonConverter>.IsAssignableFrom(v))
