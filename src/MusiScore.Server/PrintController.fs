@@ -20,7 +20,9 @@ type PrintController(db: Db, printer: Printer) =
                 |> Seq.sortBy (fun v -> v.Title)
                 |> Seq.map (fun v -> {
                     Title = v.Title
-                    ShowVoicesUrl = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
+                    Links = {|
+                        Voices = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
+                    |}
                 })
                 |> Seq.cast<obj>
                 |> Seq.toArray
