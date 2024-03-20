@@ -57,4 +57,3 @@ const deleteComposition = async () => {
     </div>
   </div>
 </template>
-./AdminTypes
