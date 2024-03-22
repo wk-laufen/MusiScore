@@ -10,6 +10,15 @@ export default {
         "musi-green": "#36B151",
         "musi-blue": "#3659B1",
         "musi-red": "#B13696"
+      },
+      keyframes: {
+        wiggle: {
+          '0%, 100%': { transform: 'rotate(-3deg)' },
+          '50%': { transform: 'rotate(3deg)' },
+        }
+      },
+      animation: {
+        wiggle: 'wiggle 0.1s ease-in-out 5'
       }
     },
   },

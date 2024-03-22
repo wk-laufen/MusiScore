@@ -18,31 +18,16 @@ type PrintController(db: Db, printer: Printer) =
             return
                 compositions
                 |> Seq.sortBy (fun v -> v.Title)
-                |> Seq.map (fun v -> {
-                    Title = v.Title
-                    Links = {|
-                        Voices = this.Url.Action(nameof(this.GetVoices), {| compositionId = v.Id |})
-                    |}
+                |> Seq.map (fun composition -> {
+                    Title = composition.Title
+                    Voices = [
+                        for v in composition.Voices ->
+                            let printUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = composition.Id; voiceId = v.Id |})
+                            {| Name = v.Name; PrintUrl = printUrl |}
+                    ]
                 })
-                |> Seq.cast<obj>
-                |> Seq.toArray
         }
 
-    [<Route("compositions/{compositionId}/voices")>]
-    [<HttpGet>]
-    member this.GetVoices (compositionId: string) =
-        async {
-            let! voices = db.GetCompositionVoices(compositionId)
-            return
-                voices
-                |> Seq.sortBy (fun v -> v.Name)
-                |> Seq.map (fun v -> {
-                    Name = v.Name
-                    PrintUrl =
-                        let baseUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = compositionId; voiceId = v.Id |})
-                        UriTemplate($"{baseUrl}{{?count}}").Template
-                })
-        }
 
     [<Route("compositions/{compositionId}/voices/{voiceId}")>]
     [<HttpPost>]

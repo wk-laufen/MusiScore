@@ -3,9 +3,7 @@
 module Print =
     type ActiveCompositionDto = {
         Title: string
-        Links: {|
-            Voices: string
-        |}
+        Voices: {| Name: string; PrintUrl: string |} list
     }
 
     type VoiceDto = {

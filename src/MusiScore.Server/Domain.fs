@@ -2,20 +2,21 @@
 
 open FsToolkit.ErrorHandling
 
+type Voice = {
+    Id: string
+    Name: string
+}
+
 type ActiveComposition = {
     Id: string
     Title: string
+    Voices: Voice list
 }
 
 type Composition = {
     Id: string
     Title: string
     IsActive: bool
-}
-
-type Voice = {
-    Id: string
-    Name: string
 }
 
 type PrintSetting =

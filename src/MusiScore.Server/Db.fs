@@ -11,8 +11,14 @@ module private DbModels =
         title: string
     }
     module DbActiveComposition =
-        let toDomain v : ActiveComposition =
-            { Id = string v.id; Title = v.title }
+        let toDomain v voices : ActiveComposition =
+            { Id = string v.id; Title = v.title; Voices = voices }
+
+    type DbCompositionVoice = {
+        composition_id: int
+        id: int
+        name: string
+    }
 
     type DbVoice = {
         id: int
@@ -76,9 +82,19 @@ type Db(connectionString: string) =
     member _.GetActiveCompositions() = async {
         use connection = createConnection()
         let! compositions = connection.QueryAsync<DbActiveComposition>("SELECT id, title FROM composition WHERE is_active = true") |> Async.AwaitTask
+        let compositionIds = [| for v in compositions -> v.id |]
+        let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT composition_id, id, name FROM voice WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        let voiceLookup =
+            voices
+            |> Seq.groupBy _.composition_id
+            |> Seq.map (fun (compositionId, voices) -> (compositionId, [ for v in voices -> DbVoice.toDomain { id = v.id; name = v.name } ]))
+            |> Map.ofSeq
         return
             compositions
-            |> Seq.map DbActiveComposition.toDomain
+            |> Seq.map (fun v ->
+                let voices = Map.tryFind v.id voiceLookup |> Option.defaultValue []
+                DbActiveComposition.toDomain v voices
+            )
             |> Seq.toList
     }
 
