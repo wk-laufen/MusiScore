@@ -17,12 +17,12 @@ let main args =
     builder.Services.AddSingleton<Db>(fun (serviceProvider: IServiceProvider) ->
         let connectionString =
             let config = serviceProvider.GetService<IConfiguration>()
-            config.GetConnectionString("Db")
+            config.GetValue("Db_ConnectionString_File")
             |> Option.ofObj
+            |> Option.map File.ReadAllText
             |> Option.orElseWith (fun () ->
-                config.GetValue("Db_ConnectionString_File")
+                config.GetConnectionString("Db")
                 |> Option.ofObj
-                |> Option.map File.ReadAllText
             )
             |> Option.defaultWith (fun () -> failwith "DB connection string not found")
         Db(connectionString)
