@@ -4,7 +4,7 @@ services:
     image: johannesegger/musiscore:0.9
     restart: unless-stopped
     ports:
-      - 80:80
+      - 80:8080
     environment:
       - Db_ConnectionString_File=/run/secrets/db_connection_string
       - Print__Server=print
