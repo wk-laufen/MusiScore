@@ -1,7 +1,6 @@
-version: "3.9"
 services:
   web:
-    image: johannesegger/musiscore:0.9
+    image: ghcr.io/wk-laufen/musiscore:66622f198421b87421e820848e7af39845d08f5b
     restart: unless-stopped
     ports:
       - 80:8080
