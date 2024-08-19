@@ -1,12 +1,12 @@
 {
   "profiles": {
-    "MusiScore.Client": {
+    "MusiScore.Server": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "https://localhost:64327;http://localhost:64329"
+      "applicationUrl": "https://localhost:61273;http://localhost:61274"
     }
   }
 }

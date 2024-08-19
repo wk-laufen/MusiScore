@@ -1,12 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Utils.fs" />
     <Compile Include="TemporaryFile.fs" />
     <Compile Include="PDF.fs" />
     <Compile Include="Zip.fs" />
+    <Compile Include="DataTransferObjects.fs" />
     <Compile Include="Domain.fs" />
     <Compile Include="Toml.fs" />
     <Compile Include="Db.fs" />
@@ -17,14 +19,9 @@
     <Compile Include="Startup.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MusiScore.Shared\MusiScore.Shared.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Bolero.Server" Version="0.*" />
     <PackageReference Include="Dapper" Version="2.0.123" />
     <PackageReference Include="FsToolkit.ErrorHandling" Version="4.15.1" />
     <PackageReference Include="itext7" Version="7.2.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="6.0.*" />
     <PackageReference Include="Npgsql" Version="6.0.7" />
     <PackageReference Include="Resta.UriTemplates" Version="1.4.0" />
     <PackageReference Include="System.IO.Compression" Version="4.3.0" />
