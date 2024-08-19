@@ -2,7 +2,7 @@
 
 open Dapper
 open Npgsql
-open System.Data
+open System
 
 [<AutoOpen>]
 module private DbModels =
@@ -76,11 +76,12 @@ module private DbModels =
             { Key = DbPrintSetting.toDomain v.Key; Name = v.Name }
 
 type Db(connectionString: string) =
-    let createConnection() =
-        new NpgsqlConnection(connectionString) :> IDbConnection
+    let dataSource = NpgsqlDataSource.Create(connectionString)
+    interface IAsyncDisposable with
+        member _.DisposeAsync() = dataSource.DisposeAsync()
 
     member _.GetActiveCompositions() = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         let! compositions = connection.QueryAsync<DbActiveComposition>("SELECT id, title FROM composition WHERE is_active = true") |> Async.AwaitTask
         let compositionIds = [| for v in compositions -> v.id |]
         let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT composition_id, id, name FROM voice WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
@@ -99,7 +100,7 @@ type Db(connectionString: string) =
     }
 
     member _.GetCompositionVoices(compositionId: string) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         let! voices = connection.QueryAsync<DbVoice>("SELECT id, name FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
@@ -108,13 +109,13 @@ type Db(connectionString: string) =
     }
 
     member _.GetPrintableVoice (_compositionId: string, voiceId: string) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         let! voice = connection.QuerySingleAsync<DbPrintableVoice>("SELECT file, print_setting_id FROM voice WHERE id = @VoiceId", {| VoiceId = int voiceId |}) |> Async.AwaitTask
         return DbPrintableVoice.toDomain voice
     }
 
     member _.GetCompositions() = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         let! compositions = connection.QueryAsync<DbComposition>("SELECT id, title, is_active FROM composition") |> Async.AwaitTask
         return
             compositions
@@ -123,20 +124,20 @@ type Db(connectionString: string) =
     }
 
     member _.GetComposition (compositionId: string) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask
         return DbComposition.toDomain composition
     }
 
     member _.CreateComposition (newComposition: NewComposition) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         connection.Open()
         let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, is_active) VALUES(@Title, false) RETURNING id", {| Title = newComposition.Title |}) |> Async.AwaitTask
         return string compositionId
     }
 
     member _.UpdateComposition (compositionId: string) (compositionUpdate: CompositionUpdate) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         connection.Open()
         use tx = connection.BeginTransaction()
         let updateFields =
@@ -164,12 +165,12 @@ type Db(connectionString: string) =
     }
 
     member _.DeleteComposition (compositionId: string) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         do! connection.ExecuteAsync("DELETE FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask |> Async.Ignore
     }
 
     member _.GetFullCompositionVoices (compositionId: string) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
@@ -178,7 +179,7 @@ type Db(connectionString: string) =
     }
 
     member _.CreateVoice (compositionId: string) (createVoice: CreateVoice) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         connection.Open()
         let command = "INSERT INTO voice (name, file, composition_id, print_setting_id) VALUES(@Name, @File, @CompositionId, @PrintSettingId) RETURNING id"
         let commandArgs = {|
@@ -192,7 +193,7 @@ type Db(connectionString: string) =
     }
 
     member _.UpdateVoice (_compositionId: string) (voiceId: string) (updateVoice: UpdateVoice) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         connection.Open()
         use tx = connection.BeginTransaction()
         let updateFields =
@@ -225,12 +226,12 @@ type Db(connectionString: string) =
     }
 
     member _.DeleteVoice (_compositionId: string) (voiceId: string) = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         do! connection.ExecuteAsync("DELETE FROM voice WHERE id = @Id", {| Id = int voiceId |}) |> Async.AwaitTask |> Async.Ignore
     }
 
     member _.GetPrintSettings() = async {
-        use connection = createConnection()
+        use connection = dataSource.CreateConnection()
         let! compositions = connection.QueryAsync<DbVoicePrintSetting>("SELECT \"key\", name FROM voice_print_setting") |> Async.AwaitTask
         return
             compositions
