@@ -3,18 +3,18 @@ import { PageSizes, PDFContentStream, PDFDocument, popGraphicsState, pushGraphic
 
 export type PdfModification = {
   type: 'scaleToA4',
-  pages: number[]
+  pages?: number[]
 } | {
   type: 'zoom',
-  bounds: { x: number, y: number, width: number, height: number },
-  pages: number[]
+  relativeBounds: { x: number, y: number, width: number, height: number },
+  pages?: number[]
 } | {
   type: 'remove',
-  pages: number[]
+  pages?: number[]
 } | {
   type: 'rotate',
   degrees: number,
-  pages: number[]
+  pages?: number[]
 }
 
 export module Pdf {
@@ -30,18 +30,25 @@ export module Pdf {
     const modifiedDoc = await doc.copy()
     switch (modification.type) {
       case "scaleToA4":
-        scalePagesToA4(modifiedDoc, modification.pages)
+        scalePagesToA4(modifiedDoc, getPages(modifiedDoc, modification.pages))
         return modifiedDoc
       case "zoom":
-        zoom(modifiedDoc, modification.pages, modification.bounds)
+        zoom(modifiedDoc, getPages(modifiedDoc, modification.pages), modification.relativeBounds)
         return modifiedDoc
       case "remove":
-        removePages(modifiedDoc, modification.pages)
+        removePages(modifiedDoc, getPages(modifiedDoc, modification.pages))
         return modifiedDoc
       case "rotate":
-        rotatePages(modifiedDoc, modification.pages, modification.degrees)
+        rotatePages(modifiedDoc, getPages(modifiedDoc, modification.pages), modification.degrees)
         return modifiedDoc
     }
+  }
+
+  const getPages = (modifiedDoc: PDFDocument, pages: number[] | undefined) => {
+    if (pages === undefined) {
+      return _.range(0, modifiedDoc.getPageCount())
+    }
+    return pages
   }
 
   const scalePagesToA4 = (doc: PDFDocument, pageNumbers: number[]) => {
@@ -54,9 +61,15 @@ export module Pdf {
     }
   }
 
-  const zoom = (doc: PDFDocument, pageNumbers: number[], bounds: {x: number, y: number, width: number, height: number}) => {
+  const zoom = (doc: PDFDocument, pageNumbers: number[], relativeBounds: {x: number, y: number, width: number, height: number}) => {
     for (const pageNumber of pageNumbers) {
       const page = doc.getPage(pageNumber)
+      const bounds = {
+        x: relativeBounds.x * page.getSize().width,
+        y: relativeBounds.y * page.getSize().height,
+        width: relativeBounds.width * page.getSize().width,
+        height: relativeBounds.height * page.getSize().height
+      }
       const { ratio, translateX, translateY } = getScaleRatio(bounds, page.getSize())
       page.translateContent(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2)
       page.scaleContent(ratio, ratio)

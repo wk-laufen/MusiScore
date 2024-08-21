@@ -10,20 +10,26 @@ import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
 import PdfPreview from './PdfPreview.vue'
 import { chunk, first, last } from 'lodash-es'
+import { Pdf, type PdfModification } from './Pdf'
 
-const deserializeFile = (text?: string) => {
+const deserializeFile = (text: string | undefined) => {
   if (text === undefined) return undefined
 
   return Uint8Array.from(atob(text), m => m.codePointAt(0) as number)
 }
 
-const serializeFile = (content?: ArrayBuffer) => {
+const serializeFile = (content: ArrayBuffer | undefined) => {
   if (content === undefined) return undefined
 
   const encodedContent = chunk(new Uint8Array(content), 0x10FFF) // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/fromCodePoint
     .map(chunk => String.fromCodePoint(...chunk))
     .reduce((a, b) => a + b)
   return btoa(encodedContent)
+}
+
+const serializeVoiceFile = async (content: Uint8Array | undefined, modifications: PdfModification[]) => {
+  if (content === undefined) return undefined
+  return serializeFile(await Pdf.applyModifications(content, modifications))
 }
 
 defineEmits<{
@@ -56,7 +62,8 @@ type EditableVoiceState =
 type EditableVoice = Omit<Voice, 'links' | 'file'> & {
   state: EditableVoiceState
   nameValidationState: ValidationState
-  file?: Uint8Array
+  originalFile?: Uint8Array
+  fileModifications: ({ id: string } & PdfModification)[]
   fileValidationState: ValidationState
   printSettingValidationState: ValidationState
   isSaving: boolean
@@ -69,7 +76,8 @@ const parseLoadedVoice = (voice: Voice) : EditableVoice => {
     state: { type: 'loadedVoice', isMarkedForDeletion: false, links: voice.links },
     name: voice.name,
     nameValidationState: { type: 'success' },
-    file: deserializeFile(voice.file),
+    originalFile: deserializeFile(voice.file),
+    fileModifications: [],
     fileValidationState: { type: 'success' },
     printSetting: voice.printSetting,
     printSettingValidationState: { type: 'success' },
@@ -129,8 +137,23 @@ watch(activeVoiceFile, async v =>
   if (!activeVoice.value.name) {
     activeVoice.value.name = v.name.substring(0, v.name.lastIndexOf('.'))
   }
-  activeVoice.value.file = new Uint8Array(await v.arrayBuffer())
+  activeVoice.value.originalFile = new Uint8Array(await v.arrayBuffer())
 })
+
+const voiceFileWithModifications = ref<Uint8Array>()
+watch(
+  [() => activeVoice.value?.originalFile, () => activeVoice.value?.fileModifications], async ([originalFile, fileModifications]) => {
+  if (originalFile === undefined || fileModifications === undefined) return
+
+  voiceFileWithModifications.value = await Pdf.applyModifications(originalFile, fileModifications)
+}, { deep: true })
+
+let nextModificationId = 1
+const addVoiceFileModification = (modification: PdfModification) => {
+  if (activeVoice.value === undefined) return
+
+  activeVoice.value.fileModifications.push({ id: `${nextModificationId++}`, ...modification })
+}
 
 // TODO mark voice as dirty if property changes
 
@@ -141,7 +164,8 @@ const addVoice = () => {
     state: { type: 'newVoice' },
     name: '',
     nameValidationState: { type: 'notValidated' },
-    file: undefined,
+    originalFile: undefined,
+    fileModifications: [],
     fileValidationState: { type: 'notValidated' },
     printSetting: '',
     printSettingValidationState: { type: 'notValidated' },
@@ -207,7 +231,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: voice.name,
-        file: serializeFile(voice.file),
+        file: await serializeVoiceFile(voice.originalFile, voice.fileModifications),
         printSetting: voice.printSetting
       })
     })
@@ -339,7 +363,34 @@ const saveComposition = async () => {
           <SelectInput v-if="printSettings !== undefined" title="Druckeinstellung" :options="printSettings.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printSettingValidationState" v-model="activeVoice.printSetting" />
           <ErrorWithRetry v-else-if="hasLoadingPrintSettingsFailed" type="inline" @retry="loadPrintSettings" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
         </div>
-        <PdfPreview :file="activeVoice.file" class="mt-6" />
+        <div class="my-2">
+          <span class="input-label">PDF bearbeiten</span>
+          <div class="flex flex-row gap-2">
+            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'scaleToA4' })">Seitenformat auf A4 ändern</a>
+            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'zoom', relativeBounds: { x: 0, y: 0, width: 1, height: 1 } })">Zoomen</a>
+            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'remove' })">Seiten entfernen</a>
+            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'rotate', degrees: 0 })">Seiten drehen</a>
+          </div>
+          <ol class="mt-2 list-decimal list-inside">
+            <li v-for="modification in activeVoice.fileModifications" :key="modification.id">
+              <template v-if="modification.type === 'scaleToA4'">Seitenformat auf A4 ändern</template>
+              <template v-else-if="modification.type === 'zoom'">
+                <div class="inline-flex flex-row items-baseline gap-2">
+                  <span>Zoomen -</span>
+                  <label>X: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.x"></label>
+                  <label>Y: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.y"></label>
+                  <label>Breite: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.width"></label>
+                  <label>Höhe: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.height"></label>
+                </div>
+              </template>
+              <template v-else-if="modification.type === 'remove'">Seiten entfernen</template>
+              <template v-else-if="modification.type === 'rotate'">
+                <span>Seiten um <input class="input-text !w-20" type="number" step="0.1" v-model="modification.degrees"> Grad drehen</span>
+              </template>
+            </li>
+          </ol>
+        </div>
+        <PdfPreview :file="voiceFileWithModifications" class="mt-6" />
       </div>
     </template>
   </div>
