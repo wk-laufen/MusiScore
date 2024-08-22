@@ -158,7 +158,11 @@ const addVoiceFileModification = (modification: PdfModification) => {
   activeVoice.value.fileModifications.push({ id: `${nextModificationId++}`, ...modification })
 }
 
-// TODO mark voice as dirty if property changes
+watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
+  if (newActiveVoice !== undefined && oldActiveVoice === newActiveVoice && newActiveVoice.state.type === 'loadedVoice') {
+    newActiveVoice.state = { ...newActiveVoice.state, type: 'modifiedVoice' }
+  }
+}, { deep: true })
 
 const addVoice = () => {
   if (composition.value === undefined) return
