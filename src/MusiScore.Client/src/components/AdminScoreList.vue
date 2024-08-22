@@ -69,14 +69,9 @@ const startEditComposition = (composition: CompositionListItem) => {
   }
 }
 
-const compositionSaved = (oldComposition: CompositionListItem | undefined, newComposition: CompositionListItem) => {
-  if (!compositionList.value || !editComposition.value) return
-
+const cancelEdit = async () => {
   editComposition.value = undefined
-  const compositions = compositionList.value.compositions.filter(v => v !== oldComposition)
-  compositions.push(newComposition)
-  compositions.sort((a, b) => a.title.localeCompare(b.title))
-  compositionList.value.compositions = compositions
+  await loadCompositions()
 }
 
 const compositionDeleted = (composition: CompositionListItem) => {
@@ -101,7 +96,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
       :type="editComposition.type"
       :print-settings-url="editComposition.printSettingsUrl"
       :composition-url="editComposition.compositionUrl"
-      @cancel-edit="editComposition = undefined" />
+      @cancel-edit="cancelEdit" />
   </div>
   <div id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex p-4 gap-4">
     <button v-if="compositionList !== undefined && compositionList.compositions.length > 0 && editComposition === undefined" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>
