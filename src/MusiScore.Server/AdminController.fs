@@ -142,6 +142,7 @@ type AdminController(db: Db) =
                     |}
                     Voices =
                         voices
+                        |> Seq.sortBy (fun v -> v.Name)
                         |> Seq.map (fun v -> {
                             Name = v.Name
                             File = v.File
