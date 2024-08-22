@@ -244,20 +244,13 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
     }
     else if (result.response !== undefined && result.response.status === 400) {
       const errors = await result.response.json() as SaveVoiceServerError[]
-      for (const error of errors) {
-        if (error === 'EmptyName') {
-          voice.nameValidationState = { type: 'error', error: 'Bitte geben Sie den Namen der Stimme ein.' }
-        }
-        if (error === 'EmptyFile') {
-          voice.fileValidationState = { type: 'error', error: 'Bitte wählen Sie eine PDF-Datei aus.' }
-        }
-        else if (error === 'InvalidFile') {
-          voice.fileValidationState = { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
-        }
-        if (error === 'UnknownPrintSetting') {
-          voice.printSettingValidationState = { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' }
-        }
-      }
+      voice.nameValidationState = errors.includes('EmptyName') ? { type: 'error', error: 'Bitte geben Sie den Namen der Stimme ein.' } : { type: 'success' }
+      voice.fileValidationState = errors.includes('EmptyFile')
+        ? { type: 'error', error: 'Bitte wählen Sie eine PDF-Datei aus.' }
+        : errors.includes('InvalidFile')
+          ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
+          : { type: 'success' }
+      voice.printSettingValidationState = errors.includes('UnknownPrintSetting') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
       return voice
     }
     else {
