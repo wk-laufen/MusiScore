@@ -65,10 +65,10 @@ export module Pdf {
     for (const pageNumber of pageNumbers) {
       const page = doc.getPage(pageNumber)
       const bounds = {
-        x: relativeBounds.x * page.getSize().width,
-        y: relativeBounds.y * page.getSize().height,
-        width: relativeBounds.width * page.getSize().width,
-        height: relativeBounds.height * page.getSize().height
+        x: relativeBounds.x * page.getWidth(),
+        y: relativeBounds.y * page.getHeight(),
+        width: relativeBounds.width * page.getWidth(),
+        height: relativeBounds.height * page.getHeight()
       }
       const { ratio, translateX, translateY } = getScaleRatio(bounds, page.getSize())
       page.translateContent(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2)
@@ -93,10 +93,10 @@ export module Pdf {
       page.node.normalize()
       const startOperations = [
         pushGraphicsState(),
-        translate(page.getSize().width / 2, page.getSize().height / 2),
+        translate(page.getWidth() / 2, page.getHeight() / 2),
         rotateDegrees(-degrees),
         scale(ratio, ratio),
-        translate(-page.getSize().width / 2, -page.getSize().height / 2),
+        translate(-page.getWidth() / 2, -page.getHeight() / 2),
       ]
       const endOperations = [ popGraphicsState() ]
       page.node.wrapContentStreams(
