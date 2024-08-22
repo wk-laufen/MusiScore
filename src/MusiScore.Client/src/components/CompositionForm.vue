@@ -374,6 +374,7 @@ const saveComposition = async () => {
             <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'zoom', relativeBounds: { x: 0, y: 0, width: 1, height: 1 } })">Zoomen</a>
             <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'remove' })">Seiten entfernen</a>
             <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'rotate', degrees: 0 })">Seiten drehen</a>
+            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'cutPageLeftRight' })">Seiten in linke und rechte Hälfte teilen</a>
           </div>
           <ol class="mt-2 list-decimal list-inside">
             <li v-for="modification in activeVoice.fileModifications" :key="modification.id">
@@ -390,6 +391,9 @@ const saveComposition = async () => {
               <template v-else-if="modification.type === 'remove'">Seiten entfernen</template>
               <template v-else-if="modification.type === 'rotate'">
                 <span>Seiten um <input class="input-text !w-20" type="number" step="0.1" v-model="modification.degrees"> Grad drehen</span>
+              </template>
+              <template v-else-if="modification.type === 'cutPageLeftRight'">
+                <span>Seiten in linke und rechte Hälfte teilen</span>
               </template>
             </li>
           </ol>

@@ -15,6 +15,9 @@ export type PdfModification = {
   type: 'rotate',
   degrees: number,
   pages?: number[]
+} | {
+  type: 'cutPageLeftRight',
+  pages?: number[]
 }
 
 export module Pdf {
@@ -40,6 +43,9 @@ export module Pdf {
         return modifiedDoc
       case "rotate":
         rotatePages(modifiedDoc, getPages(modifiedDoc, modification.pages), modification.degrees)
+        return modifiedDoc
+      case "cutPageLeftRight":
+        cutPageLeftRight(modifiedDoc, getPages(modifiedDoc, modification.pages))
         return modifiedDoc
     }
   }
@@ -103,6 +109,19 @@ export module Pdf {
         page.doc.context.register(PDFContentStream.of(page.doc.context.obj({}), startOperations)),
         page.doc.context.register(PDFContentStream.of(page.doc.context.obj({}), endOperations))
       )
+    }
+  }
+
+  const cutPageLeftRight = async (doc: PDFDocument, pageNumbers: number[]) => {
+    const pages = await doc.copyPages(doc, pageNumbers)
+    for (const [index, page] of _.orderBy(_.zip(pageNumbers, pages), ([index, _]) => index, 'desc')) {
+      if (index === undefined || page === undefined) continue
+      const centerX = page.getWidth() / 2
+      const page1 = doc.insertPage(index, page)
+      page1.setSize(centerX, page.getHeight())
+      const page2 = doc.getPage(index + 1)
+      page2.translateContent(-centerX, 0)
+      page2.setSize(centerX, page.getHeight())
     }
   }
 
