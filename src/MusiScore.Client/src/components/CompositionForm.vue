@@ -69,7 +69,15 @@ type EditableVoice = Omit<Voice, 'links' | 'file'> & {
   isSaving: boolean
   hasSavingFailed: boolean
 }
-type EditableComposition = { title: string, titleValidationState: ValidationState, voices: EditableVoice[] }
+type EditableComposition = {
+  title: string
+  titleValidationState: ValidationState
+  voices: EditableVoice[]
+  links: {
+    self: string
+    voices?: string
+  }
+}
 
 const parseLoadedVoice = (voice: Voice) : EditableVoice => {
   return {
@@ -86,15 +94,6 @@ const parseLoadedVoice = (voice: Voice) : EditableVoice => {
   }
 }
 
-const parseLoadedComposition = (loadedComposition: FullComposition) : EditableComposition => {
-  return {
-    title: loadedComposition.title,
-    titleValidationState: { type: 'success' },
-    voices: loadedComposition.voices.map(parseLoadedVoice)
-  }
-}
-
-const loadedComposition = ref<FullComposition>()
 const composition = ref<EditableComposition>()
 const activeVoice = ref<EditableVoice>()
 const isLoading = ref(false)
@@ -102,22 +101,26 @@ const hasLoadingFailed = ref(false)
 const loadComposition = async () => {
   switch (modifyType.value) {
     case 'create':
-      loadedComposition.value = {
+      composition.value = {
         title: '',
-        isActive: false,
+        titleValidationState: { type: 'success' },
+        voices: [],
         links: {
           self: props.compositionUrl,
           voices: undefined
-        },
-        voices: []
+        }
       }
-      composition.value = parseLoadedComposition(loadedComposition.value)
       break
     case 'edit': {
       const result = await uiFetch(isLoading, hasLoadingFailed, props.compositionUrl)
       if (result.succeeded) {
-        loadedComposition.value = (await result.response.json() as FullComposition)
-        composition.value = parseLoadedComposition(loadedComposition.value)
+        const loadedComposition = (await result.response.json() as FullComposition)
+        composition.value = {
+          title: loadedComposition.title,
+          titleValidationState: { type: 'success' },
+          voices: loadedComposition.voices.map(parseLoadedVoice),
+          links: loadedComposition.links
+        }
         activeVoice.value = first(composition.value.voices)
       }
       break
@@ -285,13 +288,13 @@ const isSavingComposition = ref(false)
 const hasSavingCompositionFailed = ref(false)
 
 const saveComposition = async () => {
-  if (composition.value === undefined || loadedComposition.value === undefined) return
+  if (composition.value === undefined) return
 
   composition.value.titleValidationState = { type: 'notValidated' }
 
   try {
     isSaving.value = true
-    const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, loadedComposition.value.links.self, {
+    const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, composition.value.links.self, {
       method: getCompositionSaveMethod(),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: composition.value.title })
@@ -302,7 +305,11 @@ const saveComposition = async () => {
       const activeVoiceIndex = activeVoice.value !== undefined ? composition.value.voices.indexOf(activeVoice.value) : -1
       const activeVoiceIndexOrFirst = activeVoiceIndex === -1 ? 0 : activeVoiceIndex
       const savedVoices = await saveVoices(composition.value.voices, compositionListItem.links.voices)
-      composition.value.voices = savedVoices.filter(v => v !== undefined) as EditableVoice[]
+      composition.value = {
+        ...compositionListItem,
+        titleValidationState: { type: 'success' },
+        voices: savedVoices.filter(v => v !== undefined) as EditableVoice[]
+      }
       updateActiveVoice(savedVoices, activeVoiceIndexOrFirst)
     }
     else if (result.response !== undefined && result.response.status === 400) {
