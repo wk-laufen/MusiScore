@@ -103,8 +103,8 @@ const compositionDeleted = (composition: CompositionListItem) => {
       :composition-url="editComposition.compositionUrl"
       @cancel-edit="editComposition = undefined" />
   </div>
-  <div id="command-bar" class="basis-auto grow-0 shrink-0 flex justify-end m-4 gap-4">
-    <button v-if="compositionList !== undefined && compositionList.compositions.length > 0" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>
+  <div id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex p-4 gap-4">
+    <button v-if="compositionList !== undefined && compositionList.compositions.length > 0 && editComposition === undefined" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>
     <button v-if="editComposition === undefined" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
   </div>
 </template>
