@@ -3,10 +3,18 @@ import { computed, ref, toRaw, watch } from 'vue'
 import { RenderingCancelledException, type PDFDocumentProxy } from 'pdfjs-dist'
 import LoadingBar from './LoadingBar.vue'
 
-const props = defineProps<{
-  pdfDoc: PDFDocumentProxy
-  pageNumber: number
-  isLoadingDocument: boolean
+const props = withDefaults(
+  defineProps<{
+    pdfDoc: PDFDocumentProxy
+    pageNumber: number
+    isSelected: boolean
+    isLoadingDocument: boolean
+  }>(),
+  { isSelected: false }
+)
+
+defineEmits<{
+  'switchPageSelection': []
 }>()
 
 const container = ref<HTMLCanvasElement>()
@@ -51,7 +59,7 @@ const isLoading = computed(() => props.isLoadingDocument || isLoadingPage.value)
 
 <template>
   <div class="grid">
-    <canvas ref="container" class="row-span-full col-span-full border"></canvas>
+    <canvas ref="container" class="row-span-full col-span-full border" :class="{'border-musi-blue': isSelected}" @click="$emit('switchPageSelection')"></canvas>
     <div v-if="isLoading" class="row-span-full col-span-full bg-white opacity-50"></div>
     <LoadingBar v-if="isLoading" type="minimal" class="row-span-full col-span-full place-self-center"></LoadingBar>
   </div>

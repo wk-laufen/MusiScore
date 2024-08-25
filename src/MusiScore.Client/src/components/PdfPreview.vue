@@ -4,8 +4,11 @@ import { type PDFDocumentProxy, getDocument, GlobalWorkerOptions } from 'pdfjs-d
 import { range } from 'lodash-es'
 import PdfPage from './PdfPage.vue'
 import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
+import _ from 'lodash'
 
 GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
+
+const selectedPages = defineModel<readonly number[]>('selectedPages', { default: [] })
 
 const props = defineProps<{
   file?: Uint8Array
@@ -41,6 +44,13 @@ watch(() => props.file, async (file, _, onCleanup) => {
   }
 }, { immediate: true })
 
+const switchPageSelection = (pageNumber: number) => {
+  if (selectedPages.value.includes(pageNumber)) {
+    selectedPages.value = _.without(selectedPages.value, pageNumber)
+  }
+  else {
+    selectedPages.value = _.orderBy(selectedPages.value.concat(pageNumber))
+  }
 }
 </script>
 
@@ -49,6 +59,8 @@ watch(() => props.file, async (file, _, onCleanup) => {
     <PdfPage v-for="pageNumber in range(1, pdfDoc.numPages + 1)" :key="pageNumber"
       :pdf-doc="pdfDoc"
       :page-number="pageNumber"
-      :is-loading-document="isLoadingDocument" />
+      :is-loading-document="isLoadingDocument"
+      :is-selected="selectedPages.includes(pageNumber - 1)"
+      @switch-page-selection="switchPageSelection(pageNumber - 1)" />
   </div>
 </template>

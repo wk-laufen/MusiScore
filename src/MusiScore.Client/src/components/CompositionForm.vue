@@ -10,11 +10,11 @@ import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
 import PdfPreview from './PdfPreview.vue'
 import { chunk, first, last } from 'lodash-es'
-import { Pdf, type PdfModification } from './Pdf'
+import { Pdf, type PDFFile, type PdfModification } from './Pdf'
+import _ from 'lodash'
 
 const deserializeFile = (text: string | undefined) => {
   if (text === undefined) return undefined
-
   return Uint8Array.from(atob(text), m => m.codePointAt(0) as number)
 }
 
@@ -29,7 +29,8 @@ const serializeFile = (content: ArrayBuffer | undefined) => {
 
 const serializeVoiceFile = async (content: Uint8Array | undefined, modifications: PdfModification[]) => {
   if (content === undefined) return undefined
-  return serializeFile(await Pdf.applyModifications(content, modifications))
+  const file = await Pdf.applyModifications(content, modifications)
+  return serializeFile(file.data)
 }
 
 defineEmits<{
@@ -146,7 +147,7 @@ watch(activeVoiceFile, async v =>
   activeVoice.value.originalFile = new Uint8Array(await v.arrayBuffer())
 })
 
-const voiceFileWithModifications = ref<Uint8Array>()
+const voiceFileWithModifications = ref<PDFFile>()
 watch(
   [() => activeVoice.value?.originalFile, () => activeVoice.value?.fileModifications], async ([originalFile, fileModifications]) => {
   if (originalFile === undefined || fileModifications === undefined) {
@@ -156,6 +157,23 @@ watch(
 
   voiceFileWithModifications.value = await Pdf.applyModifications(originalFile, fileModifications)
 }, { deep: true })
+
+const selectedFilePages = ref([] as readonly number[])
+const selectAllPages = () => {
+  if (voiceFileWithModifications.value === undefined) {
+    selectedFilePages.value = []
+    return
+  }
+  selectedFilePages.value = _.range(0, voiceFileWithModifications.value.pageCount)
+}
+
+watch(() => voiceFileWithModifications.value?.pageCount, (pageCount) => {
+  if (pageCount === undefined) {
+    selectedFilePages.value = []
+    return
+  }
+  selectedFilePages.value = selectedFilePages.value.filter(v => v < pageCount)
+})
 
 let nextModificationId = 1
 const addVoiceFileModification = (modification: PdfModification) => {
@@ -376,12 +394,16 @@ const saveComposition = async () => {
         </div>
         <div class="my-2">
           <span class="input-label">PDF bearbeiten</span>
-          <div class="flex flex-row gap-2">
-            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'scaleToA4' })">Seitenformat auf A4 ändern</a>
-            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'zoom', relativeBounds: { x: 0, y: 0, width: 1, height: 1 } })">Zoomen</a>
-            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'remove' })">Seiten entfernen</a>
-            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'rotate', degrees: 0 })">Seiten drehen</a>
-            <a class="btn btn-blue" @click="addVoiceFileModification({ type: 'cutPageLeftRight' })">Seiten in linke und rechte Hälfte teilen</a>
+          <div class="flex flex-row flex-wrap gap-2">
+            <button class="btn btn-blue" @click="selectAllPages()" :disabled="selectedFilePages.length === voiceFileWithModifications?.pageCount">Alle Seiten auswählen</button>
+            <button class="btn btn-blue" @click="selectedFilePages = []" :disabled="selectedFilePages.length === 0">Seitenauswahl aufheben</button>
+          </div>
+          <div class="mt-2 flex flex-row flex-wrap gap-2">
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'scaleToA4', pages: selectedFilePages })" :disabled="selectedFilePages.length === 0">Seitenformat auf A4 ändern</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'zoom', pages: selectedFilePages, relativeBounds: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 } })" :disabled="selectedFilePages.length === 0">Zoomen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'remove', pages: selectedFilePages })" :disabled="selectedFilePages.length === 0">Seiten entfernen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotate', pages: selectedFilePages, degrees: 0 })" :disabled="selectedFilePages.length === 0">Seiten drehen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
           </div>
           <ol class="mt-2 list-decimal list-inside">
             <li v-for="modification in activeVoice.fileModifications" :key="modification.id">
@@ -395,7 +417,9 @@ const saveComposition = async () => {
                   <label>Höhe: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.height"></label>
                 </div>
               </template>
-              <template v-else-if="modification.type === 'remove'">Seiten entfernen</template>
+              <template v-else-if="modification.type === 'remove'">
+                <span>{{ modification.pages.length === 1 ? 'Seite' : 'Seiten' }} {{ modification.pages.map(v => v + 1).join(', ') }} entfernen</span>
+              </template>
               <template v-else-if="modification.type === 'rotate'">
                 <span>Seiten um <input class="input-text !w-20" type="number" step="0.1" v-model="modification.degrees"> Grad drehen</span>
               </template>
@@ -405,7 +429,7 @@ const saveComposition = async () => {
             </li>
           </ol>
         </div>
-        <PdfPreview :file="voiceFileWithModifications" class="mt-6" />
+        <PdfPreview :file="voiceFileWithModifications?.data" v-model:selected-pages="selectedFilePages" class="mt-6" />
       </div>
     </template>
   </div>

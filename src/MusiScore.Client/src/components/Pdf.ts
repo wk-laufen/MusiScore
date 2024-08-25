@@ -3,61 +3,62 @@ import { PageSizes, PDFContentStream, PDFDocument, popGraphicsState, pushGraphic
 
 export type PdfModification = {
   type: 'scaleToA4',
-  pages?: number[]
+  pages: readonly number[]
 } | {
   type: 'zoom',
   relativeBounds: { x: number, y: number, width: number, height: number },
-  pages?: number[]
+  pages: readonly number[]
 } | {
   type: 'remove',
-  pages?: number[]
+  pages: readonly number[]
 } | {
   type: 'rotate',
   degrees: number,
-  pages?: number[]
+  pages: readonly number[]
 } | {
   type: 'cutPageLeftRight',
-  pages?: number[]
+  pages: readonly number[]
+}
+
+export type PDFFile = {
+  data: Uint8Array
+  pageCount: number
 }
 
 export module Pdf {
-  export const applyModifications = async (doc: Uint8Array, modifications: PdfModification[]) => {
+  export const applyModifications = async (doc: Uint8Array, modifications: PdfModification[]) : Promise<PDFFile> => {
     let pdfDoc = await PDFDocument.load(doc)
     for (const modification of modifications) {
       pdfDoc = await applyModification(pdfDoc, modification)
     }
-    return await pdfDoc.save()
+    return {
+      data: await pdfDoc.save(),
+      pageCount: pdfDoc.getPageCount()
+    }
   }
 
   const applyModification = async (doc: PDFDocument, modification: PdfModification) : Promise<PDFDocument> => {
     const modifiedDoc = await doc.copy()
     switch (modification.type) {
       case "scaleToA4":
-        scalePagesToA4(modifiedDoc, getPages(modifiedDoc, modification.pages))
+        scalePagesToA4(modifiedDoc, modification.pages)
         return modifiedDoc
       case "zoom":
-        zoom(modifiedDoc, getPages(modifiedDoc, modification.pages), modification.relativeBounds)
+        zoom(modifiedDoc, modification.pages, modification.relativeBounds)
         return modifiedDoc
       case "remove":
-        removePages(modifiedDoc, getPages(modifiedDoc, modification.pages))
+        removePages(modifiedDoc, modification.pages)
         return modifiedDoc
       case "rotate":
-        rotatePages(modifiedDoc, getPages(modifiedDoc, modification.pages), modification.degrees)
+        rotatePages(modifiedDoc, modification.pages, modification.degrees)
         return modifiedDoc
       case "cutPageLeftRight":
-        cutPageLeftRight(modifiedDoc, getPages(modifiedDoc, modification.pages))
+        cutPageLeftRight(modifiedDoc, modification.pages)
         return modifiedDoc
     }
   }
 
-  const getPages = (modifiedDoc: PDFDocument, pages: number[] | undefined) => {
-    if (pages === undefined) {
-      return _.range(0, modifiedDoc.getPageCount())
-    }
-    return pages
-  }
-
-  const scalePagesToA4 = (doc: PDFDocument, pageNumbers: number[]) => {
+  const scalePagesToA4 = (doc: PDFDocument, pageNumbers: readonly number[]) => {
     for (const pageNumber of pageNumbers) {
       const page = doc.getPage(pageNumber)
       const { ratio, translateX, translateY } = getScaleRatio(page.getSize(), { width: PageSizes.A4[0], height: PageSizes.A4[1] })
@@ -67,7 +68,7 @@ export module Pdf {
     }
   }
 
-  const zoom = (doc: PDFDocument, pageNumbers: number[], relativeBounds: {x: number, y: number, width: number, height: number}) => {
+  const zoom = (doc: PDFDocument, pageNumbers: readonly number[], relativeBounds: {x: number, y: number, width: number, height: number}) => {
     for (const pageNumber of pageNumbers) {
       const page = doc.getPage(pageNumber)
       const bounds = {
@@ -83,13 +84,13 @@ export module Pdf {
     }
   }
 
-  const removePages = (doc: PDFDocument, pageNumbers: number[]) => {
+  const removePages = (doc: PDFDocument, pageNumbers: readonly number[]) => {
     for (const pageNumber of _.orderBy(pageNumbers, v => v, 'desc')) {
       doc.removePage(pageNumber)
     }
   }
 
-  const rotatePages = (doc: PDFDocument, pageNumbers: number[], degrees: number) => {
+  const rotatePages = (doc: PDFDocument, pageNumbers: readonly number[], degrees: number) => {
     for (const pageNumber of pageNumbers) {
       const page = doc.getPage(pageNumber)
 
@@ -112,9 +113,9 @@ export module Pdf {
     }
   }
 
-  const cutPageLeftRight = async (doc: PDFDocument, pageNumbers: number[]) => {
-    const pages = await doc.copyPages(doc, pageNumbers)
-    for (const [index, page] of _.orderBy(_.zip(pageNumbers, pages), ([index, _]) => index, 'desc')) {
+  const cutPageLeftRight = async (doc: PDFDocument, pageNumbers: readonly number[]) => {
+    const pages = await doc.copyPages(doc, pageNumbers.slice())
+    for (const [index, page] of _(_.zip(pageNumbers, pages)).orderBy(([index, _]) => index, 'desc').value()) {
       if (index === undefined || page === undefined) continue
       const centerX = page.getWidth() / 2
       const page1 = doc.insertPage(index, page)
