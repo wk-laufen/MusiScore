@@ -60,6 +60,7 @@ type EditableVoiceState =
     | { type: 'newVoice' }
     | { type: 'modifiedVoice', isMarkedForDeletion: boolean, links: { self: string } }
 type EditableVoice = Omit<Voice, 'links' | 'file'> & {
+  id: number
   state: EditableVoiceState
   nameValidationState: ValidationState
   originalFile?: Uint8Array
@@ -79,8 +80,10 @@ type EditableComposition = {
   }
 }
 
-const parseLoadedVoice = (voice: Voice) : EditableVoice => {
+let nextVoiceId = 1
+const parseLoadedVoice = (voice: Voice, voiceId?: number) : EditableVoice => {
   return {
+    id: voiceId || nextVoiceId++,
     state: { type: 'loadedVoice', isMarkedForDeletion: false, links: voice.links },
     name: voice.name,
     nameValidationState: { type: 'success' },
@@ -168,6 +171,7 @@ const addVoice = () => {
   if (composition.value === undefined) return
 
   composition.value.voices.push({
+    id: nextVoiceId++,
     state: { type: 'newVoice' },
     name: '',
     nameValidationState: { type: 'notValidated' },
@@ -243,8 +247,8 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
       })
     })
     if (result.succeeded) {
-      const voice = await result.response.json() as Voice
-      return parseLoadedVoice(voice)
+      const newVoice = await result.response.json() as Voice
+      return parseLoadedVoice(newVoice, voice.id)
     }
     else if (result.response !== undefined && result.response.status === 400) {
       const errors = await result.response.json() as SaveVoiceServerError[]
@@ -337,7 +341,7 @@ const saveComposition = async () => {
       <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" />
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
-        <li v-for="voice in composition.voices" :key="JSON.stringify(voice)">
+        <li v-for="voice in composition.voices" :key="voice.id">
           <a @click="activeVoice = voice" class="nav-item !flex items-center !pr-2" :class="{ active: activeVoice === voice }">
             <span :class="{
               'text-green-500': voice.state.type === 'newVoice',
