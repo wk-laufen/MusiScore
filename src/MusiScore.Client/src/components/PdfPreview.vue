@@ -12,25 +12,32 @@ const props = defineProps<{
 }>()
 
 const pdfDoc = ref<PDFDocumentProxy>()
+const isLoadingDocument = ref(false)
 watch(() => props.file, async (file, _, onCleanup) => {
   if (file === undefined) {
     pdfDoc.value = undefined
     return
   }
   
-  const loadDocTask = getDocument(file.slice())
-  onCleanup(() => loadDocTask.destroy())
   try {
-    pdfDoc.value = await loadDocTask.promise
+    isLoadingDocument.value = true
+    const loadDocTask = getDocument(file.slice())
+    onCleanup(() => loadDocTask.destroy())
+    try {
+      pdfDoc.value = await loadDocTask.promise
+    }
+    catch (e) {
+      if (e instanceof Error && e.message === 'Worker was destroyed') {
+        console.log('PDF document loading cancelled')
+      }
+      else {
+        console.error('PDF document loading failed', e)
+        // TODO notify user
+      }
+    }
   }
-  catch (e) {
-    if (e instanceof Error && e.message === 'Worker was destroyed') {
-      console.log('PDF document loading cancelled')
-    }
-    else {
-      console.error('PDF document loading failed', e)
-      // TODO notify user
-    }
+  finally {
+    isLoadingDocument.value = false
   }
 }, { immediate: true })
 
@@ -39,6 +46,9 @@ watch(() => props.file, async (file, _, onCleanup) => {
 
 <template>
   <div v-if="pdfDoc !== undefined" class="flex gap-2 flex-wrap items-center">
-    <PdfPage v-for="pageNumber in range(1, pdfDoc.numPages + 1)" :key="pageNumber" :pdf-doc="pdfDoc" :page-number="pageNumber" />
+    <PdfPage v-for="pageNumber in range(1, pdfDoc.numPages + 1)" :key="pageNumber"
+      :pdf-doc="pdfDoc"
+      :page-number="pageNumber"
+      :is-loading-document="isLoadingDocument" />
   </div>
 </template>
