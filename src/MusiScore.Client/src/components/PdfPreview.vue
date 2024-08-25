@@ -10,9 +10,13 @@ GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
 const selectedPages = defineModel<readonly number[]>('selectedPages', { default: [] })
 
-const props = defineProps<{
-  file?: Uint8Array
-}>()
+const props = withDefaults(
+  defineProps<{
+    file?: Uint8Array
+    isRotating: boolean
+  }>(),
+  { isRotating: false }
+)
 
 const pdfDoc = ref<PDFDocumentProxy>()
 const isLoadingDocument = ref(false)
@@ -61,6 +65,7 @@ const switchPageSelection = (pageNumber: number) => {
       :page-number="pageNumber"
       :is-loading-document="isLoadingDocument"
       :is-selected="selectedPages.includes(pageNumber - 1)"
+      :is-rotating="isRotating"
       @switch-page-selection="switchPageSelection(pageNumber - 1)" />
   </div>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, toRef } from 'vue'
+import { ref, watch, toRef, computed } from 'vue'
 import uiFetch from './UIFetch'
 import type { CompositionListItem, FullComposition, PrintSetting, SaveCompositionServerError, SaveVoiceServerError, Voice } from './AdminTypes'
 import type { ValidationState } from './Validation'
@@ -65,7 +65,7 @@ type EditableVoice = Omit<Voice, 'links' | 'file'> & {
   state: EditableVoiceState
   nameValidationState: ValidationState
   originalFile?: Uint8Array
-  fileModifications: ({ id: string } & PdfModification)[]
+  fileModifications: ({ id: string; isDraft: boolean } & PdfModification)[]
   fileValidationState: ValidationState
   printSettingValidationState: ValidationState
   isSaving: boolean
@@ -167,7 +167,7 @@ const selectAllPages = () => {
   selectedFilePages.value = _.range(0, voiceFileWithModifications.value.pageCount)
 }
 
-watch(() => voiceFileWithModifications.value?.pageCount, (pageCount) => {
+watch(() => voiceFileWithModifications.value?.pageCount, pageCount => {
   if (pageCount === undefined) {
     selectedFilePages.value = []
     return
@@ -175,11 +175,26 @@ watch(() => voiceFileWithModifications.value?.pageCount, (pageCount) => {
   selectedFilePages.value = selectedFilePages.value.filter(v => v < pageCount)
 })
 
+const lastFileModification = computed(() => activeVoice.value?.fileModifications.at(-1))
+
+watch(selectedFilePages, selectedPages => {
+  if (lastFileModification.value?.isDraft) {
+    lastFileModification.value.pages = selectedPages
+  }
+})
+
 let nextModificationId = 1
-const addVoiceFileModification = (modification: PdfModification) => {
+const addVoiceFileModification = (modification: { isDraft: boolean } & PdfModification) => {
   if (activeVoice.value === undefined) return
 
   activeVoice.value.fileModifications.push({ id: `${nextModificationId++}`, ...modification })
+}
+
+const pagesToString = (pages: readonly number[]) => {
+  if (pages.length === 1) return `Seite ${pages[0]}`
+  const list = pages.slice()
+  const lastPage = list.pop()
+  return `Seiten ${list.join(', ')} und ${lastPage}`
 }
 
 watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
@@ -399,18 +414,18 @@ const saveComposition = async () => {
             <button class="btn btn-blue" @click="selectedFilePages = []" :disabled="selectedFilePages.length === 0">Seitenauswahl aufheben</button>
           </div>
           <div class="mt-2 flex flex-row flex-wrap gap-2">
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'scaleToA4', pages: selectedFilePages })" :disabled="selectedFilePages.length === 0">Seitenformat auf A4 ändern</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'zoom', pages: selectedFilePages, relativeBounds: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 } })" :disabled="selectedFilePages.length === 0">Zoomen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'remove', pages: selectedFilePages })" :disabled="selectedFilePages.length === 0">Seiten entfernen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotate', pages: selectedFilePages, degrees: 0 })" :disabled="selectedFilePages.length === 0">Seiten drehen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'scaleToA4', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seitenformat auf A4 ändern</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'zoom', pages: selectedFilePages, relativeBounds: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }, isDraft: true })" :disabled="selectedFilePages.length === 0">Zoomen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'remove', pages: selectedFilePages, isDraft: false})" :disabled="selectedFilePages.length === 0">Seiten entfernen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotate', pages: selectedFilePages, degrees: 0, isDraft: true })" :disabled="selectedFilePages.length === 0">Seiten drehen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
           </div>
           <ol class="mt-2 list-decimal list-inside">
             <li v-for="modification in activeVoice.fileModifications" :key="modification.id">
               <template v-if="modification.type === 'scaleToA4'">Seitenformat auf A4 ändern</template>
               <template v-else-if="modification.type === 'zoom'">
                 <div class="inline-flex flex-row items-baseline gap-2">
-                  <span>Zoomen -</span>
+                  <span>{{ pagesToString(modification.pages) }} zoomen -</span>
                   <label>X: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.x"></label>
                   <label>Y: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.y"></label>
                   <label>Breite: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.width"></label>
@@ -418,18 +433,27 @@ const saveComposition = async () => {
                 </div>
               </template>
               <template v-else-if="modification.type === 'remove'">
-                <span>{{ modification.pages.length === 1 ? 'Seite' : 'Seiten' }} {{ modification.pages.map(v => v + 1).join(', ') }} entfernen</span>
+                <span>{{ pagesToString(modification.pages) }} entfernen</span>
               </template>
               <template v-else-if="modification.type === 'rotate'">
-                <span>Seiten um <input class="input-text !w-20" type="number" step="0.1" v-model="modification.degrees"> Grad drehen</span>
+                <span>{{ pagesToString(modification.pages) }} um
+                  <input v-if="modification.isDraft" class="input-text !w-20" type="number" step="0.1" v-model="modification.degrees">
+                  <template v-else>{{ modification.degrees }}</template>
+                  Grad drehen</span>
               </template>
               <template v-else-if="modification.type === 'cutPageLeftRight'">
-                <span>Seiten in linke und rechte Hälfte teilen</span>
+                <span>{{ pagesToString(modification.pages) }} in linke und rechte Hälfte teilen</span>
               </template>
+              <a v-if="modification.isDraft" class="ml-2 btn btn-green !py-1 !px-2" @click="modification.isDraft = false">✔</a>
+              <a v-if="modification === activeVoice.fileModifications.at(-1)" class="ml-2 btn btn-red !py-1 !px-2" @click="activeVoice.fileModifications.pop()">❌</a>
             </li>
           </ol>
         </div>
-        <PdfPreview :file="voiceFileWithModifications?.data" v-model:selected-pages="selectedFilePages" class="mt-6" />
+        <PdfPreview
+          :file="voiceFileWithModifications?.data"
+          v-model:selected-pages="selectedFilePages"
+          :is-rotating="activeVoice.fileModifications.at(-1)?.type === 'rotate' && activeVoice.fileModifications.at(-1)?.isDraft"
+          class="mt-6" />
       </div>
     </template>
   </div>
