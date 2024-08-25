@@ -149,7 +149,10 @@ watch(activeVoiceFile, async v =>
 const voiceFileWithModifications = ref<Uint8Array>()
 watch(
   [() => activeVoice.value?.originalFile, () => activeVoice.value?.fileModifications], async ([originalFile, fileModifications]) => {
-  if (originalFile === undefined || fileModifications === undefined) return
+  if (originalFile === undefined || fileModifications === undefined) {
+    voiceFileWithModifications.value = undefined
+    return
+  }
 
   voiceFileWithModifications.value = await Pdf.applyModifications(originalFile, fileModifications)
 }, { deep: true })
