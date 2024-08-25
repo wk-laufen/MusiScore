@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, toRaw, watch } from 'vue'
-import { type PDFDocumentProxy } from 'pdfjs-dist'
+import { RenderingCancelledException, type PDFDocumentProxy } from 'pdfjs-dist'
 
 const props = defineProps<{
   pdfDoc: PDFDocumentProxy
@@ -23,6 +23,18 @@ watch([() => props.pdfDoc, () => props.pageNumber, container], async ([pdfDoc, p
 
   const renderTask = toRaw(p).render({ canvasContext: drawingContext, viewport })
   onCleanup(() => renderTask.cancel())
+  try {
+    await renderTask.promise
+  }
+  catch (e) {
+    if (e instanceof RenderingCancelledException) {
+      console.log('Page rendering cancelled')
+    }
+    else {
+      console.error(e)
+      // TODO notify user
+    }
+  }
 })
 </script>
 

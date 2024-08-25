@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { type PDFDocumentProxy, getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import { range } from 'lodash-es'
 import PdfPage from './PdfPage.vue'
@@ -12,16 +12,29 @@ const props = defineProps<{
 }>()
 
 const pdfDoc = ref<PDFDocumentProxy>()
-const loadPDFDocument = async (file?: Uint8Array) =>
-{
-  // clear preview first because pageNumber key is reused for a different page
-  pdfDoc.value = undefined
-  if (file === undefined) return
+watch(() => props.file, async (file, _, onCleanup) => {
+  if (file === undefined) {
+    pdfDoc.value = undefined
+    return
+  }
   
-  await nextTick()
-  pdfDoc.value = await getDocument(file.slice()).promise
+  const loadDocTask = getDocument(file.slice())
+  onCleanup(() => loadDocTask.destroy())
+  try {
+    pdfDoc.value = await loadDocTask.promise
+  }
+  catch (e) {
+    if (e instanceof Error && e.message === 'Worker was destroyed') {
+      console.log('PDF document loading cancelled')
+    }
+    else {
+      console.error('PDF document loading failed', e)
+      // TODO notify user
+    }
+  }
+}, { immediate: true })
+
 }
-watch(() => props.file, loadPDFDocument, { immediate: true })
 </script>
 
 <template>
