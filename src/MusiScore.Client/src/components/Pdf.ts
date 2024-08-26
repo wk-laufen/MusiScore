@@ -52,7 +52,7 @@ export module Pdf {
         rotatePages(doc, modification.pages, modification.degrees)
         break
       case "cutPageLeftRight":
-        cutPageLeftRight(modifiedDoc, modification.pages)
+        await cutPageLeftRight(doc, modification.pages)
         break
     }
   }
