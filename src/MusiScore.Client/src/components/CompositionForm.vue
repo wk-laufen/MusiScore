@@ -192,6 +192,7 @@ const addVoiceFileModification = (modification: { isDraft: boolean } & PdfModifi
 
 const pagesToString = (pages: readonly number[]) => {
   const pageNumbers = pages.map(v => v + 1)
+  if (pageNumbers.length === 0) return `Keine Seiten`
   if (pageNumbers.length === 1) return `Seite ${pageNumbers[0]}`
   const lastPage = pageNumbers.pop()
   return `Seiten ${pageNumbers.join(', ')} und ${lastPage}`
