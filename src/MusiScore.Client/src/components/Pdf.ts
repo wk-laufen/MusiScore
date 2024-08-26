@@ -27,34 +27,33 @@ export type PDFFile = {
 
 export module Pdf {
   export const applyModifications = async (doc: Uint8Array, modifications: PdfModification[]) : Promise<PDFFile> => {
-    let pdfDoc = await PDFDocument.load(doc)
+    const pdfDoc = await PDFDocument.load(doc)
     for (const modification of modifications) {
-      pdfDoc = await applyModification(pdfDoc, modification)
-    }
+      await applyModification(pdfDoc, modification)
+  }
     return {
       data: await pdfDoc.save(),
       pageCount: pdfDoc.getPageCount()
     }
   }
 
-  const applyModification = async (doc: PDFDocument, modification: PdfModification) : Promise<PDFDocument> => {
-    const modifiedDoc = await doc.copy()
+  const applyModification = async (doc: PDFDocument, modification: PdfModification) => {
     switch (modification.type) {
       case "scaleToA4":
-        scalePagesToA4(modifiedDoc, modification.pages)
-        return modifiedDoc
+        scalePagesToA4(doc, modification.pages)
+        break
       case "zoom":
-        zoom(modifiedDoc, modification.pages, modification.relativeBounds)
-        return modifiedDoc
+        zoom(doc, modification.pages, modification.relativeBounds)
+        break
       case "remove":
-        removePages(modifiedDoc, modification.pages)
-        return modifiedDoc
+        removePages(doc, modification.pages)
+        break
       case "rotate":
-        rotatePages(modifiedDoc, modification.pages, modification.degrees)
-        return modifiedDoc
+        rotatePages(doc, modification.pages, modification.degrees)
+        break
       case "cutPageLeftRight":
         cutPageLeftRight(modifiedDoc, modification.pages)
-        return modifiedDoc
+        break
     }
   }
 
