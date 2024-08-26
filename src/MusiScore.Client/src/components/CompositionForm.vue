@@ -426,14 +426,16 @@ const saveComposition = async () => {
               <template v-else-if="modification.type === 'zoom'">
                 <div class="inline-flex flex-row items-center gap-2">
                   <span>{{ pagesToString(modification.pages) }} zoomen</span>
-                  <div v-if="modification.isDraft" class="grid grid-cols-3 grid-rows-4 gap-1">
-                    <a title="Ausschnitt nach oben bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y += 0.02"><font-awesome-icon :icon="['fas', 'arrow-up']" /></a>
-                    <a title="Ausschnitt nach unten bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-down']" /></a>
-                    <a title="Ausschnitt nach links bewegen" class="col-start-1 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-left']" /></a>
-                    <a title="Ausschnitt nach rechts bewegen" class="col-start-3 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x += 0.02"><font-awesome-icon :icon="['fas', 'arrow-right']" /></a>
-                  </div>
-                  <a title="Ausschnitt verkleinern" class="btn btn-blue" @click="modification.relativeBounds.x -= 0.01; modification.relativeBounds.y -= 0.01; modification.relativeBounds.width += 0.02; modification.relativeBounds.height += 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-minus']" /></a>
-                  <a title="Ausschnitt vergrößern" class="btn btn-blue" @click="modification.relativeBounds.x += 0.01; modification.relativeBounds.y += 0.01; modification.relativeBounds.width -= 0.02; modification.relativeBounds.height -= 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-plus']" /></a>
+                  <template v-if="modification.isDraft">
+                    <div class="grid grid-cols-3 grid-rows-4 gap-1">
+                      <a title="Ausschnitt nach oben bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y += 0.02"><font-awesome-icon :icon="['fas', 'arrow-up']" /></a>
+                      <a title="Ausschnitt nach unten bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-down']" /></a>
+                      <a title="Ausschnitt nach links bewegen" class="col-start-1 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-left']" /></a>
+                      <a title="Ausschnitt nach rechts bewegen" class="col-start-3 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x += 0.02"><font-awesome-icon :icon="['fas', 'arrow-right']" /></a>
+                    </div>
+                    <a title="Ausschnitt verkleinern" class="btn btn-blue" @click="modification.relativeBounds.x -= 0.01; modification.relativeBounds.y -= 0.01; modification.relativeBounds.width += 0.02; modification.relativeBounds.height += 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-minus']" /></a>
+                    <a title="Ausschnitt vergrößern" class="btn btn-blue" @click="modification.relativeBounds.x += 0.01; modification.relativeBounds.y += 0.01; modification.relativeBounds.width -= 0.02; modification.relativeBounds.height -= 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-plus']" /></a>
+                  </template>
                 </div>
               </template>
               <template v-else-if="modification.type === 'remove'">
