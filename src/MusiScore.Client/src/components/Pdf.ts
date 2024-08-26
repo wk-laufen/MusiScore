@@ -18,6 +18,9 @@ export type PdfModification = {
 } | {
   type: 'cutPageLeftRight',
   pages: readonly number[]
+} | {
+  type: 'orderPages',
+  pages: readonly number[]
 }
 
 export type PDFFile = {
@@ -49,6 +52,8 @@ export module Pdf {
         return rotatePages(doc, modification.pages, modification.degrees)
       case "cutPageLeftRight":
         return cutPageLeftRight(doc, modification.pages)
+      case "orderPages":
+        return orderPages(doc, modification.pages)
     }
   }
 
@@ -126,6 +131,19 @@ export module Pdf {
       const page2 = modifiedDoc.getPage(index + 1)
       page2.translateContent(-centerX, 0)
       page2.setSize(centerX, page.getHeight())
+    }
+    return modifiedDoc
+  }
+
+  const orderPages = async (doc: PDFDocument, pageNumbers: readonly number[]) => {
+    const modifiedDoc = await doc.copy()
+    const pages = modifiedDoc.getPages()
+    const sortedPageNumbers = _.orderBy(pageNumbers)
+    for (let i = 0; i < pageNumbers.length; i++) {
+      const currentPage = sortedPageNumbers[i]
+      const page = pages[pageNumbers[i]]
+      modifiedDoc.removePage(currentPage)
+      modifiedDoc.insertPage(currentPage, page)
     }
     return modifiedDoc
   }

@@ -53,7 +53,7 @@ const switchPageSelection = (pageNumber: number) => {
     selectedPages.value = _.without(selectedPages.value, pageNumber)
   }
   else {
-    selectedPages.value = _.orderBy(selectedPages.value.concat(pageNumber))
+    selectedPages.value = selectedPages.value.concat(pageNumber)
   }
 }
 </script>

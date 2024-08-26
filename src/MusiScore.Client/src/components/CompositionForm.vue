@@ -191,7 +191,7 @@ const addVoiceFileModification = (modification: { isDraft: boolean } & PdfModifi
 }
 
 const pagesToString = (pages: readonly number[]) => {
-  const pageNumbers = pages.map(v => v + 1)
+  const pageNumbers = _.orderBy(pages.map(v => v + 1))
   if (pageNumbers.length === 0) return `Keine Seiten`
   if (pageNumbers.length === 1) return `Seite ${pageNumbers[0]}`
   const lastPage = pageNumbers.pop()
@@ -420,6 +420,7 @@ const saveComposition = async () => {
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'remove', pages: selectedFilePages, isDraft: false})" :disabled="selectedFilePages.length === 0">Seiten entfernen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotate', pages: selectedFilePages, degrees: 0, isDraft: true })" :disabled="selectedFilePages.length === 0">Seiten drehen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'orderPages', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length < 1">Seiten nach Markierungsreihenfolge sortieren</button>
           </div>
           <ol class="mt-2 list-decimal list-inside">
             <li v-for="modification in activeVoice.fileModifications" :key="modification.id">
@@ -450,6 +451,9 @@ const saveComposition = async () => {
               </template>
               <template v-else-if="modification.type === 'cutPageLeftRight'">
                 <span>{{ pagesToString(modification.pages) }} in linke und rechte Hälfte teilen</span>
+              </template>
+              <template v-else-if="modification.type === 'orderPages'">
+                <span>{{ pagesToString(modification.pages) }} sortieren</span>
               </template>
               <a v-if="modification.isDraft" title="Änderung akzeptieren" class="ml-2 btn btn-green !py-1 !px-2" @click="modification.isDraft = false">✔</a>
               <a v-if="modification === lastFileModification" title="Änderung verwerfen" class="ml-2 btn btn-red !py-1 !px-2" @click="activeVoice.fileModifications.pop()">❌</a>
