@@ -64,8 +64,8 @@ const isLoading = computed(() => props.isLoadingDocument || isLoadingPage.value)
     <canvas ref="container" class="row-span-full col-span-full border" :class="{'border-musi-blue': isSelected}"></canvas>
     <div v-if="isLoading" class="row-span-full col-span-full bg-white opacity-50"></div>
     <LoadingBar v-if="isLoading" type="minimal" class="row-span-full col-span-full place-self-center"></LoadingBar>
-    <div v-if="isSelected && isRotating" class="row-span-full col-span-full grid justify-items-stretch items-center">
-      <div v-for="i in _.range(0, 100)" :key="i" class="h-px bg-musi-red"></div>
+    <div v-if="container !== undefined && isSelected && isRotating" class="row-span-full col-span-full grid justify-items-stretch items-center">
+      <div v-for="i in _.range(0, container.offsetHeight / 10)" :key="i" class="h-px bg-musi-red"></div>
     </div>
   </div>
 </template>
