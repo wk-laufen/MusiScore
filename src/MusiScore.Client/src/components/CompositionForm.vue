@@ -448,8 +448,8 @@ const saveComposition = async () => {
               <template v-else-if="modification.type === 'cutPageLeftRight'">
                 <span>{{ pagesToString(modification.pages) }} in linke und rechte Hälfte teilen</span>
               </template>
-              <a v-if="modification.isDraft" class="ml-2 btn btn-green !py-1 !px-2" @click="modification.isDraft = false">✔</a>
-              <a v-if="modification === lastFileModification" class="ml-2 btn btn-red !py-1 !px-2" @click="activeVoice.fileModifications.pop()">❌</a>
+              <a v-if="modification.isDraft" title="Änderung akzeptieren" class="ml-2 btn btn-green !py-1 !px-2" @click="modification.isDraft = false">✔</a>
+              <a v-if="modification === lastFileModification" title="Änderung verwerfen" class="ml-2 btn btn-red !py-1 !px-2" @click="activeVoice.fileModifications.pop()">❌</a>
             </li>
           </ol>
         </div>
