@@ -445,14 +445,14 @@ const saveComposition = async () => {
                 <span>{{ pagesToString(modification.pages) }} in linke und rechte Hälfte teilen</span>
               </template>
               <a v-if="modification.isDraft" class="ml-2 btn btn-green !py-1 !px-2" @click="modification.isDraft = false">✔</a>
-              <a v-if="modification === activeVoice.fileModifications.at(-1)" class="ml-2 btn btn-red !py-1 !px-2" @click="activeVoice.fileModifications.pop()">❌</a>
+              <a v-if="modification === lastFileModification" class="ml-2 btn btn-red !py-1 !px-2" @click="activeVoice.fileModifications.pop()">❌</a>
             </li>
           </ol>
         </div>
         <PdfPreview
           :file="voiceFileWithModifications?.data"
           v-model:selected-pages="selectedFilePages"
-          :is-rotating="activeVoice.fileModifications.at(-1)?.type === 'rotate' && activeVoice.fileModifications.at(-1)?.isDraft"
+          :is-rotating="lastFileModification?.type === 'rotate' && lastFileModification.isDraft"
           class="mt-6" />
       </div>
     </template>
