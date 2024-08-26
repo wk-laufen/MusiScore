@@ -191,10 +191,10 @@ const addVoiceFileModification = (modification: { isDraft: boolean } & PdfModifi
 }
 
 const pagesToString = (pages: readonly number[]) => {
-  if (pages.length === 1) return `Seite ${pages[0]}`
-  const list = pages.slice()
-  const lastPage = list.pop()
-  return `Seiten ${list.join(', ')} und ${lastPage}`
+  const pageNumbers = pages.map(v => v + 1)
+  if (pageNumbers.length === 1) return `Seite ${pageNumbers[0]}`
+  const lastPage = pageNumbers.pop()
+  return `Seiten ${pageNumbers.join(', ')} und ${lastPage}`
 }
 
 watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
