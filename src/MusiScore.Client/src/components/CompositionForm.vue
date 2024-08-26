@@ -415,7 +415,7 @@ const saveComposition = async () => {
           </div>
           <div class="mt-2 flex flex-row flex-wrap gap-2">
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'scaleToA4', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seitenformat auf A4 ändern</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'zoom', pages: selectedFilePages, relativeBounds: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }, isDraft: true })" :disabled="selectedFilePages.length === 0">Zoomen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'zoom', pages: selectedFilePages, relativeBounds: { x: 0.01, y: 0.01, width: 0.98, height: 0.98 }, isDraft: true })" :disabled="selectedFilePages.length === 0">Zoomen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'remove', pages: selectedFilePages, isDraft: false})" :disabled="selectedFilePages.length === 0">Seiten entfernen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotate', pages: selectedFilePages, degrees: 0, isDraft: true })" :disabled="selectedFilePages.length === 0">Seiten drehen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
@@ -424,12 +424,16 @@ const saveComposition = async () => {
             <li v-for="modification in activeVoice.fileModifications" :key="modification.id">
               <template v-if="modification.type === 'scaleToA4'">Seitenformat auf A4 ändern</template>
               <template v-else-if="modification.type === 'zoom'">
-                <div class="inline-flex flex-row items-baseline gap-2">
-                  <span>{{ pagesToString(modification.pages) }} zoomen -</span>
-                  <label>X: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.x"></label>
-                  <label>Y: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.y"></label>
-                  <label>Breite: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.width"></label>
-                  <label>Höhe: <input class="input-text !w-20" type="number" step="0.01" v-model="modification.relativeBounds.height"></label>
+                <div class="inline-flex flex-row items-center gap-2">
+                  <span>{{ pagesToString(modification.pages) }} zoomen</span>
+                  <div v-if="modification.isDraft" class="grid grid-cols-3 grid-rows-4 gap-1">
+                    <a title="Ausschnitt nach oben bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y += 0.02"><font-awesome-icon :icon="['fas', 'arrow-up']" /></a>
+                    <a title="Ausschnitt nach unten bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-down']" /></a>
+                    <a title="Ausschnitt nach links bewegen" class="col-start-1 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-left']" /></a>
+                    <a title="Ausschnitt nach rechts bewegen" class="col-start-3 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x += 0.02"><font-awesome-icon :icon="['fas', 'arrow-right']" /></a>
+                  </div>
+                  <a title="Ausschnitt verkleinern" class="btn btn-blue" @click="modification.relativeBounds.x -= 0.01; modification.relativeBounds.y -= 0.01; modification.relativeBounds.width += 0.02; modification.relativeBounds.height += 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-minus']" /></a>
+                  <a title="Ausschnitt vergrößern" class="btn btn-blue" @click="modification.relativeBounds.x += 0.01; modification.relativeBounds.y += 0.01; modification.relativeBounds.width -= 0.02; modification.relativeBounds.height -= 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-plus']" /></a>
                 </div>
               </template>
               <template v-else-if="modification.type === 'remove'">
