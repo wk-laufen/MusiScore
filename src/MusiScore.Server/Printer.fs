@@ -4,6 +4,11 @@ open System.Diagnostics
 
 type Printer(printServer: string, printerName) =
     member _.PrintPdf content printSetting count = async {
+        let content =
+            match printSetting with
+            | Duplex -> content
+            | A4ToA3Duplex -> content
+            | A4ToBooklet -> PDF.reorderAsBooklet content
         let printOptions =
             match printSetting with
             | Duplex -> "-o media=A4 -o sides=two-sided-long-edge"

@@ -35,10 +35,5 @@ type PrintController(db: Db, printer: Printer) =
         async {
             let count = Option.ofNullable count |> Option.defaultValue 1
             let! voice = db.GetPrintableVoice(compositionId, voiceId)
-            let content =
-                match voice.PrintSetting with
-                | Duplex -> voice.File
-                | A4ToA3Duplex -> voice.File
-                | A4ToBooklet -> PDF.reorderAsBooklet voice.File
-            do! printer.PrintPdf content voice.PrintSetting count
+            do! printer.PrintPdf voice.File voice.PrintSetting count
         }
