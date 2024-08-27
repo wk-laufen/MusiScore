@@ -123,7 +123,7 @@ export module Pdf {
   const cutPageLeftRight = async (doc: PDFDocument, pageNumbers: readonly number[]) => {
     const modifiedDoc = await doc.copy()
     const pages = await modifiedDoc.copyPages(modifiedDoc, pageNumbers.slice())
-    for (const [index, page] of _(_.zip(pageNumbers, pages)).orderBy(([index, _]) => index, 'desc').value()) {
+    for (const [index, page] of _(_.zip(pageNumbers, pages)).orderBy(([index, _page]) => index, 'desc').value()) {
       if (index === undefined || page === undefined) continue
       const centerX = page.getWidth() / 2
       const page1 = modifiedDoc.insertPage(index, page)
