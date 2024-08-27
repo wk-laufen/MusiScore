@@ -160,7 +160,7 @@ watch(
 }, { deep: true })
 
 const isPrinting = ref(false)
-const hasPrintingFailed = ref(true)
+const hasPrintingFailed = ref(false)
 const printWithPrintSettings = async (voice: EditableVoice) => {
   await uiFetch(isPrinting, hasPrintingFailed, props.testPrintSettingUrl, {
     method: 'POST',
