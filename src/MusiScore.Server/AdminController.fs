@@ -8,7 +8,7 @@ open System.Text
 
 [<ApiController>]
 [<Route("api/admin")>]
-type AdminController(db: Db) =
+type AdminController(db: Db, printer: Printer) =
     inherit ControllerBase()
 
     [<Route("compositions")>]
@@ -31,6 +31,7 @@ type AdminController(db: Db) =
                     |> Seq.toArray
                 Links = {|
                     PrintSettings = this.Url.Action(nameof(this.GetPrintSettings))
+                    TestPrintSetting = this.Url.Action(nameof(this.TestPrintSetting))
                     Composition = this.Url.Action(nameof(this.CreateComposition))
                     Export = this.Url.Action(nameof(this.ExportCompositions))
                 |}
@@ -48,6 +49,17 @@ type AdminController(db: Db) =
                     Key = PrintSetting.toDto v.Key
                     Name = v.Name
                 })
+        }
+
+    [<Route("test-print-setting")>]
+    [<HttpPost>]
+    member this.TestPrintSetting ([<FromBody>]data: {| File: byte[]; PrintSetting: string |}) =
+        async {
+            match Parse.printSetting data.PrintSetting with
+            | Ok printSetting ->
+                do! printer.PrintPdf data.File printSetting 1
+                return this.NoContent() :> IActionResult
+            | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
     [<Route("compositions")>]

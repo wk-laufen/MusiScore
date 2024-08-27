@@ -11,6 +11,7 @@ type CompositionData = {
   compositions: CompositionListItem[]
   links: {
     printSettings: string
+    testPrintSetting: string
     composition: string
     export: string
   }
@@ -45,6 +46,7 @@ const exportCompositions = async () => {
 type EditComposition = {
   type: 'create' | 'edit'
   printSettingsUrl: string
+  testPrintSettingUrl: string
   compositionUrl: string
 }
 const editComposition = ref<EditComposition>()
@@ -55,6 +57,7 @@ const createComposition = () => {
   editComposition.value = {
     type: 'create',
     printSettingsUrl: compositionList.value.links.printSettings,
+    testPrintSettingUrl: compositionList.value.links.testPrintSetting,
     compositionUrl: compositionList.value.links.composition
   }
 }
@@ -65,6 +68,7 @@ const startEditComposition = (composition: CompositionListItem) => {
   editComposition.value = {
     type: 'edit',
     printSettingsUrl: compositionList.value.links.printSettings,
+    testPrintSettingUrl: compositionList.value.links.testPrintSetting,
     compositionUrl: composition.links.self
   }
 }
@@ -95,6 +99,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
     <CompositionForm v-else-if="editComposition"
       :type="editComposition.type"
       :print-settings-url="editComposition.printSettingsUrl"
+      :testPrintSettingUrl="editComposition.testPrintSettingUrl"
       :composition-url="editComposition.compositionUrl"
       @cancel-edit="cancelEdit" />
   </div>

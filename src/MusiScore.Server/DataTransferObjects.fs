@@ -25,6 +25,7 @@ module Admin =
         Compositions: ExistingCompositionDto array
         Links: {|
             PrintSettings: string
+            TestPrintSetting: string
             Composition: string
             Export: string
         |}

@@ -40,6 +40,7 @@ defineEmits<{
 const props = defineProps<{
   type: 'create' | 'edit'
   printSettingsUrl: string
+  testPrintSettingUrl: string
   compositionUrl: string
 }>()
 
@@ -157,6 +158,36 @@ watch(
 
   voiceFileWithModifications.value = await Pdf.applyModifications(originalFile, fileModifications)
 }, { deep: true })
+
+const isPrinting = ref(false)
+const hasPrintingFailed = ref(true)
+const printWithPrintSettings = async (voice: EditableVoice) => {
+  await uiFetch(isPrinting, hasPrintingFailed, props.testPrintSettingUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      file: await serializeVoiceFile(voice.originalFile, voice.fileModifications),
+      printSetting: voice.printSetting
+    })
+  })
+}
+
+const printWithPrintDialog = async (file: Uint8Array) => {
+  const pdfBlob = new Blob([file], { type: 'application/pdf' })
+  const pdfUrl = URL.createObjectURL(pdfBlob)
+
+  var iframe = document.createElement('iframe')
+  iframe.style.display = 'none'
+  iframe.src = pdfUrl
+  document.body.appendChild(iframe)
+  await new Promise<void>((resolve, _reject) => iframe.onload = () => resolve())
+  if (iframe.contentWindow === null) {
+    // TODO show error
+    return
+  }
+  iframe.contentWindow.focus()
+  iframe.contentWindow.print()
+}
 
 const selectedFilePages = ref([] as readonly number[])
 const selectAllPages = () => {
@@ -408,7 +439,24 @@ const saveComposition = async () => {
           <SelectInput v-if="printSettings !== undefined" title="Druckeinstellung" :options="printSettings.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printSettingValidationState" v-model="activeVoice.printSetting" />
           <ErrorWithRetry v-else-if="hasLoadingPrintSettingsFailed" type="inline" @retry="loadPrintSettings" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
         </div>
-        <div class="my-2">
+        <div class="mt-6">
+          <span class="input-label">PDF drucken</span>
+          <div class="flex flex-row flex-wrap gap-2">
+            <button v-if="voiceFileWithModifications !== undefined && activeVoice.printSetting !== ''"
+              class="btn btn-blue" :class="{ 'btn-loading': isPrinting }"
+              @click="printWithPrintSettings(activeVoice)">
+              Mit Druckeinstellungen drucken
+              <span v-if="hasPrintingFailed" class="ml-2 text-musi-red" title="Fehler beim Drucken">
+                <font-awesome-icon :icon="['fas', 'info-circle']" />
+              </span>
+            </button>
+            <button v-else class="btn btn-blue" disabled="true">Mit Druckeinstellungen drucken</button>
+            
+            <button v-if="voiceFileWithModifications !== undefined" class="btn btn-blue" @click="printWithPrintDialog(voiceFileWithModifications.data)">Mit Druckdialog drucken</button>
+            <button v-else class="btn btn-blue" disabled="true">Mit Druckdialog drucken</button>
+          </div>
+        </div>
+        <div class="mt-6">
           <span class="input-label">PDF bearbeiten</span>
           <div class="flex flex-row flex-wrap gap-2">
             <button class="btn btn-blue" @click="selectAllPages()" :disabled="selectedFilePages.length === voiceFileWithModifications?.pageCount">Alle Seiten auswählen</button>
