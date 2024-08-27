@@ -99,7 +99,7 @@ const tryPrint = () => {
           <button v-if="isPrinting"
             class="btn btn-solid btn-gold btn-loading w-60 h-24">&nbsp;</button>
           <button v-else @click="() => tryPrint()"
-            :class="{ 'opacity-50 cursor-not-allowed': !canPrint(), 'animate-wiggle': hasPrintingFailed }"
+            :class="{ 'opacity-50 !cursor-not-allowed': !canPrint(), 'animate-wiggle': hasPrintingFailed }"
             class="btn btn-solid btn-gold w-60 h-24">
             <span v-if="hasPrintingFailed">Fehler beim Drucken.<br />Nochmal versuchen</span>
             <span v-else>Drucken</span>
