@@ -59,10 +59,10 @@ const canPrint = () => {
 }
 const isPrinting = ref(false)
 const hasPrintingFailed = ref(false)
-const tryPrint = () => {
+const tryPrint = async () => {
   const printUrl = tryGetPrintUrl()
   if (printUrl === undefined) return
-  uiFetch(isPrinting, hasPrintingFailed, printUrl, { method: 'POST' })
+  await uiFetch(isPrinting, hasPrintingFailed, printUrl, { method: 'POST' })
 }
 </script>
 
