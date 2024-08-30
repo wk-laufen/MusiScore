@@ -120,7 +120,13 @@ const compositionDeleted = (composition: CompositionListItem) => {
   </div>
   <div id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">
     <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="isImportingCompositions = true">Importieren</button>
-    <button v-if="compositionList !== undefined && compositionList?.compositions.length > 0 && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>
+    <button v-if="compositionList !== undefined && compositionList?.compositions.length > 0 && isInListView"
+      class="btn btn-solid btn-gold !px-8 !py-4"
+      :class="{ 'btn-loading': isExportingCompositions }"
+      @click="exportCompositions">
+      <span v-if="hasExportingCompositionsFailed">Exportieren fehlgeschlagen. Erneut versuchen.</span>
+      <span v-else>Exportieren</span>
+    </button>
     <button v-if="isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
   </div>
 </template>
