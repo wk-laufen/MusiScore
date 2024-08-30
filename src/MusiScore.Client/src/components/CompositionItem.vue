@@ -17,7 +17,8 @@ const isMarkedForDeletion = ref(false)
 const isDeleting = ref(false)
 const hasDeletingFailed = ref(false)
 const deleteComposition = async () => {
-  if (await uiFetch(isDeleting, hasDeletingFailed, props.composition.links.self, { method: 'DELETE' })) {
+  const response = await uiFetch(isDeleting, hasDeletingFailed, props.composition.links.self, { method: 'DELETE' })
+  if (response.succeeded) {
     emit('deleted')
   }
 }
