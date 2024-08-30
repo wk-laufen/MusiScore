@@ -69,7 +69,7 @@ main {
 }
 
 .input {
-  @apply inline-flex flex-col justify-items-start items-start mt-6;
+  @apply inline-flex flex-col justify-items-start items-start;
 }
 .input-label {
   @apply text-sm font-medium text-slate-700;

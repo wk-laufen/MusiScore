@@ -12,6 +12,12 @@ module PDF =
             true
         with _ -> false
 
+    let getPageSizes (content: byte[]) =
+        use docStream = new MemoryStream(content)
+        use doc = new PdfDocument(new PdfReader(docStream))
+        [ 1..doc.GetNumberOfPages() ]
+        |> List.map (doc.GetPage >> (fun v -> v.GetPageSize()) >> (fun v -> v.GetWidth(), v.GetHeight()))
+
     let getBookletPageOrder pageCount =
         let n = if pageCount % 4 = 0 then pageCount else pageCount + (4 - pageCount % 4)
         [1 .. 2 .. n / 2]

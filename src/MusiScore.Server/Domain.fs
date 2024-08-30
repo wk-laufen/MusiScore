@@ -1,6 +1,7 @@
 ﻿namespace MusiScore.Server
 
 open FsToolkit.ErrorHandling
+open System
 
 type Voice = {
     Id: string
@@ -29,6 +30,17 @@ module PrintSetting =
         | Duplex -> "duplex"
         | A4ToA3Duplex -> "a4-to-a3-duplex"
         | A4ToBooklet -> "a4-to-booklet"
+    let inferFromPDFPageSizes pageSizes =
+        let isA4 =
+            match pageSizes with
+            | [] -> true
+            | (width, height) :: _ ->
+                printfn $"%f{width} x %f{height}"
+                Math.Abs(width - 595f) < 5f && Math.Abs(height - 842f) < 5f
+        if isA4 && pageSizes.Length <= 2 then Duplex
+        elif isA4 && pageSizes.Length <= 4 then A4ToA3Duplex
+        elif isA4 then A4ToBooklet
+        else Duplex
 
 type PrintableVoice = {
     File: byte[]

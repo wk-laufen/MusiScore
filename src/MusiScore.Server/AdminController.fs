@@ -31,6 +31,7 @@ type AdminController(db: Db, printer: Printer) =
                     |> Seq.toArray
                 Links = {|
                     PrintSettings = this.Url.Action(nameof(this.GetPrintSettings))
+                    InferPrintSetting = this.Url.Action(nameof(this.InferPrintSetting))
                     TestPrintSetting = this.Url.Action(nameof(this.TestPrintSetting))
                     Composition = this.Url.Action(nameof(this.CreateComposition))
                     Export = this.Url.Action(nameof(this.ExportCompositions))
@@ -49,6 +50,20 @@ type AdminController(db: Db, printer: Printer) =
                     Key = PrintSetting.toDto v.Key
                     Name = v.Name
                 })
+        }
+
+    [<Route("print-setting")>]
+    [<HttpQuery>]
+    member this.InferPrintSetting ([<FromBody>]data: {| File: byte[] |}) =
+        async {
+            match Parse.voiceFile data.File with
+            | Ok file ->
+                let printSetting =
+                    PDF.getPageSizes file
+                    |> PrintSetting.inferFromPDFPageSizes
+                    |> PrintSetting.toDto
+                return this.Ok({| PrintSetting = printSetting |}) :> IActionResult
+            | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
     [<Route("test-print-setting")>]

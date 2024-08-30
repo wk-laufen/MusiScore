@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef, computed } from 'vue'
 import uiFetch from './UIFetch'
-import type { CompositionListItem, FullComposition, PrintSetting, SaveCompositionServerError, SaveVoiceServerError, Voice } from './AdminTypes'
+import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintSetting, type SaveCompositionServerError, type SaveVoiceServerError, type Voice } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -9,23 +9,9 @@ import TextInput from './TextInput.vue'
 import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
 import PdfPreview from './PdfPreview.vue'
-import { chunk, first, last } from 'lodash-es'
+import { first, last } from 'lodash-es'
 import { Pdf, type PDFFile, type PdfModification } from './Pdf'
 import _ from 'lodash'
-
-const deserializeFile = (text: string | undefined) => {
-  if (text === undefined) return undefined
-  return Uint8Array.from(atob(text), m => m.codePointAt(0) as number)
-}
-
-const serializeFile = (content: ArrayBuffer | undefined) => {
-  if (content === undefined) return undefined
-
-  const encodedContent = chunk(new Uint8Array(content), 0x10FFF) // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/fromCodePoint
-    .map(chunk => String.fromCodePoint(...chunk))
-    .reduce((a, b) => a + b)
-  return btoa(encodedContent)
-}
 
 const serializeVoiceFile = async (content: Uint8Array | undefined, modifications: PdfModification[]) => {
   if (content === undefined) return undefined
@@ -330,6 +316,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
       return voice
     }
     else {
+      // TODO what happend here?
       return voice
     }
   }
@@ -406,7 +393,7 @@ const saveComposition = async () => {
     <ErrorWithRetry v-if="hasLoadingFailed" @retry="loadComposition">Fehler beim Laden.</ErrorWithRetry>
     <template v-else-if="composition !== undefined">
       <p v-if="hasSavingCompositionFailed" class="mt-4 text-musi-red">Fehler beim Speichern des Stücks.</p>
-      <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" />
+      <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" class="mt-6" />
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
         <li v-for="voice in composition.voices" :key="voice.id">
@@ -433,9 +420,9 @@ const saveComposition = async () => {
         </li>
       </ul>
       <div v-if="activeVoice !== undefined">
-        <TextInput title="Name" :validation-state="activeVoice.nameValidationState" v-model="activeVoice.name" />
-        <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" />
-        <div class="flex gap-2">
+        <TextInput title="Name" :validation-state="activeVoice.nameValidationState" v-model="activeVoice.name" class="mt-6" />
+        <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" class="mt-6" />
+        <div class="mt-6 flex gap-2">
           <SelectInput v-if="printSettings !== undefined" title="Druckeinstellung" :options="printSettings.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printSettingValidationState" v-model="activeVoice.printSetting" />
           <ErrorWithRetry v-else-if="hasLoadingPrintSettingsFailed" type="inline" @retry="loadPrintSettings" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
         </div>

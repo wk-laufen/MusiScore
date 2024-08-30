@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import CompositionList from './CompositionList.vue'
 import CompositionForm from './CompositionForm.vue'
+import ImportCompositionForm from './ImportCompositionForm.vue'
 import uiFetch from './UIFetch'
 import type { CompositionListItem } from './AdminTypes'
 
@@ -11,6 +12,7 @@ type CompositionData = {
   compositions: CompositionListItem[]
   links: {
     printSettings: string
+    inferPrintSetting: string
     testPrintSetting: string
     composition: string
     export: string
@@ -29,6 +31,8 @@ const loadCompositions = async () => {
 }
 loadCompositions()
 
+const isImportingCompositions = ref(false)
+
 const isExportingCompositions = ref(false)
 const hasExportingCompositionsFailed = ref(false)
 const exportCompositions = async () => {
@@ -42,6 +46,8 @@ const exportCompositions = async () => {
     a.click()
   }
 }
+
+const isInListView = computed(() => editComposition.value === undefined && !isImportingCompositions.value)
 
 type EditComposition = {
   type: 'create' | 'edit'
@@ -78,6 +84,11 @@ const cancelEdit = async () => {
   await loadCompositions()
 }
 
+const cancelImport = async () => {
+  isImportingCompositions.value = false
+  await loadCompositions()
+}
+
 const compositionDeleted = (composition: CompositionListItem) => {
   if (compositionList.value === undefined) return
 
@@ -93,7 +104,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
   <div class="grow overflow-y-auto m-4">
     <LoadingBar v-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
-    <CompositionList v-else-if="compositionList !== undefined && editComposition === undefined" :compositions="compositionList?.compositions"
+    <CompositionList v-else-if="compositionList !== undefined && isInListView" :compositions="compositionList.compositions"
       @edit="startEditComposition"
       @deleted="compositionDeleted" />
     <CompositionForm v-else-if="editComposition"
@@ -102,9 +113,14 @@ const compositionDeleted = (composition: CompositionListItem) => {
       :testPrintSettingUrl="editComposition.testPrintSettingUrl"
       :composition-url="editComposition.compositionUrl"
       @cancel-edit="cancelEdit" />
+    <ImportCompositionForm v-else-if="compositionList !== undefined && isImportingCompositions"
+      :composition-url="compositionList.links.composition"
+      :inferPrintSettingUrl="compositionList.links.inferPrintSetting"
+      @cancel-import="cancelImport" />
   </div>
-  <div id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex p-4 gap-4">
-    <button v-if="compositionList !== undefined && compositionList.compositions.length > 0 && editComposition === undefined" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>
-    <button v-if="editComposition === undefined" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
+  <div id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">
+    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="isImportingCompositions = true">Importieren</button>
+    <button v-if="compositionList !== undefined && compositionList?.compositions.length > 0 && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="exportCompositions">Exportieren</button>
+    <button v-if="isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
   </div>
 </template>
