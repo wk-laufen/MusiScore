@@ -81,7 +81,7 @@ type AdminController(db: Db, printer: Printer) =
     [<HttpPost>]
     member this.CreateComposition ([<FromBody>]composition: NewCompositionDto) =
         async {
-            match Parse.newCompositionDto composition false with
+            match Parse.newCompositionDto composition with
             | Ok newComposition ->
                 let! compositionId = db.CreateComposition newComposition
                 let result = {

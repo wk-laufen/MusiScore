@@ -132,7 +132,7 @@ type Db(connectionString: string) =
     member _.CreateComposition (newComposition: NewComposition) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
-        let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, is_active) VALUES(@Title, false) RETURNING id", {| Title = newComposition.Title |}) |> Async.AwaitTask
+        let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, is_active) VALUES(@Title, @IsActive) RETURNING id", {| Title = newComposition.Title; IsActive = newComposition.IsActive |}) |> Async.AwaitTask
         return string compositionId
     }
 

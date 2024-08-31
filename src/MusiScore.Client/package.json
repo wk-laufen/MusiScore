@@ -22,6 +22,7 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.0.379",
     "tailwindcss-opentype": "^1.1.0",
+    "toml": "^3.0.0",
     "vue": "^3.3.11",
     "vue-router": "^4.2.5"
   },

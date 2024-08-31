@@ -39,6 +39,7 @@ module Admin =
 
     type NewCompositionDto = {
         Title: string
+        IsActive: bool option
     }
 
     type CompositionUpdateDto = {

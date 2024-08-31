@@ -94,9 +94,9 @@ module Parse =
         else return title
     }
 
-    let newCompositionDto (v: MusiScore.Shared.DataTransfer.Admin.NewCompositionDto) isActive = validation {
+    let newCompositionDto (v: MusiScore.Shared.DataTransfer.Admin.NewCompositionDto) = validation {
         let! title = compositionTitle v.Title
-        return { NewComposition.Title = title; IsActive = isActive }
+        return { NewComposition.Title = title; IsActive = v.IsActive |> Option.defaultValue false }
     }
 
     let compositionUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.CompositionUpdateDto) = validation {

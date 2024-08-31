@@ -5,6 +5,7 @@ import _ from 'lodash'
 import type { ValidationState } from './Validation'
 import uiFetch from './UIFetch'
 import { serializeFile, type CompositionListItem, type SaveCompositionServerError, type SaveVoiceServerError, type Voice as VoiceDto, type VoiceFileServerError } from './AdminTypes'
+import toml from 'toml'
 
 const props = defineProps<{
   compositionUrl: string
@@ -24,6 +25,8 @@ type Voice = {
   name: string
   nameValidationState: ValidationState
   isEditingName: boolean
+  printSetting: string | undefined
+  printSettingValidationState: ValidationState
   enabled: boolean
   file: string | ReadableStream<Uint8Array>
   fileValidationState: ValidationState
@@ -36,7 +39,8 @@ type Composition = {
   id: string
   title: string
   titleValidationState: ValidationState
-  isEditingName: boolean
+  isEditingTitle: boolean
+  isActive: boolean
   enabled: boolean
   isSaving: boolean
   hasSavingFailed: boolean
@@ -47,35 +51,78 @@ type Composition = {
 
 let nextId = 1
 
+type Metadata = {
+  compositionName: string | undefined
+  data?: {
+    composition?: {
+      is_active?: boolean
+      voices?: {
+        name?: string
+        print_setting?: string
+      } []
+    }
+  }
+}
+
+const tryReadMetadata = async (file: File) : Promise<Metadata | undefined> => {
+  const compositionName = file.webkitRelativePath.split('/').at(-2)
+  try {
+    return {
+      compositionName,
+      data: toml.parse(await file.text())
+    }
+  }
+  catch (e) {
+    return undefined
+  }
+}
+
 const compositions = ref<Composition[]>()
-watch(files, files => {
+watch(files, async files => {
+  const metadata =
+    (await Promise.all(_(files)
+      .filter(v => v.name === '.metadata.toml')
+      .map(tryReadMetadata)
+      .value()
+    ))
+    .filter(v => v !== undefined)
   compositions.value = _(files)
     .filter(v => v.type === 'application/pdf')
     .map(v => ({ directoryName: v.webkitRelativePath.split('/').at(-2) || '<unbekannt>', fileName: v.name, content: v.stream() }))
     .groupBy(v => v.directoryName)
-    .map((value, key) : Composition => ({
-      id: `${nextId++}`,
-      title: key,
-      titleValidationState: { type: 'notValidated' },
-      isEditingName: false,
-      enabled: true,
-      isSaving: false,
-      hasSavingFailed: false,
-      isSaved: false,
-      voicesUrl: undefined,
-      voices: value.map((v) : Voice => ({
+    .map((value, key) : Composition => {
+      const compositionMetadata = metadata.find(v => v.compositionName === key)
+      return {
         id: `${nextId++}`,
-        name: v.fileName.replace(/\.[^.]*/, ''),
-        nameValidationState: { type: 'notValidated' },
-        isEditingName: false,
+        title: key,
+        titleValidationState: { type: 'notValidated' },
+        isEditingTitle: false,
+        isActive: compositionMetadata?.data?.composition?.is_active || false,
         enabled: true,
-        file: v.content,
-        fileValidationState: { type: 'notValidated' },
         isSaving: false,
         hasSavingFailed: false,
-        isSaved: false
-      }))
-    }))
+        isSaved: false,
+        voicesUrl: undefined,
+        voices: value.map((v) : Voice => {
+          const voiceName = v.fileName.replace(/\.[^.]*/, '')
+          const voiceMetadata = compositionMetadata?.data?.composition?.voices?.find?.(v => v.name === voiceName)
+          return {
+            id: `${nextId++}`,
+            name: voiceName,
+            nameValidationState: { type: 'notValidated' },
+            isEditingName: false,
+            printSetting: voiceMetadata?.print_setting,
+            printSettingValidationState: { type: 'notValidated' },
+            enabled: true,
+            file: v.content,
+            fileValidationState: { type: 'notValidated' },
+            isSaving: false,
+            hasSavingFailed: false,
+            isSaved: false
+          }
+        })
+      }
+    })
     .value()
 })
 
@@ -119,8 +166,10 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
   if (typeof voice.file !== 'string') {
     voice.file = serializeFile(await new Response(voice.file).arrayBuffer())
   }
-  const printSetting = await inferPrintSetting(voice)
-  if (printSetting === undefined) return
+  if (voice.printSetting === undefined) {
+    voice.printSetting = await inferPrintSetting(voice)
+  }
+  if (voice.printSetting === undefined) return
 
   const result = await uiFetch(
     toRef(voice, 'isSaving'),
@@ -132,7 +181,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       body: JSON.stringify({
         name: voice.name,
         file: voice.file,
-        printSetting
+        printSetting: voice.printSetting
       })
     }
   )
@@ -150,7 +199,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       : errors.includes('InvalidFile')
         ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
         : { type: 'success' }
-    // voice.printSettingValidationState = errors.includes('UnknownPrintSetting') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
+    voice.printSettingValidationState = errors.includes('UnknownPrintSetting') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
   }
   else {
     // TODO what happend here?
@@ -168,7 +217,8 @@ const saveComposition = async (composition: Composition) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: composition.title
+        title: composition.title,
+        isActive: composition.isActive
       })
     }
   )
@@ -198,7 +248,7 @@ const saveCompositionAndVoices = async (composition: Composition) => {
 
 const doImport = async () => {
   if (compositions.value === undefined) return
-  compositions.value.forEach(v => v.isEditingName = false)
+  compositions.value.forEach(v => v.isEditingTitle = false)
   compositions.value.flatMap(v => v.voices).forEach(v => v.isEditingName = false)
   isSaving.value = true
   try {
@@ -262,13 +312,13 @@ const importInfo = computed(() : ImportInfo | undefined => {
     <div v-else class="flex flex-col gap-2">
       <div v-for="composition in compositions" :key="composition.id" class="border rounded mt-2 p-4">
         <fieldset :disabled="isSaving || composition.isSaved">
-          <div v-if="composition.isEditingName" class="flex">
+          <div v-if="composition.isEditingTitle" class="flex">
             <input class="input-text !rounded-r-none" type="text" required v-model="composition.title" />
-            <button class="btn !rounded-l-none !border-l-none" @click="composition.isEditingName = false">✔</button>
+            <button class="btn !rounded-l-none !border-l-none" @click="composition.isEditingTitle = false">✔</button>
           </div>
           <div v-else class="flex">
             <button class="btn btn-green !rounded-r-none" :class="{ 'btn-solid': composition.enabled, 'text-musi-red': composition.hasSavingFailed }" @click="composition.enabled = !composition.enabled">{{ composition.title }}</button>
-            <button class="btn !rounded-l-none !border-l-0" @click="composition.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
+            <button class="btn !rounded-l-none !border-l-0" @click="composition.isEditingTitle = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
           </div>
         </fieldset>
         <h4 class="mt-4 text-xl small-caps" :class="{ 'opacity-50': isSaving || !composition.enabled }">Stimmen</h4>
