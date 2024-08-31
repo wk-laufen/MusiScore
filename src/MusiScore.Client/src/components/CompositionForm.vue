@@ -279,6 +279,10 @@ const getVoiceSaveMethod = (voice: EditableVoice) => {
   }
 }
 const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
+  if (voice.state.type === 'loadedVoice') {
+    return voice
+  }
+
   const url = getVoiceUrl(voice) || newVoiceUrl
   const httpMethod = getVoiceSaveMethod(voice)
   if (httpMethod === 'DELETE') {
