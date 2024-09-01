@@ -1,14 +1,11 @@
 module MusiScore.Server.App
 
-open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open System
 open System.IO
-open System.Reflection
-open System.Text.Json.Serialization
 
 [<EntryPoint>]
 let main args =
@@ -16,22 +13,20 @@ let main args =
 
     builder.Services.AddSingleton<Db>(fun (serviceProvider: IServiceProvider) ->
         let connectionString =
-            let config = serviceProvider.GetService<IConfiguration>()
-            config.GetValue("Db_ConnectionString_File")
+            builder.Configuration.GetValue("Db_ConnectionString_File")
             |> Option.ofObj
             |> Option.map File.ReadAllText
             |> Option.orElseWith (fun () ->
-                config.GetConnectionString("Db")
+                builder.Configuration.GetConnectionString("Db")
                 |> Option.ofObj
             )
-            |> Option.defaultWith (fun () -> failwith "DB connection string not found")
+            |> Option.defaultWith (fun () -> failwith "'Db_ConnectionString_File' and 'ConnectionStrings:Db' not found in configuration.")
         Db(connectionString)
     ) |> ignore
 
-    builder.Services.AddSingleton<Printer>(fun (serviceProvider: IServiceProvider) ->
-        let printConfig = serviceProvider.GetService<IConfiguration>().GetSection("Print")
-        let printServer = printConfig.GetValue("Server")
-        let printerName = printConfig.GetValue("Printer")
+    builder.Services.AddSingleton<Printer>(fun _serviceProvider ->
+        let printServer = builder.Configuration.GetRequiredSection("Print:Server").Value
+        let printerName = builder.Configuration.GetRequiredSection("Print:Printer").Value
         Printer(printServer, printerName)
     ) |> ignore
 
@@ -39,21 +34,9 @@ let main args =
         .AddControllers(fun o ->
             if builder.Environment.IsDevelopment() then
                 o.Filters.Add(FaultInjectionFilter()) |> ignore
-        )
-        .AddJsonOptions(fun o ->
-            Assembly.GetExecutingAssembly().ExportedTypes
-            |> Seq.filter(fun v -> v.BaseType <> null && not v.ContainsGenericParameters && typeof<JsonConverter>.IsAssignableFrom(v))
-            |> Seq.map Activator.CreateInstance
-            |> Seq.cast<JsonConverter>
-            |> Seq.iter o.JsonSerializerOptions.Converters.Add
         ) |> ignore
 
     builder.Services.AddMvc() |> ignore
-    builder.Services.AddServerSideBlazor() |> ignore
-    builder.Services.AddAuthorization() |> ignore
-    builder.Services
-        .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-        .AddCookie()
     |> ignore
 
     let app = builder.Build()
