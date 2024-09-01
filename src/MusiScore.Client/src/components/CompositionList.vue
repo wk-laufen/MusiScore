@@ -5,7 +5,7 @@ import { groupBy } from 'lodash-es'
 import InfoNotification from './InfoNotification.vue'
 import HorizontalDivider from './HorizontalDivider.vue'
 import CompositionItem from './CompositionItem.vue'
-import uiFetch from './UIFetch'
+import { uiFetchAuthorized } from './UIFetch'
 
 const props = defineProps<{
   compositions: CompositionListItem[]
@@ -33,7 +33,7 @@ const toggleActivate = async (composition: CompositionListItem) => {
   const newValue = !currentValue
   composition.isActive = newValue
 
-  const result = await uiFetch(isTogglingActivate, hasTogglingActivateFailed, composition.links.self, {
+  const result = await uiFetchAuthorized(isTogglingActivate, hasTogglingActivateFailed, composition.links.self, {
     method: 'PATCH',
     body: JSON.stringify({ isActive: newValue }),
     headers: {

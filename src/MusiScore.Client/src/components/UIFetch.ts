@@ -1,8 +1,9 @@
 import { type Ref } from 'vue'
+import { useAPIKeyStore } from '@/stores/api-key'
 
-type FetchResult = { succeeded: true, response: Response } | { succeeded: false, response?: Response}
+type FetchResult = { succeeded: true, response: Response } | { succeeded: false, response?: Response }
 
-export default async (isLoadingRef: Ref<boolean>, hasFailedRef: Ref<boolean>, fetchUrl: string, fetchParams?: RequestInit) : Promise<FetchResult> => {
+export const uiFetch = async (isLoadingRef: Ref<boolean>, hasFailedRef: Ref<boolean>, fetchUrl: string, fetchParams?: RequestInit) : Promise<FetchResult> => {
   isLoadingRef.value = true
   hasFailedRef.value = false
 
@@ -20,4 +21,10 @@ export default async (isLoadingRef: Ref<boolean>, hasFailedRef: Ref<boolean>, fe
   finally {
     isLoadingRef.value = false
   }
+}
+
+export const uiFetchAuthorized = async (isLoadingRef: Ref<boolean>, hasFailedRef: Ref<boolean>, fetchUrl: string, fetchParams?: RequestInit) : Promise<FetchResult> => {
+  const apiKeyStore = useAPIKeyStore()
+  const headers = apiKeyStore.apiKey !== undefined ? { Authorization: `APIKey ${apiKeyStore.apiKey}` } : undefined
+  return await uiFetch(isLoadingRef, hasFailedRef, fetchUrl, { ...fetchParams, headers: { ...fetchParams?.headers, ...headers } })
 }

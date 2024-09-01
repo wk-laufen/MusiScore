@@ -21,6 +21,7 @@
     "lodash-es": "^4.17.21",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.0.379",
+    "pinia": "^2.2.2",
     "tailwindcss-opentype": "^1.1.0",
     "toml": "^3.0.0",
     "vue": "^3.3.11",

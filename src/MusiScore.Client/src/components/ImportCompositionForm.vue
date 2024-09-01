@@ -3,7 +3,7 @@ import { computed, ref, toRef, watch } from 'vue'
 import FolderInput from './FolderInput.vue'
 import _ from 'lodash'
 import type { ValidationState } from './Validation'
-import uiFetch from './UIFetch'
+import { uiFetchAuthorized } from './UIFetch'
 import { serializeFile, type CompositionListItem, type SaveCompositionServerError, type SaveVoiceServerError, type Voice as VoiceDto, type VoiceFileServerError } from './AdminTypes'
 import toml from 'toml'
 
@@ -131,7 +131,7 @@ const inferPrintSetting = async (voice: Voice) => {
     voice.file = serializeFile(await new Response(voice.file).arrayBuffer())
   }
 
-  const result = await uiFetch(
+  const result = await uiFetchAuthorized(
     toRef(voice, 'isSaving'),
     toRef(voice, 'hasSavingFailed'),
     props.inferPrintSettingUrl,
@@ -171,7 +171,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
   }
   if (voice.printSetting === undefined) return
 
-  const result = await uiFetch(
+  const result = await uiFetchAuthorized(
     toRef(voice, 'isSaving'),
     toRef(voice, 'hasSavingFailed'),
     voiceUrl,
@@ -209,7 +209,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
 const saveComposition = async (composition: Composition) => {
   if (composition.isSaved) return
 
-  const result = await uiFetch(
+  const result = await uiFetchAuthorized(
     toRef(composition, 'isSaving'),
     toRef(composition, 'hasSavingFailed'),
     props.compositionUrl,

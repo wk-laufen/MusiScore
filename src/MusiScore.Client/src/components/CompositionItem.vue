@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { type CompositionListItem } from './AdminTypes'
-import uiFetch from './UIFetch';
+import { uiFetchAuthorized } from './UIFetch'
 
 const emit = defineEmits<{
   'toggleActivate': []
@@ -17,7 +17,7 @@ const isMarkedForDeletion = ref(false)
 const isDeleting = ref(false)
 const hasDeletingFailed = ref(false)
 const deleteComposition = async () => {
-  const response = await uiFetch(isDeleting, hasDeletingFailed, props.composition.links.self, { method: 'DELETE' })
+  const response = await uiFetchAuthorized(isDeleting, hasDeletingFailed, props.composition.links.self, { method: 'DELETE' })
   if (response.succeeded) {
     emit('deleted')
   }

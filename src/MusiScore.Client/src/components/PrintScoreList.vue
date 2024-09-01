@@ -4,7 +4,7 @@ import LoadingBar from './LoadingBar.vue'
 import InfoNotification from './InfoNotification.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import HorizontalDivider from './HorizontalDivider.vue'
-import uiFetch from './UIFetch'
+import { uiFetch } from './UIFetch'
 import type { ActiveCompositionDto } from './PrintTypes'
 
 const isLoading = ref(false)

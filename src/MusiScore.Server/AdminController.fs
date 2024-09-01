@@ -1,5 +1,6 @@
 ﻿namespace MusiScore.Server
 
+open Microsoft.AspNetCore.Authorization
 open Microsoft.AspNetCore.Mvc
 open MusiScore.Shared.DataTransfer.Admin
 open System
@@ -8,6 +9,7 @@ open System.Text
 
 [<ApiController>]
 [<Route("api/admin")>]
+[<Authorize("Notenarchivar")>]
 type AdminController(db: Db, printer: Printer) =
     inherit ControllerBase()
 

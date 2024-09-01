@@ -37,6 +37,15 @@ let main args =
         ) |> ignore
 
     builder.Services.AddMvc() |> ignore
+    builder.Services.AddAuthorization(fun options ->
+        options.AddPolicy("Notenarchivar", fun policy -> policy.RequireRole("Notenarchivar") |> ignore)
+    ) |> ignore
+    builder.Services.AddAuthentication("APIKey").AddScheme<APIKeyAuthenticationSchemeOptions, APIKeyAuthenticationHandler>("APIKey", fun o ->
+        o.APIKeys <-
+            builder.Configuration.GetRequiredSection("APIKeys").GetChildren()
+            |> Seq.map (fun v -> v.Key, v.Get<string[]>() |> Array.toList)
+            |> Seq.toList
+    )
     |> ignore
 
     let app = builder.Build()

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, toRef, computed } from 'vue'
-import uiFetch from './UIFetch'
+import { uiFetchAuthorized } from './UIFetch'
 import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintSetting, type SaveCompositionServerError, type SaveVoiceServerError, type Voice } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
@@ -36,7 +36,7 @@ const printSettings = ref<PrintSetting[]>()
 const isLoadingPrintSettings = ref(false)
 const hasLoadingPrintSettingsFailed = ref(false)
 const loadPrintSettings = async () => {
-  const result = await uiFetch(isLoadingPrintSettings, hasLoadingPrintSettingsFailed, props.printSettingsUrl)
+  const result = await uiFetchAuthorized(isLoadingPrintSettings, hasLoadingPrintSettingsFailed, props.printSettingsUrl)
   if (result.succeeded) {
     printSettings.value = (await result.response.json() as PrintSetting[])
   }
@@ -103,7 +103,7 @@ const loadComposition = async () => {
       }
       break
     case 'edit': {
-      const result = await uiFetch(isLoading, hasLoadingFailed, props.compositionUrl)
+      const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, props.compositionUrl)
       if (result.succeeded) {
         const loadedComposition = (await result.response.json() as FullComposition)
         composition.value = {
@@ -148,7 +148,7 @@ watch(
 const isPrinting = ref(false)
 const hasPrintingFailed = ref(false)
 const printWithPrintSettings = async (voice: EditableVoice) => {
-  await uiFetch(isPrinting, hasPrintingFailed, props.testPrintSettingUrl, {
+  await uiFetchAuthorized(isPrinting, hasPrintingFailed, props.testPrintSettingUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -286,7 +286,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
   const url = getVoiceUrl(voice) || newVoiceUrl
   const httpMethod = getVoiceSaveMethod(voice)
   if (httpMethod === 'DELETE') {
-    const result = await uiFetch(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, { method: httpMethod })
+    const result = await uiFetchAuthorized(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, { method: httpMethod })
     if (result.succeeded) {
       return undefined
     }
@@ -295,7 +295,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
     }
   }
   else {
-    const result = await uiFetch(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, {
+    const result = await uiFetchAuthorized(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, {
       method: httpMethod,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -354,7 +354,7 @@ const saveComposition = async () => {
 
   try {
     isSaving.value = true
-    const result = await uiFetch(isSavingComposition, hasSavingCompositionFailed, composition.value.links.self, {
+    const result = await uiFetchAuthorized(isSavingComposition, hasSavingCompositionFailed, composition.value.links.self, {
       method: getCompositionSaveMethod(),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: composition.value.title })
