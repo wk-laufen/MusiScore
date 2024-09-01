@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PrintScoreList from '../components/PrintScoreList.vue'
+import PrintScoreList from '@/components/PrintScoreList.vue'
 </script>
 
 <template>
