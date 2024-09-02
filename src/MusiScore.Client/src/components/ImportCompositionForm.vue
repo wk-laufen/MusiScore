@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, toRef, watch } from 'vue'
 import FolderInput from './FolderInput.vue'
+import LoadButton from './LoadButton.vue'
 import _ from 'lodash'
 import type { ValidationState } from './Validation'
 import { uiFetchAuthorized } from './UIFetch'
@@ -344,9 +345,9 @@ const importInfo = computed(() : ImportInfo | undefined => {
 
   <Teleport to="#command-bar">
     <button class="btn btn-solid btn-gold !px-8 !py-4" :disabled="isSaving" @click="$emit('cancelImport')">Zurück zur Übersicht</button>
-    <button class="btn btn-solid btn-gold !px-8 !py-4" :class="{ 'btn-loading': isSaving }" :disabled="!canImport" @click="doImport">
+    <LoadButton :loading="isSaving" :disabled="!canImport" class="btn-solid btn-gold !px-8 !py-4" @click="doImport">
       {{ importInfo?.type === 'error' ? 'Import erneut versuchen' : 'Import starten' }}
-    </button>
+    </LoadButton>
     <span v-if="importInfo?.type === 'success'" class="text-musi-green">{{ importInfo.message }}</span>
     <span v-else-if="importInfo?.type === 'error'" class="text-musi-red">{{ importInfo.message }}</span>
   </Teleport>

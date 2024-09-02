@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import LoadingBar from './LoadingBar.vue'
 import { type CompositionListItem } from './AdminTypes'
 import { uiFetchAuthorized } from './UIFetch'
 
@@ -37,9 +38,7 @@ const deleteComposition = async () => {
       <button class="p-4 grow" title="Bearbeiten" @click="$emit('edit')">
         <font-awesome-icon :icon="['fas', 'pen']" />
       </button>
-      <div v-if="isDeleting" class="px-2 py-3 grow">
-        <div class="spinner spinner-blue"></div>
-      </div>
+      <LoadingBar v-if="isDeleting" type="minimal" class="p-4 grow" />
       <button v-else-if="hasDeletingFailed"
         class="p-4 grow bg-blue-500"
         title="Löschen erneut versuchen"

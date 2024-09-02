@@ -5,6 +5,7 @@ import { deserializeFile, serializeFile, type CompositionListItem, type FullComp
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
+import LoadButton from './LoadButton.vue'
 import TextInput from './TextInput.vue'
 import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
@@ -408,7 +409,7 @@ const saveComposition = async () => {
               'text-musi-red line-through': (voice.state.type === 'loadedVoice' || voice.state.type === 'modifiedVoice') && voice.state.isMarkedForDeletion }">
               {{ voice.name || '<leer>' }}
             </span>
-            <span v-if="voice.isSaving" class="btn-loading m-2 mr-0 w-5 h-5 inline-block"></span>
+            <LoadingBar v-if="voice.isSaving" type="minimal" class="m-2 mr-0 w-5 h-5" />
             <template v-else>
               <button class="p-2 hover:text-musi-red" title="Löschen" @click.stop="deleteVoice(voice)">
                 <font-awesome-icon :icon="['fas', 'trash']" />
@@ -433,14 +434,15 @@ const saveComposition = async () => {
         <div class="mt-6">
           <span class="input-label">PDF drucken</span>
           <div class="flex flex-row flex-wrap gap-2">
-            <button v-if="voiceFileWithModifications !== undefined && activeVoice.printSetting !== ''"
-              class="btn btn-blue" :class="{ 'btn-loading': isPrinting }"
+            <LoadButton v-if="voiceFileWithModifications !== undefined && activeVoice.printSetting !== ''"
+              :loading="isPrinting"
+              class="btn-blue"
               @click="printWithPrintSettings(activeVoice)">
               Mit Druckeinstellungen drucken
               <span v-if="hasPrintingFailed" class="ml-2 text-musi-red" title="Fehler beim Drucken">
                 <font-awesome-icon :icon="['fas', 'info-circle']" />
               </span>
-            </button>
+            </LoadButton>
             <button v-else class="btn btn-blue" disabled="true">Mit Druckeinstellungen drucken</button>
             
             <button v-if="voiceFileWithModifications !== undefined" class="btn btn-blue" @click="printWithPrintDialog(voiceFileWithModifications.data)">Mit Druckdialog drucken</button>
@@ -510,6 +512,6 @@ const saveComposition = async () => {
 
   <Teleport to="#command-bar">
     <button class="btn btn-solid btn-gold !px-8 !py-4" :disabled="isSaving" @click="$emit('cancelEdit')">Zurück zur Übersicht</button>
-    <button class="btn btn-solid btn-gold !px-8 !py-4" :class="{ 'btn-loading': isSaving }" @click="saveComposition">Speichern</button>
+    <LoadButton :loading="isSaving" class="btn-solid btn-gold !px-8 !py-4" @click="saveComposition">Speichern</LoadButton>
   </Teleport>
 </template>

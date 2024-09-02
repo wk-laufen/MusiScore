@@ -15,11 +15,8 @@ main {
 .btn:disabled {
   @apply opacity-50 cursor-not-allowed;
 }
-.btn:hover:not(.btn-loading) {
+.btn:hover:not(:disabled) {
   @apply shadow;
-}
-.btn-loading {
-  @apply cursor-auto relative opacity-50 after:inline-block after:absolute after:left-1/2 after:top-1/2 after:w-4 after:h-4 after:-ml-2 after:-mt-2 after:border-b-2 after:border-blue-500 after:rounded-full after:animate-spin;
 }
 .btn-blue:not(.btn-solid) {
   @apply text-musi-blue border-musi-blue;
@@ -56,16 +53,6 @@ main {
 }
 .btn-gold:hover {
   @apply shadow-musi-gold;
-}
-
-.spinner {
-  @apply w-8 h-8 border-b-2 rounded-full animate-spin;
-}
-.spinner-gold {
-  @apply border-musi-gold;
-}
-.spinner-blue {
-  @apply border-blue-500;
 }
 
 .input {

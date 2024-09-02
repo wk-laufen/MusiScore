@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import LoadingBar from './LoadingBar.vue'
+import LoadButton from './LoadButton.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import LoginForm from './LoginForm.vue'
 import CompositionList from './CompositionList.vue'
@@ -133,14 +134,16 @@ const compositionDeleted = (composition: CompositionListItem) => {
       @cancel-import="cancelImport" />
   </div>
   <div v-if="!showLogin" id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">
+    <button class="btn btn-solid btn-gold !px-8 !py-4">Einstellungen</button>
     <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="isImportingCompositions = true">Importieren</button>
-    <button v-if="compositionList !== undefined && compositionList?.compositions.length > 0 && isInListView"
-      class="btn btn-solid btn-gold !px-8 !py-4"
-      :class="{ 'btn-loading': isExportingCompositions }"
+    <LoadButton v-if="compositionList !== undefined && compositionList?.compositions.length > 0 && isInListView"
+      :loading="isExportingCompositions"
+      :disabled="false"
+      class="btn-solid btn-gold !px-8 !py-4"
       @click="exportCompositions">
-      <span v-if="hasExportingCompositionsFailed">Exportieren fehlgeschlagen. Erneut versuchen.</span>
-      <span v-else>Exportieren</span>
-    </button>
+      <template v-if="hasExportingCompositionsFailed">Exportieren fehlgeschlagen. Erneut versuchen.</template>
+      <template v-else>Exportieren</template>
+    </LoadButton>
     <button v-if="isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
   </div>
 </template>

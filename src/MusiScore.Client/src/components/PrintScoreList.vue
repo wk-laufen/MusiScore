@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import LoadingBar from './LoadingBar.vue'
 import InfoNotification from './InfoNotification.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
+import LoadButton from './LoadButton.vue'
 import HorizontalDivider from './HorizontalDivider.vue'
 import { uiFetch } from './UIFetch'
 import type { ActiveCompositionDto } from './PrintTypes'
@@ -96,8 +97,9 @@ const tryPrint = async () => {
           </div>
         </div>
         <div class="flex justify-center my-8">
-          <button v-if="isPrinting"
-            class="btn btn-solid btn-gold btn-loading w-60 h-24">&nbsp;</button>
+          <LoadButton v-if="isPrinting"
+            :loading="true"
+            class="btn-solid btn-gold w-60 h-24">&nbsp;</LoadButton>
           <button v-else @click="() => tryPrint()"
             :class="{ 'opacity-50 !cursor-not-allowed': !canPrint(), 'animate-wiggle': hasPrintingFailed }"
             class="btn btn-solid btn-gold w-60 h-24">
