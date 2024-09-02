@@ -322,7 +322,11 @@ const importInfo = computed(() : ImportInfo | undefined => {
             <button class="btn !rounded-l-none !border-l-none" @click="composition.isEditingTitle = false">✔</button>
           </div>
           <div v-else class="flex">
-            <button class="btn btn-green !rounded-r-none" :class="{ 'btn-solid': composition.enabled, 'text-musi-red': composition.hasSavingFailed }" @click="composition.enabled = !composition.enabled">{{ composition.title }}</button>
+            <LoadButton :loading="composition.isSaving" class="btn-green !rounded-r-none" :class="{ 'btn-solid': composition.enabled }" @click="composition.enabled = !composition.enabled">
+              {{ composition.title }}
+              <template v-if="composition.isSaved">✔</template>
+              <template v-else-if="composition.hasSavingFailed">❌</template>
+            </LoadButton>
             <button class="btn !rounded-l-none !border-l-0" @click="composition.isEditingTitle = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
           </div>
         </fieldset>
@@ -330,16 +334,18 @@ const importInfo = computed(() : ImportInfo | undefined => {
         <div class="ml-4 mt-2 flex flex-wrap items-center gap-2">
           <div v-for="voice in composition.voices" :key="voice.id">
             <fieldset :disabled="!composition.enabled || isSaving || voice.isSaved">
-              <template v-if="voice.isEditingName">
-                <div class="flex">
-                  <input class="input-text !rounded-r-none" type="text" required v-model="voice.name" />
-                  <button class="btn !rounded-l-none !border-l-none" @click="voice.isEditingName = false">✔</button>
-                </div>
-              </template>
-              <template v-else>
-                <button class="btn btn-blue !rounded-r-none" :class="{ 'btn-solid': voice.enabled, '!text-red-400': voice.hasSavingFailed }" @click="voice.enabled = !voice.enabled">{{ voice.name || '<leer>' }}</button>
+              <div v-if="voice.isEditingName" class="flex">
+                <input class="input-text !rounded-r-none" type="text" required v-model="voice.name" />
+                <button class="btn !rounded-l-none !border-l-none" @click="voice.isEditingName = false">✔</button>
+              </div>
+              <div v-else class="flex">
+                <LoadButton :loading="voice.isSaving" class="btn-blue !rounded-r-none" :class="{ 'btn-solid': voice.enabled }" @click="voice.enabled = !voice.enabled">
+                  {{ voice.name || '<leer>' }}
+                  <template v-if="voice.isSaved">✔</template>
+                  <template v-else-if="voice.hasSavingFailed">❌</template>
+                </LoadButton>
                 <button class="btn !rounded-l-none !border-l-0" @click="voice.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
-              </template>
+              </div>
             </fieldset>
           </div>
         </div>
