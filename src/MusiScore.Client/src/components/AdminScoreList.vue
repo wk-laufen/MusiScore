@@ -144,6 +144,6 @@ const compositionDeleted = (composition: CompositionListItem) => {
       <template v-if="hasExportingCompositionsFailed">Exportieren fehlgeschlagen. Erneut versuchen.</template>
       <template v-else>Exportieren</template>
     </LoadButton>
-    <button v-if="isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
+    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
   </div>
 </template>
