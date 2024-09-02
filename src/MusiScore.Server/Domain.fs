@@ -35,7 +35,6 @@ module PrintSetting =
             match pageSizes with
             | [] -> true
             | (width, height) :: _ ->
-                printfn $"%f{width} x %f{height}"
                 Math.Abs(width - 595f) < 5f && Math.Abs(height - 842f) < 5f
         if isA4 && pageSizes.Length <= 2 then Duplex
         elif isA4 && pageSizes.Length <= 4 then A4ToA3Duplex
