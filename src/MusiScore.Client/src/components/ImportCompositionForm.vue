@@ -308,7 +308,7 @@ const importInfo = computed(() : ImportInfo | undefined => {
   <div class="p-4">
     <h2 class="text-2xl small-caps">Stücke importieren</h2>
 
-    <FolderInput v-model="files" class="mt-2" />
+    <FolderInput v-model="files" :disabled="isSaving" class="mt-2" />
 
     <template v-if="compositions === undefined"></template>
     <div v-else-if="compositions.length === 0" class="mt-4">
