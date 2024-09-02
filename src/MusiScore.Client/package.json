@@ -19,6 +19,7 @@
     "@fortawesome/free-solid-svg-icons": "^6.6.0",
     "@fortawesome/vue-fontawesome": "^3.0.5",
     "lodash-es": "^4.17.21",
+    "p-limit": "^6.1.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.0.379",
     "pinia": "^2.2.2",

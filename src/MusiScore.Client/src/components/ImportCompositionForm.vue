@@ -7,6 +7,7 @@ import type { ValidationState } from './Validation'
 import { uiFetchAuthorized } from './UIFetch'
 import { serializeFile, type CompositionListItem, type SaveCompositionServerError, type SaveVoiceServerError, type Voice as VoiceDto, type VoiceFileServerError } from './AdminTypes'
 import toml from 'toml'
+import pLimit from 'p-limit'
 
 const props = defineProps<{
   compositionUrl: string
@@ -236,6 +237,9 @@ const saveComposition = async (composition: Composition) => {
   }
 }
 
+const limitSaveCompositions = pLimit(10)
+const limitSaveVoices = pLimit(10)
+
 const saveCompositionAndVoices = async (composition: Composition) => {
   await saveComposition(composition)
 
@@ -243,7 +247,7 @@ const saveCompositionAndVoices = async (composition: Composition) => {
   if (voicesUrl !== undefined) {
     await Promise.all(composition.voices
       .filter(v => v.enabled)
-      .map(v => saveVoice(voicesUrl, v)))
+      .map(v => limitSaveVoices(() => saveVoice(voicesUrl, v))))
   }
 }
 
@@ -255,7 +259,7 @@ const doImport = async () => {
   try {
     await Promise.all(compositions.value
       .filter(v => v.enabled)
-      .map(v => saveCompositionAndVoices(v)))
+      .map(v => limitSaveCompositions(() => saveCompositionAndVoices(v))))
   }
   finally {
     isSaving.value = false
