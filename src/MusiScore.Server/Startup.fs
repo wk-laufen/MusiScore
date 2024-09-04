@@ -61,9 +61,7 @@ let main args =
     app.MapControllers() |> ignore
 
     if app.Environment.IsProduction() then
-        app.UseRouting().UseEndpoints(fun endpoints ->
-            endpoints.MapFallbackToFile("/index.html") |> ignore
-        ) |> ignore
+        app.MapFallbackToFile("/index.html") |> ignore
 
     app.Run()
 
