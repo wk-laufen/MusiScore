@@ -14,7 +14,7 @@ const selectedFolderChanged = (e: Event) => {
   <div>
     <label>
       <input class="input-file hidden" type="file" :disabled="disabled" webkitdirectory multiple @change="selectedFolderChanged" />
-      <button :disabled="disabled" class="btn btn-blue">Ordner auswählen</button>
+      <a :disabled="disabled" class="btn btn-blue">Ordner auswählen</a>
     </label>
   </div>
 </template>
