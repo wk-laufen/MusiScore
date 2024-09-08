@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/wk-laufen/musiscore:66622f198421b87421e820848e7af39845d08f5b
+    image: ghcr.io/wk-laufen/musiscore:c869291596e5ed8c6cc6027ec9be830f2357821c
     restart: unless-stopped
     ports:
       - 80:8080
@@ -8,6 +8,7 @@ services:
       - Db_ConnectionString_File=/run/secrets/db_connection_string
       - Print__Server=print
       - Print__Printer=Ricoh-Aficio-3025
+      - APIKeys__abcdef__0=Notenarchivar
     secrets:
       - db_connection_string
   db:
