@@ -1,6 +1,7 @@
 ﻿namespace MusiScore.Server
 
 open Microsoft.AspNetCore.Authorization
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Mvc
 open MusiScore.Shared.DataTransfer.Admin
 open System
@@ -32,50 +33,91 @@ type AdminController(db: Db, printer: Printer) =
                     })
                     |> Seq.toArray
                 Links = {|
-                    PrintSettings = this.Url.Action(nameof(this.GetPrintSettings))
-                    InferPrintSetting = this.Url.Action(nameof(this.InferPrintSetting))
-                    TestPrintSetting = this.Url.Action(nameof(this.TestPrintSetting))
+                    PrintConfigs = this.Url.Action(nameof(this.GetPrintConfigs))
+                    InferPrintConfig = this.Url.Action(nameof(this.InferPrintConfig))
+                    TestPrintConfig = this.Url.Action(nameof(this.TestPrintConfig))
                     Composition = this.Url.Action(nameof(this.CreateComposition))
                     Export = this.Url.Action(nameof(this.ExportCompositions))
                 |}
             }
         }
 
-    [<Route("print-settings")>]
+    [<Route("print-configs")>]
     [<HttpGet>]
-    member _.GetPrintSettings () =
+    member this.GetPrintConfigs () =
         async {
-            let! printSettings = db.GetPrintSettings()
+            let! printConfigs = db.GetPrintConfigs()
             return
-                printSettings
+                printConfigs
                 |> List.map (fun v -> {
-                    Key = PrintSetting.toDto v.Key
+                    Key = v.Key
                     Name = v.Name
+                    SortOrder = v.SortOrder
+                    CupsCommandLineArgs = v.Settings.CupsCommandLineArgs
+                    ReorderPagesAsBooklet = v.Settings.ReorderPagesAsBooklet
+                    Links = {|
+                        Self = this.Url.Action(nameof(this.UpdatePrintConfig), {| key = v.Key |})
+                    |}
                 })
         }
 
-    [<Route("print-setting")>]
-    [<HttpQuery>]
-    member this.InferPrintSetting ([<FromBody>]data: {| File: byte[] |}) =
+    [<Route("print-configs")>]
+    [<HttpPost>]
+    member this.CreatePrintConfig ([<FromBody>]printConfig: NewPrintConfigDto) =
         async {
-            match Parse.voiceFile data.File with
-            | Ok file ->
-                let printSetting =
-                    PDF.getPageSizes file
-                    |> PrintSetting.inferFromPDFPageSizes
-                    |> PrintSetting.toDto
-                return this.Ok({| PrintSetting = printSetting |}) :> IActionResult
+            match Parse.printConfig printConfig with
+            | Ok newPrintConfig ->
+                match! db.CreatePrintConfig(newPrintConfig) with
+                | Ok() ->
+                    return this.Ok({
+                        Key = newPrintConfig.Key
+                        Name = newPrintConfig.Name
+                        SortOrder = newPrintConfig.SortOrder
+                        CupsCommandLineArgs = newPrintConfig.Settings.CupsCommandLineArgs
+                        ReorderPagesAsBooklet = newPrintConfig.Settings.ReorderPagesAsBooklet
+                        Links = {|
+                            Self = this.Url.Action(nameof(this.UpdatePrintConfig), {| key = newPrintConfig.Key |})
+                        |}
+                    }) :> IActionResult
+                | Error PrintConfigExists -> return this.BadRequest(["PrintConfigExists"])
             | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
-    [<Route("test-print-setting")>]
-    [<HttpPost>]
-    member this.TestPrintSetting ([<FromBody>]data: {| File: byte[]; PrintSetting: string |}) =
+    [<Route("print-config")>]
+    [<HttpQuery>]
+    member this.InferPrintConfig ([<FromBody>]data: {| File: byte[] |}) =
         async {
-            match Parse.printSetting data.PrintSetting with
-            | Ok printSetting ->
-                do! printer.PrintPdf data.File printSetting 1
+            match Parse.voiceFile data.File with
+            | Ok _file ->
+                match! db.GetDefaultPrintConfig() with
+                | Some printConfig ->
+                    return this.Ok({| PrintConfig = printConfig.Key |}) :> IActionResult
+                | None -> return this.StatusCode(StatusCodes.Status500InternalServerError, {| Message = "No default print config found" |})
+            | Error list -> return this.BadRequest(list) :> IActionResult
+        }
+
+    [<Route("print-config/{key}")>]
+    [<HttpPatch>]
+    member this.UpdatePrintConfig (key: string, [<FromBody>]printConfig: PrintConfigUpdateDto) =
+        async {
+            match Parse.printConfigUpdateDto printConfig with
+            | Ok printConfigUpdate ->
+                do! db.UpdatePrintConfig key printConfigUpdate
                 return this.NoContent() :> IActionResult
+            | Error list -> return this.BadRequest(list) :> IActionResult
+        }
+
+    [<Route("test-print-config")>]
+    [<HttpPost>]
+    member this.TestPrintConfig ([<FromBody>]data: {| File: byte[]; PrintConfig: string |}) =
+        async {
+            match Parse.printConfigKey data.PrintConfig with
+            | Ok printConfigKey ->
+                match! db.GetPrintConfig printConfigKey with
+                | Some printConfig ->
+                    do! printer.PrintPdf data.File printConfig.Settings 1
+                    return this.NoContent() :> IActionResult
+                | None -> return this.BadRequest() :> IActionResult
             | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
@@ -175,7 +217,7 @@ type AdminController(db: Db, printer: Printer) =
                         |> Seq.map (fun v -> {
                             Name = v.Name
                             File = v.File
-                            PrintSetting = PrintSetting.toDto v.PrintSetting
+                            PrintConfig = v.PrintConfig
                             Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |}) |}
                         })
                         |> Seq.toArray
@@ -192,7 +234,7 @@ type AdminController(db: Db, printer: Printer) =
                 let result = {
                     Name = createVoice.Name
                     File = createVoice.File
-                    PrintSetting = PrintSetting.toDto createVoice.PrintSetting
+                    PrintConfig = createVoice.PrintConfig
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
                     |}
@@ -211,7 +253,7 @@ type AdminController(db: Db, printer: Printer) =
                 let result = {
                     Name = updatedVoice.Name
                     File = updatedVoice.File
-                    PrintSetting = PrintSetting.toDto updatedVoice.PrintSetting
+                    PrintConfig = updatedVoice.PrintConfig
                     Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |}) |}
                 }
                 return this.Ok(result) :> IActionResult

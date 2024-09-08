@@ -3,19 +3,10 @@
 open System.Diagnostics
 
 type Printer(printServer: string, printerName) =
-    member _.PrintPdf content printSetting count = async {
-        let content =
-            match printSetting with
-            | Duplex -> content
-            | A4ToA3Duplex -> content
-            | A4ToBooklet -> PDF.reorderAsBooklet content
-        let printOptions =
-            match printSetting with
-            | Duplex -> "-o media=A4 -o sides=two-sided-long-edge"
-            | A4ToA3Duplex
-            | A4ToBooklet -> "-o number-up=2 -o media=A3 -o sides=two-sided-short-edge"
+    member _.PrintPdf content (printSettings: PrintSettings) count = async {
+        let content = if printSettings.ReorderPagesAsBooklet then PDF.reorderAsBooklet content else content
         use! temporaryFile = TemporaryFile.createWithContent ".pdf" content
-        let psi = ProcessStartInfo("lp", $"-h %s{printServer} -d %s{printerName} %s{printOptions} -n %d{count} %s{temporaryFile.Path}")
+        let psi = ProcessStartInfo("lp", $"-h %s{printServer} -d %s{printerName} %s{printSettings.CupsCommandLineArgs} -n %d{count} %s{temporaryFile.Path}")
         printfn $"Running \"%s{psi.FileName} %s{psi.Arguments}\""
         let p = Process.Start(psi)
         let! ct = Async.CancellationToken

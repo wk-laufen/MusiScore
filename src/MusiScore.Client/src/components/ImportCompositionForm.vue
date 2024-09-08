@@ -11,7 +11,7 @@ import pLimit from 'p-limit'
 
 const props = defineProps<{
   compositionUrl: string
-  inferPrintSettingUrl: string
+  inferPrintConfigUrl: string
 }>()
 
 defineEmits<{
@@ -27,8 +27,8 @@ type Voice = {
   name: string
   nameValidationState: ValidationState
   isEditingName: boolean
-  printSetting: string | undefined
-  printSettingValidationState: ValidationState
+  printConfig: string | undefined
+  printConfigValidationState: ValidationState
   enabled: boolean
   file: string | ReadableStream<Uint8Array>
   fileValidationState: ValidationState
@@ -60,7 +60,7 @@ type Metadata = {
       is_active?: boolean
       voices?: {
         name?: string
-        print_setting?: string
+        print_config?: string
       } []
     }
   }
@@ -113,8 +113,8 @@ watch(files, async files => {
             name: voiceName,
             nameValidationState: { type: 'notValidated' },
             isEditingName: false,
-            printSetting: voiceMetadata?.print_setting,
-            printSettingValidationState: { type: 'notValidated' },
+            printConfig: voiceMetadata?.print_config,
+            printConfigValidationState: { type: 'notValidated' },
             enabled: true,
             file: v.content,
             fileValidationState: { type: 'notValidated' },
@@ -128,7 +128,7 @@ watch(files, async files => {
     .value()
 })
 
-const inferPrintSetting = async (voice: Voice) => {
+const inferPrintConfig = async (voice: Voice) => {
   if (typeof voice.file !== 'string') {
     voice.file = serializeFile(await new Response(voice.file).arrayBuffer())
   }
@@ -136,7 +136,7 @@ const inferPrintSetting = async (voice: Voice) => {
   const result = await uiFetchAuthorized(
     toRef(voice, 'isSaving'),
     toRef(voice, 'hasSavingFailed'),
-    props.inferPrintSettingUrl,
+    props.inferPrintConfigUrl,
     {
       method: 'QUERY', // needs Node 22.2.0 with vite dev server, see https://github.com/nodejs/node/issues/51562#issuecomment-2151103116
       headers: { 'Content-Type': 'application/json' },
@@ -146,8 +146,8 @@ const inferPrintSetting = async (voice: Voice) => {
     }
   )
   if (result.succeeded) {
-    const response = (await result.response.json() as { printSetting: string })
-    return response.printSetting
+    const response = (await result.response.json() as { printConfig: string })
+    return response.printConfig
   }
   else if (result.response !== undefined && result.response.status === 400) {
     const errors = await result.response.json() as VoiceFileServerError[]
@@ -168,10 +168,10 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
   if (typeof voice.file !== 'string') {
     voice.file = serializeFile(await new Response(voice.file).arrayBuffer())
   }
-  if (voice.printSetting === undefined) {
-    voice.printSetting = await inferPrintSetting(voice)
+  if (voice.printConfig === undefined) {
+    voice.printConfig = await inferPrintConfig(voice)
   }
-  if (voice.printSetting === undefined) return
+  if (voice.printConfig === undefined) return
 
   const result = await uiFetchAuthorized(
     toRef(voice, 'isSaving'),
@@ -183,7 +183,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       body: JSON.stringify({
         name: voice.name,
         file: voice.file,
-        printSetting: voice.printSetting
+        printConfig: voice.printConfig
       })
     }
   )
@@ -201,7 +201,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       : errors.includes('InvalidFile')
         ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
         : { type: 'success' }
-    voice.printSettingValidationState = errors.includes('UnknownPrintSetting') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
+    voice.printConfigValidationState = errors.includes('UnknownPrintConfig') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
   }
   else {
     // TODO what happend here?

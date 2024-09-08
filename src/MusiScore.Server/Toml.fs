@@ -3,9 +3,9 @@ namespace MusiScore.Server
 open Tomlyn
 
 module Toml =
-    type TomlVoice (name: string, printSetting: string) =
+    type TomlVoice (name: string, printConfig: string) =
         member val Name = name with get, set
-        member val PrintSetting = printSetting with get, set
+        member val PrintConfig = printConfig with get, set
 
     type TomlComposition (isActive: bool, voices: TomlVoice array) =
         member val IsActive = isActive with get, set
@@ -21,7 +21,7 @@ module Toml =
                     composition.IsActive,
                     voices
                     |> List.map (fun v ->
-                        TomlVoice(v.Name, PrintSetting.toDto v.PrintSetting)
+                        TomlVoice(v.Name, v.PrintConfig)
                     )
                     |> Array.ofList
                 )

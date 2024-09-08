@@ -64,6 +64,9 @@ main {
 .input-text {
   @apply w-72 px-2 py-1 border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
 }
+.input-text:disabled {
+  @apply bg-gray-200
+}
 .input-text:invalid {
   @apply border-musi-red text-musi-red focus:ring-musi-red;
 }

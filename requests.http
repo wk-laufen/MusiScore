@@ -41,14 +41,14 @@ GET {{baseUrl}}/api/admin/compositions/6/voices
 POST {{baseUrl}}/api/admin/compositions/6/voices
 Content-Type: application/json
 
-{ "name": "Bb Klarinette 1", "file": "MTIzNA==", "printSetting": "duplex" }
+{ "name": "Bb Klarinette 1", "file": "MTIzNA==", "printConfig": "duplex" }
 
 ###
 
 PATCH {{baseUrl}}/api/admin/compositions/6/voices/5
 Content-Type: application/json
 
-{ "name": "Bb Klarinette 1", "file": "NDMyMQ==", "printSetting": "a4-to-booklet" }
+{ "name": "Bb Klarinette 1", "file": "NDMyMQ==", "printConfig": "a4-to-booklet" }
 
 ###
 

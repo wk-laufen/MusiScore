@@ -24,17 +24,37 @@ module Admin =
     type CompositionListDto = {
         Compositions: ExistingCompositionDto array
         Links: {|
-            PrintSettings: string
-            InferPrintSetting: string
-            TestPrintSetting: string
+            PrintConfigs: string
+            InferPrintConfig: string
+            TestPrintConfig: string
             Composition: string
             Export: string
         |}
     }
 
-    type VoicePrintSettingDto = {
+    type PrintConfigDto = {
         Key: string
         Name: string
+        SortOrder: int
+        ReorderPagesAsBooklet: bool
+        CupsCommandLineArgs: string
+        Links: {|
+            Self: string
+        |}
+    }
+
+    type NewPrintConfigDto = {
+        Key: string
+        Name: string
+        SortOrder: int
+        ReorderPagesAsBooklet: bool
+        CupsCommandLineArgs: string
+    }
+
+    type PrintConfigUpdateDto = {
+        Name: string option
+        ReorderPagesAsBooklet: bool option
+        CupsCommandLineArgs: string option
     }
 
     type NewCompositionDto = {
@@ -50,13 +70,13 @@ module Admin =
     type CreateVoiceDto = {
         Name: string
         File: byte[]
-        PrintSetting: string
+        PrintConfig: string
     }
 
     type ExistingVoiceDto = {
         Name: string
         File: byte[]
-        PrintSetting: string
+        PrintConfig: string
         Links: {| Self: string |}
     }
 
@@ -70,5 +90,5 @@ module Admin =
     type UpdateVoiceDto = {
         Name: string option
         File: byte[] option
-        PrintSetting: string option
+        PrintConfig: string option
     }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef, computed } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
-import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintSetting, type SaveCompositionServerError, type SaveVoiceServerError, type Voice } from './AdminTypes'
+import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type Voice } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -26,23 +26,23 @@ defineEmits<{
 
 const props = defineProps<{
   type: 'create' | 'edit'
-  printSettingsUrl: string
-  testPrintSettingUrl: string
+  printConfigsUrl: string
+  testPrintConfigUrl: string
   compositionUrl: string
 }>()
 
 const modifyType = ref(props.type)
 
-const printSettings = ref<PrintSetting[]>()
-const isLoadingPrintSettings = ref(false)
-const hasLoadingPrintSettingsFailed = ref(false)
-const loadPrintSettings = async () => {
-  const result = await uiFetchAuthorized(isLoadingPrintSettings, hasLoadingPrintSettingsFailed, props.printSettingsUrl)
+const printConfigs = ref<PrintConfig[]>()
+const isLoadingPrintConfigs = ref(false)
+const hasLoadingPrintConfigsFailed = ref(false)
+const loadPrintConfigs = async () => {
+  const result = await uiFetchAuthorized(isLoadingPrintConfigs, hasLoadingPrintConfigsFailed, props.printConfigsUrl)
   if (result.succeeded) {
-    printSettings.value = (await result.response.json() as PrintSetting[])
+    printConfigs.value = (await result.response.json() as PrintConfig[])
   }
 }
-loadPrintSettings()
+loadPrintConfigs()
 
 type EditableVoiceState =
     | { type: 'loadedVoice', isMarkedForDeletion: boolean, links: { self: string } }
@@ -55,7 +55,7 @@ type EditableVoice = Omit<Voice, 'links' | 'file'> & {
   originalFile?: Uint8Array
   fileModifications: ({ id: string; isDraft: boolean } & PdfModification)[]
   fileValidationState: ValidationState
-  printSettingValidationState: ValidationState
+  printConfigValidationState: ValidationState
   isSaving: boolean
   hasSavingFailed: boolean
 }
@@ -79,8 +79,8 @@ const parseLoadedVoice = (voice: Voice, voiceId?: number) : EditableVoice => {
     originalFile: deserializeFile(voice.file),
     fileModifications: [],
     fileValidationState: { type: 'success' },
-    printSetting: voice.printSetting,
-    printSettingValidationState: { type: 'success' },
+    printConfig: voice.printConfig,
+    printConfigValidationState: { type: 'success' },
     isSaving: false,
     hasSavingFailed: false
   }
@@ -148,13 +148,13 @@ watch(
 
 const isPrinting = ref(false)
 const hasPrintingFailed = ref(false)
-const printWithPrintSettings = async (voice: EditableVoice) => {
-  await uiFetchAuthorized(isPrinting, hasPrintingFailed, props.testPrintSettingUrl, {
+const printWithPrintConfig = async (voice: EditableVoice) => {
+  await uiFetchAuthorized(isPrinting, hasPrintingFailed, props.testPrintConfigUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       file: await serializeVoiceFile(voice.originalFile, voice.fileModifications),
-      printSetting: voice.printSetting
+      printConfig: voice.printConfig
     })
   })
 }
@@ -233,8 +233,8 @@ const addVoice = () => {
     originalFile: undefined,
     fileModifications: [],
     fileValidationState: { type: 'notValidated' },
-    printSetting: '',
-    printSettingValidationState: { type: 'notValidated' },
+    printConfig: '',
+    printConfigValidationState: { type: 'notValidated' },
     isSaving: false,
     hasSavingFailed: false
   })
@@ -302,7 +302,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
       body: JSON.stringify({
         name: voice.name,
         file: await serializeVoiceFile(voice.originalFile, voice.fileModifications),
-        printSetting: voice.printSetting
+        printConfig: voice.printConfig
       })
     })
     if (result.succeeded) {
@@ -317,7 +317,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
         : errors.includes('InvalidFile')
           ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
           : { type: 'success' }
-      voice.printSettingValidationState = errors.includes('UnknownPrintSetting') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
+      voice.printConfigValidationState = errors.includes('UnknownPrintConfig') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
       return voice
     }
     else {
@@ -428,16 +428,16 @@ const saveComposition = async () => {
         <TextInput title="Name" :validation-state="activeVoice.nameValidationState" v-model="activeVoice.name" class="mt-6" />
         <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" class="mt-6" />
         <div class="mt-6 flex gap-2">
-          <SelectInput v-if="printSettings !== undefined" title="Druckeinstellung" :options="printSettings.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printSettingValidationState" v-model="activeVoice.printSetting" />
-          <ErrorWithRetry v-else-if="hasLoadingPrintSettingsFailed" type="inline" @retry="loadPrintSettings" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
+          <SelectInput v-if="printConfigs !== undefined" title="Druckeinstellung" :options="printConfigs.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printConfigValidationState" v-model="activeVoice.printConfig" />
+          <ErrorWithRetry v-else-if="hasLoadingPrintConfigsFailed" type="inline" @retry="loadPrintConfigs" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
         </div>
         <div class="mt-6">
           <span class="input-label">PDF drucken</span>
           <div class="flex flex-row flex-wrap gap-2">
-            <LoadButton v-if="voiceFileWithModifications !== undefined && activeVoice.printSetting !== ''"
+            <LoadButton v-if="voiceFileWithModifications !== undefined && activeVoice.printConfig !== ''"
               :loading="isPrinting"
               class="btn-blue"
-              @click="printWithPrintSettings(activeVoice)">
+              @click="printWithPrintConfig(activeVoice)">
               Mit Druckeinstellungen drucken
               <span v-if="hasPrintingFailed" class="ml-2 text-musi-red" title="Fehler beim Drucken">
                 <font-awesome-icon :icon="['fas', 'info-circle']" />

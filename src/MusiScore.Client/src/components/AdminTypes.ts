@@ -9,7 +9,7 @@ export type CompositionListItem = {
   }
 }
 
-export type PrintSetting = {
+export type PrintConfig = {
   key: string
   name: string
 }
@@ -17,7 +17,7 @@ export type PrintSetting = {
 export type Voice = {
   name: string
   file: string // base 64 encoded
-  printSetting: string
+  printConfig: string
   links: {
     self: string
   }
@@ -42,12 +42,12 @@ export type CompositionData = {
 export type VoiceData = {
   title: string
   file: ArrayBuffer
-  printSetting: string
+  printConfig: string
 }
 
 export type SaveCompositionServerError = 'EmptyTitle'
 export type VoiceFileServerError = 'EmptyFile' | 'InvalidFile'
-export type SaveVoiceServerError = 'EmptyName' | VoiceFileServerError | 'UnknownPrintSetting'
+export type SaveVoiceServerError = 'EmptyName' | VoiceFileServerError | 'UnknownPrintConfig'
 
 export const deserializeFile = (text: string | undefined) => {
   if (text === undefined) return undefined

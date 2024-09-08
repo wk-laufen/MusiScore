@@ -7,6 +7,7 @@ import LoginForm from './LoginForm.vue'
 import CompositionList from './CompositionList.vue'
 import CompositionForm from './CompositionForm.vue'
 import ImportCompositionForm from './ImportCompositionForm.vue'
+import SettingsForm from './SettingsForm.vue'
 import { uiFetchAuthorized } from './UIFetch'
 import type { CompositionListItem } from './AdminTypes'
 import { useAPIKeyStore } from '@/stores/api-key'
@@ -14,9 +15,9 @@ import { useAPIKeyStore } from '@/stores/api-key'
 type CompositionData = {
   compositions: CompositionListItem[]
   links: {
-    printSettings: string
-    inferPrintSetting: string
-    testPrintSetting: string
+    printConfigs: string
+    inferPrintConfig: string
+    testPrintConfig: string
     composition: string
     export: string
   }
@@ -34,6 +35,7 @@ const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
 const compositionList = ref<CompositionData>()
 const loadCompositions = async () => {
+  compositionList.value = undefined
   const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, '/api/admin/compositions')
   if (result.succeeded) {
     compositionList.value = (await result.response.json() as CompositionData)
@@ -44,6 +46,8 @@ const loadCompositions = async () => {
   }
 }
 loadCompositions()
+
+const isEditingSettings = ref(false)
 
 const isImportingCompositions = ref(false)
 
@@ -61,7 +65,7 @@ const exportCompositions = async () => {
   }
 }
 
-const isInListView = computed(() => editComposition.value === undefined && !isImportingCompositions.value)
+const isInListView = computed(() => editComposition.value === undefined && !isImportingCompositions.value && !isEditingSettings.value)
 
 type EditComposition = {
   type: 'create' | 'edit'
@@ -97,6 +101,11 @@ const cancelImport = async () => {
   await loadCompositions()
 }
 
+const cancelEditSettings = async () => {
+  isEditingSettings.value = false
+  await loadCompositions()
+}
+
 const compositionDeleted = (composition: CompositionListItem) => {
   if (compositionList.value === undefined) return
 
@@ -118,17 +127,20 @@ const compositionDeleted = (composition: CompositionListItem) => {
       @deleted="compositionDeleted" />
     <CompositionForm v-else-if="compositionList !== undefined && editComposition"
       :type="editComposition.type"
-      :print-settings-url="compositionList.links.printSettings"
-      :testPrintSettingUrl="compositionList.links.testPrintSetting"
+      :printConfigsUrl="compositionList.links.printConfigs"
+      :testPrintConfigUrl="compositionList.links.testPrintConfig"
       :composition-url="editComposition.compositionUrl"
       @cancel-edit="cancelEdit" />
     <ImportCompositionForm v-else-if="compositionList !== undefined && isImportingCompositions"
       :composition-url="compositionList.links.composition"
-      :inferPrintSettingUrl="compositionList.links.inferPrintSetting"
+      :inferPrintConfigUrl="compositionList.links.inferPrintConfig"
       @cancel-import="cancelImport" />
+    <SettingsForm v-else-if="compositionList !== undefined && isEditingSettings"
+      :printConfigsUrl="compositionList.links.printConfigs"
+      @cancel-edit-settings="cancelEditSettings" />
   </div>
   <div v-if="!showLogin" id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">
-    <button class="btn btn-solid btn-gold !px-8 !py-4">Einstellungen</button>
+    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="isEditingSettings = true">Einstellungen</button>
     <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="isImportingCompositions = true">Importieren</button>
     <LoadButton v-if="compositionList !== undefined && compositionList?.compositions.length > 0 && isInListView"
       :loading="isExportingCompositions"

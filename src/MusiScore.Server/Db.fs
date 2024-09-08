@@ -30,23 +30,12 @@ module private DbModels =
 
     type DbPrintableVoice = {
         file: byte[]
-        print_setting_id: string
+        reorder_pages_as_booklet: bool
+        cups_command_line_args: string
     }
-    module DbPrintSetting =
-        let toDomain v =
-            match v with
-            | "duplex" -> Duplex
-            | "a4_to_a3_duplex" -> A4ToA3Duplex
-            | "a4_to_booklet" -> A4ToBooklet
-            | v -> failwith $"Invalid print setting: \"%s{v}\""
-        let fromDomain v =
-            match v with
-            | Duplex -> "duplex"
-            | A4ToA3Duplex -> "a4_to_a3_duplex"
-            | A4ToBooklet -> "a4_to_booklet"
     module DbPrintableVoice =
         let toDomain v : PrintableVoice =
-            { File = v.file; PrintSetting = DbPrintSetting.toDomain v.print_setting_id }
+            { File = v.file; PrintSettings = { ReorderPagesAsBooklet = v.reorder_pages_as_booklet; CupsCommandLineArgs = v.cups_command_line_args } }
 
     type DbComposition = {
         id: int
@@ -61,19 +50,22 @@ module private DbModels =
         id: int
         name: string
         file: byte[]
-        print_setting_id: string
+        print_config_id: string
     }
     module DbFullVoice =
         let toDomain v : FullVoice =
-            { Id = string v.id; Name = v.name; File = v.file; PrintSetting = DbPrintSetting.toDomain v.print_setting_id }
+            { Id = string v.id; Name = v.name; File = v.file; PrintConfig = v.print_config_id }
     
-    type DbVoicePrintSetting = {
-        Key: string
-        Name: string
+    type DbPrintConfig = {
+        key: string
+        name: string
+        sort_order: int
+        reorder_pages_as_booklet: bool
+        cups_command_line_args: string
     }
-    module DbVoicePrintSetting =
-        let toDomain v : VoicePrintSetting =
-            { Key = DbPrintSetting.toDomain v.Key; Name = v.Name }
+    module DbPrintConfig =
+        let toDomain v : PrintConfig =
+            { Key = v.key; Name = v.name; SortOrder = v.sort_order; Settings = { ReorderPagesAsBooklet = v.reorder_pages_as_booklet; CupsCommandLineArgs = v.cups_command_line_args } }
 
 type Db(connectionString: string) =
     let dataSource = NpgsqlDataSource.Create(connectionString)
@@ -110,7 +102,7 @@ type Db(connectionString: string) =
 
     member _.GetPrintableVoice (_compositionId: string, voiceId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! voice = connection.QuerySingleAsync<DbPrintableVoice>("SELECT file, print_setting_id FROM voice WHERE id = @VoiceId", {| VoiceId = int voiceId |}) |> Async.AwaitTask
+        let! voice = connection.QuerySingleAsync<DbPrintableVoice>("SELECT v.file, vpc.reorder_pages_as_booklet, vpc.cups_command_line_args FROM voice v JOIN voice_print_config vpc ON v.print_config_id = vpc.\"key\" WHERE id = @VoiceId", {| VoiceId = int voiceId |}) |> Async.AwaitTask
         return DbPrintableVoice.toDomain voice
     }
 
@@ -160,7 +152,7 @@ type Db(connectionString: string) =
             let command = $"UPDATE composition SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
         let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}, tx) |> Async.AwaitTask
-        tx.Commit()
+        do! tx.CommitAsync() |> Async.AwaitTask
         return DbComposition.toDomain composition
     }
 
@@ -171,7 +163,7 @@ type Db(connectionString: string) =
 
     member _.GetFullCompositionVoices (compositionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, file, print_config_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
             |> Seq.map DbFullVoice.toDomain
@@ -181,12 +173,12 @@ type Db(connectionString: string) =
     member _.CreateVoice (compositionId: string) (createVoice: CreateVoice) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
-        let command = "INSERT INTO voice (name, file, composition_id, print_setting_id) VALUES(@Name, @File, @CompositionId, @PrintSettingId) RETURNING id"
+        let command = "INSERT INTO voice (name, file, composition_id, print_config_id) VALUES(@Name, @File, @CompositionId, @PrintConfigId) RETURNING id"
         let commandArgs = {|
             Name = createVoice.Name
             File = createVoice.File
             CompositionId = int compositionId
-            PrintSettingId = DbPrintSetting.fromDomain createVoice.PrintSetting
+            PrintConfigId = createVoice.PrintConfig
         |}
         let! voiceId = connection.ExecuteScalarAsync<int>(command, commandArgs) |> Async.AwaitTask
         return string voiceId
@@ -206,8 +198,8 @@ type Db(connectionString: string) =
                 | Some _ -> "file = @File"
                 | None -> ()
 
-                match updateVoice.PrintSetting with
-                | Some _ -> "print_setting_id = @PrintSettingId"
+                match updateVoice.PrintConfig with
+                | Some _ -> "print_config_id = @PrintConfigId"
                 | None -> ()
             ]
             |> String.concat ", "
@@ -216,12 +208,12 @@ type Db(connectionString: string) =
                 Id = int voiceId
                 Name = updateVoice.Name |> Option.defaultValue ""
                 File = updateVoice.File |> Option.defaultValue Array.empty
-                PrintSettingId = updateVoice.PrintSetting |> Option.map DbPrintSetting.fromDomain |> Option.defaultValue ""
+                PrintConfigId = updateVoice.PrintConfig |> Option.defaultValue ""
             |}
             let command = $"UPDATE voice SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT id, name, file, print_setting_id FROM voice WHERE id = @Id", {| Id = int voiceId |}, tx) |> Async.AwaitTask
-        tx.Commit()
+        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT id, name, file, print_config_id FROM voice WHERE id = @Id", {| Id = int voiceId |}, tx) |> Async.AwaitTask
+        do! tx.CommitAsync() |> Async.AwaitTask
         return DbFullVoice.toDomain voice
     }
 
@@ -230,11 +222,65 @@ type Db(connectionString: string) =
         do! connection.ExecuteAsync("DELETE FROM voice WHERE id = @Id", {| Id = int voiceId |}) |> Async.AwaitTask |> Async.Ignore
     }
 
-    member _.GetPrintSettings() = async {
+    member _.GetPrintConfigs() = async {
         use connection = dataSource.CreateConnection()
-        let! compositions = connection.QueryAsync<DbVoicePrintSetting>("SELECT \"key\", name FROM voice_print_setting") |> Async.AwaitTask
+        let! printConfigs = connection.QueryAsync<DbPrintConfig>("SELECT \"key\", name, sort_order, reorder_pages_as_booklet, cups_command_line_args FROM voice_print_config ORDER BY sort_order") |> Async.AwaitTask
         return
-            compositions
-            |> Seq.map DbVoicePrintSetting.toDomain
+            printConfigs
+            |> Seq.map DbPrintConfig.toDomain
             |> Seq.toList
+    }
+
+    member _.GetPrintConfig (key: string) = async {
+        use connection = dataSource.CreateConnection()
+        let! printConfigs = connection.QueryAsync<DbPrintConfig>("SELECT \"key\", name, sort_order, reorder_pages_as_booklet, cups_command_line_args FROM voice_print_config WHERE \"key\" = @Key", {| Key = key |}) |> Async.AwaitTask
+        return printConfigs |> Seq.tryExactlyOne |> Option.map DbPrintConfig.toDomain
+    }
+
+    member _.GetDefaultPrintConfig () = async {
+        use connection = dataSource.CreateConnection()
+        let! printConfigs = connection.QueryAsync<DbPrintConfig>("SELECT \"key\", name, sort_order, reorder_pages_as_booklet, cups_command_line_args FROM voice_print_config ORDER BY sort_order LIMIT 1") |> Async.AwaitTask
+        return printConfigs |> Seq.tryExactlyOne |> Option.map DbPrintConfig.toDomain
+    }
+
+    member _.CreatePrintConfig (printConfig: PrintConfig) = async {
+        try
+            use connection = dataSource.CreateConnection()
+            connection.Open()
+            let command = "INSERT INTO voice_print_config (key, name, sort_order, reorder_pages_as_booklet, cups_command_line_args) VALUES(@Key, @Name, @SortOrder, @ReorderPagesAsBooklet, @CupsCommandLineArgs)"
+            let commandArgs = {|
+                Key = printConfig.Key
+                Name = printConfig.Name
+                SortOrder = printConfig.SortOrder
+                ReorderPagesAsBooklet = printConfig.Settings.ReorderPagesAsBooklet
+                CupsCommandLineArgs = printConfig.Settings.CupsCommandLineArgs
+            |}
+            do! connection.ExecuteAsync(command, commandArgs) |> Async.AwaitTask |> Async.Ignore
+            return Ok()
+        with :? AggregateException as e ->
+            e.Handle(fun inner ->
+                match inner with
+                | :? PostgresException as inner when inner.SqlState = PostgresErrorCodes.UniqueViolation -> true
+                | _ -> false
+            )
+            return Error PrintConfigExists
+    }
+
+    member _.UpdatePrintConfig (key: string) (update: PrintConfigUpdate) = async {
+        use connection = dataSource.CreateConnection()
+        connection.Open()
+        let updateFields =
+            [
+                match update.Name with
+                | Some _ -> "name = @Name"
+                | None -> ()
+            ]
+            |> String.concat ", "
+        if updateFields <> "" then
+            let updateArgs = {|
+                Key = key
+                Name = update.Name |> Option.defaultValue ""
+            |}
+            let command = $"UPDATE voice_print_config SET %s{updateFields} WHERE \"key\" = @Key"
+            do! connection.ExecuteAsync(command, updateArgs) |> Async.AwaitTask |> Async.Ignore
     }

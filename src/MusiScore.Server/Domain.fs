@@ -2,6 +2,7 @@
 
 open FsToolkit.ErrorHandling
 open System
+open System.Text.RegularExpressions
 
 type Voice = {
     Id: string
@@ -20,30 +21,30 @@ type Composition = {
     IsActive: bool
 }
 
-type PrintSetting =
-    | Duplex
-    | A4ToA3Duplex
-    | A4ToBooklet
-module PrintSetting =
-    let toDto v =
-        match v with
-        | Duplex -> "duplex"
-        | A4ToA3Duplex -> "a4-to-a3-duplex"
-        | A4ToBooklet -> "a4-to-booklet"
-    let inferFromPDFPageSizes pageSizes =
-        let isA4 =
-            match pageSizes with
-            | [] -> true
-            | (width, height) :: _ ->
-                Math.Abs(width - 595f) < 5f && Math.Abs(height - 842f) < 5f
-        if isA4 && pageSizes.Length <= 2 then Duplex
-        elif isA4 && pageSizes.Length <= 4 then A4ToA3Duplex
-        elif isA4 then A4ToBooklet
-        else Duplex
+type PrintSettings = {
+    ReorderPagesAsBooklet: bool
+    CupsCommandLineArgs: string
+}
+
+type PrintConfig = {
+    Key: string
+    Name: string
+    SortOrder: int
+    Settings: PrintSettings
+}
+
+type PrintConfigUpdate = {
+    Name: string option
+    ReorderPagesAsBooklet: bool option
+    CupsCommandLineArgs: string option
+}
+
+type PrintConfigCreateError =
+    | PrintConfigExists
 
 type PrintableVoice = {
     File: byte[]
-    PrintSetting: PrintSetting
+    PrintSettings: PrintSettings
 }
 
 type NewComposition = {
@@ -59,25 +60,20 @@ type CompositionUpdate = {
 type CreateVoice = {
     Name: string
     File: byte[]
-    PrintSetting: PrintSetting
+    PrintConfig: string
 }
 
 type UpdateVoice = {
     Name: string option
     File: byte[] option
-    PrintSetting: PrintSetting option
+    PrintConfig: string option
 }
 
 type FullVoice = {
     Id: string
     Name: string
     File: byte[]
-    PrintSetting: PrintSetting
-}
-
-type VoicePrintSetting = {
-    Key: PrintSetting
-    Name: string
+    PrintConfig: string
 }
 
 module Validation =
@@ -114,23 +110,39 @@ module Parse =
         else return content
     }
 
-    let printSetting (name: string) = validation {
-        if name.Equals("duplex", System.StringComparison.InvariantCultureIgnoreCase) then return Duplex
-        elif name.Equals("a4-to-a3-duplex", System.StringComparison.InvariantCultureIgnoreCase) then return A4ToA3Duplex
-        elif name.Equals("a4-to-booklet", System.StringComparison.InvariantCultureIgnoreCase) then return A4ToBooklet
-        else return! Error "UnknownPrintSetting"
+    let printConfigKey (name: string) = validation {
+        if not <| Regex.IsMatch(name, @"^[a-zA-Z0-9_-]+$") then
+            return! Error "InvalidKey"
+        else return name
+    }
+
+    let printConfigName (name: string) = validation {
+        if System.String.IsNullOrWhiteSpace name then return! Error "EmptyName"
+        else return name
+    }
+
+    let printConfig (v: MusiScore.Shared.DataTransfer.Admin.NewPrintConfigDto) = validation {
+        let! key = printConfigKey v.Key
+        and! name = printConfigName v.Name
+        let cupsCommandLineArgs = v.CupsCommandLineArgs |> Option.ofObj |> Option.defaultValue ""
+        return { Key = key; Name = name; SortOrder = v.SortOrder; Settings = { ReorderPagesAsBooklet = v.ReorderPagesAsBooklet; CupsCommandLineArgs = cupsCommandLineArgs } }
+    }
+
+    let printConfigUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.PrintConfigUpdateDto) = validation {
+        let! name = v.Name |> Option.map printConfigName |> Validation.accumulateOption
+        return { Name = name; ReorderPagesAsBooklet = v.ReorderPagesAsBooklet; CupsCommandLineArgs = v.CupsCommandLineArgs }
     }
 
     let createVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) = validation {
         let! name = voiceName v.Name
         and! file = voiceFile v.File
-        and! printSetting = printSetting v.PrintSetting
-        return { CreateVoice.Name = name; File = file; PrintSetting = printSetting }
+        and! printConfig = printConfigKey v.PrintConfig
+        return { CreateVoice.Name = name; File = file; PrintConfig = printConfig }
     }
 
     let updateVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDto) = validation {
         let! name = v.Name |> Option.map voiceName |> Validation.accumulateOption
         and! file = v.File |> Option.map voiceFile |> Validation.accumulateOption
-        and! printSetting = v.PrintSetting |> Option.map printSetting |> Validation.accumulateOption
-        return { Name = name; File = file; PrintSetting = printSetting }
+        and! printConfig = v.PrintConfig |> Option.map printConfigKey |> Validation.accumulateOption
+        return { Name = name; File = file; PrintConfig = printConfig }
     }
