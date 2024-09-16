@@ -12,12 +12,16 @@ type Voice = {
 type ActiveComposition = {
     Id: string
     Title: string
+    Composer: string option
+    Arranger: string option
     Voices: Voice list
 }
 
 type Composition = {
     Id: string
     Title: string
+    Composer: string option
+    Arranger: string option
     IsActive: bool
 }
 
@@ -49,11 +53,15 @@ type PrintableVoice = {
 
 type NewComposition = {
     Title: string
+    Composer: string option
+    Arranger: string option
     IsActive: bool
 }
 
 type CompositionUpdate = {
     Title: string option
+    Composer: string option option
+    Arranger: string option option
     IsActive: bool option
 }
 
@@ -91,12 +99,18 @@ module Parse =
 
     let newCompositionDto (v: MusiScore.Shared.DataTransfer.Admin.NewCompositionDto) = validation {
         let! title = compositionTitle v.Title
-        return { NewComposition.Title = title; IsActive = v.IsActive |> Option.defaultValue false }
+        return { NewComposition.Title = title; Composer = v.Composer; Arranger = v.Arranger; IsActive = v.IsActive |> Option.defaultValue false }
     }
+
+    let private noneIfEmpty v =
+        if System.String.IsNullOrWhiteSpace v then None
+        else Some v
 
     let compositionUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.CompositionUpdateDto) = validation {
         let! title = v.Title |> Option.map compositionTitle |> Validation.accumulateOption
-        return { Title = title; IsActive = v.IsActive }
+        let composer = if v.UpdateComposer |> Option.defaultValue false then Some (v.Composer |> Option.bind noneIfEmpty) else None
+        let arranger = if v.UpdateArranger |> Option.defaultValue false then Some (v.Arranger |> Option.bind noneIfEmpty) else None
+        return { Title = title; Composer = composer; Arranger = arranger; IsActive = v.IsActive }
     }
 
     let voiceName (name: string) = validation {

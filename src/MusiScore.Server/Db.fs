@@ -9,10 +9,18 @@ module private DbModels =
     type DbActiveComposition = {
         id: int
         title: string
+        composer: string
+        arranger: string
     }
     module DbActiveComposition =
         let toDomain v voices : ActiveComposition =
-            { Id = string v.id; Title = v.title; Voices = voices }
+            {
+                Id = string v.id
+                Title = v.title
+                Composer = Option.ofObj v.composer
+                Arranger = Option.ofObj v.arranger
+                Voices = voices
+            }
 
     type DbCompositionVoice = {
         composition_id: int
@@ -40,11 +48,19 @@ module private DbModels =
     type DbComposition = {
         id: int
         title: string
+        composer: string
+        arranger: string
         is_active: bool
     }
     module DbComposition =
         let toDomain v : Composition =
-            { Id = string v.id; Title = v.title; IsActive = v.is_active }
+            {
+                Id = string v.id
+                Title = v.title
+                Composer = Option.ofObj v.composer
+                Arranger = Option.ofObj v.arranger
+                IsActive = v.is_active
+            }
 
     type DbFullVoice = {
         id: int
@@ -74,7 +90,7 @@ type Db(connectionString: string) =
 
     member _.GetActiveCompositions() = async {
         use connection = dataSource.CreateConnection()
-        let! compositions = connection.QueryAsync<DbActiveComposition>("SELECT id, title FROM composition WHERE is_active = true") |> Async.AwaitTask
+        let! compositions = connection.QueryAsync<DbActiveComposition>("SELECT id, title, composer, arranger FROM composition WHERE is_active = true") |> Async.AwaitTask
         let compositionIds = [| for v in compositions -> v.id |]
         let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT composition_id, id, name FROM voice WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
         let voiceLookup =
@@ -108,7 +124,7 @@ type Db(connectionString: string) =
 
     member _.GetCompositions() = async {
         use connection = dataSource.CreateConnection()
-        let! compositions = connection.QueryAsync<DbComposition>("SELECT id, title, is_active FROM composition") |> Async.AwaitTask
+        let! compositions = connection.QueryAsync<DbComposition>("SELECT id, title, composer, arranger, is_active FROM composition") |> Async.AwaitTask
         return
             compositions
             |> Seq.map DbComposition.toDomain
@@ -117,14 +133,20 @@ type Db(connectionString: string) =
 
     member _.GetComposition (compositionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask
+        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, composer, arranger, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask
         return DbComposition.toDomain composition
     }
 
     member _.CreateComposition (newComposition: NewComposition) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
-        let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, is_active) VALUES(@Title, @IsActive) RETURNING id", {| Title = newComposition.Title; IsActive = newComposition.IsActive |}) |> Async.AwaitTask
+        let data = {|
+            Title = newComposition.Title
+            Composer = newComposition.Composer |> Option.map (fun v -> v :> obj) |> Option.defaultValue DBNull.Value
+            Arranger = newComposition.Arranger |> Option.map (fun v -> v :> obj) |> Option.defaultValue DBNull.Value
+            IsActive = newComposition.IsActive
+        |}
+        let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, composer, arranger, is_active) VALUES(@Title, @Composer, @Arranger, @IsActive) RETURNING id", data) |> Async.AwaitTask
         return string compositionId
     }
 
@@ -138,6 +160,14 @@ type Db(connectionString: string) =
                 | Some _ -> "title = @Title"
                 | None -> ()
 
+                match compositionUpdate.Composer with
+                | Some _ -> "composer = @Composer"
+                | None -> ()
+
+                match compositionUpdate.Arranger with
+                | Some _ -> "arranger = @Arranger"
+                | None -> ()
+
                 match compositionUpdate.IsActive with
                 | Some _ -> "is_active = @IsActive"
                 | None -> ()
@@ -147,11 +177,15 @@ type Db(connectionString: string) =
             let updateArgs = {|
                 Id = int compositionId
                 Title = compositionUpdate.Title |> Option.defaultValue ""
+                Composer = compositionUpdate.Composer |> Option.flatten |> Option.map (fun (v: string) -> v :> obj) |> Option.defaultValue DBNull.Value
+                Arranger = compositionUpdate.Arranger |> Option.flatten |> Option.map (fun (v: string) -> v :> obj) |> Option.defaultValue DBNull.Value
                 IsActive = compositionUpdate.IsActive |> Option.defaultValue false
             |}
             let command = $"UPDATE composition SET %s{updateFields} WHERE id = @Id"
+            printfn "Updating composition"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}, tx) |> Async.AwaitTask
+        printfn "Getting composition"
+        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, composer, arranger, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}, tx) |> Async.AwaitTask
         do! tx.CommitAsync() |> Async.AwaitTask
         return DbComposition.toDomain composition
     }

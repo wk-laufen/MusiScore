@@ -7,7 +7,10 @@ module Toml =
         member val Name = name with get, set
         member val PrintConfig = printConfig with get, set
 
-    type TomlComposition (isActive: bool, voices: TomlVoice array) =
+    type TomlComposition (title: string, composer: string, arranger: string, isActive: bool, voices: TomlVoice array) =
+        member val Title = title with get, set
+        member val Composer = composer with get, set
+        member val Arranger = arranger with get, set
         member val IsActive = isActive with get, set
         member val Voices = voices with get, set
 
@@ -18,6 +21,9 @@ module Toml =
         let model =
             TomlMetadata(
                 TomlComposition(
+                    composition.Title,
+                    composition.Composer |> Option.toObj,
+                    composition.Arranger |> Option.toObj,
                     composition.IsActive,
                     voices
                     |> List.map (fun v ->

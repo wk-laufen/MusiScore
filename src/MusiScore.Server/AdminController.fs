@@ -25,6 +25,8 @@ type AdminController(db: Db, printer: Printer) =
                     |> Seq.sortBy (fun v -> v.Title)
                     |> Seq.map (fun v -> {
                         Title = v.Title
+                        Composer = v.Composer
+                        Arranger = v.Arranger
                         IsActive = v.IsActive
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
@@ -130,6 +132,8 @@ type AdminController(db: Db, printer: Printer) =
                 let! compositionId = db.CreateComposition newComposition
                 let result = {
                     Title = newComposition.Title
+                    Composer = newComposition.Composer
+                    Arranger = newComposition.Arranger
                     IsActive = newComposition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
@@ -153,17 +157,27 @@ type AdminController(db: Db, printer: Printer) =
                 )
             let! archivePath =
                 filteredCompositions
-                |> List.map (fun composition ->
-                    ArchiveFolder (composition.Title,
-                        async {
-                            let! voices = db.GetFullCompositionVoices(composition.Id)
-                            return [
-                                ArchiveFile (".metadata.toml", Toml.getCompositionMetadata composition voices |> Encoding.UTF8.GetBytes)
-                                yield!
-                                    voices
-                                    |> List.map (fun v -> ArchiveFile ($"{v.Name}.pdf", v.File))
-                            ]
-                        }
+                |> List.groupBy (fun composition ->
+                    match composition.Composer, composition.Arranger with
+                    | _, Some arranger -> $"%s{composition.Title} (arr. %s{arranger})"
+                    | Some composer, None -> $"%s{composition.Title} (%s{composer})"
+                    | _ -> composition.Title
+                )
+                |> List.collect (fun (folderName, compositions) ->
+                    compositions
+                    |> List.mapi (fun index composition ->
+                        let folderName = if index = 0 then folderName else $"%s{folderName} (%d{index})"
+                        ArchiveFolder (folderName,
+                            async {
+                                let! voices = db.GetFullCompositionVoices(composition.Id)
+                                return [
+                                    ArchiveFile (".metadata.toml", Toml.getCompositionMetadata composition voices |> Encoding.UTF8.GetBytes)
+                                    yield!
+                                        voices
+                                        |> List.map (fun v -> ArchiveFile ($"{v.Name}.pdf", v.File))
+                                ]
+                            }
+                        )
                     )
                 )
                 |> Zip.createFile
@@ -180,6 +194,8 @@ type AdminController(db: Db, printer: Printer) =
                 let! updatedComposition = db.UpdateComposition compositionId compositionUpdate
                 let result = {
                     Title = updatedComposition.Title
+                    Composer = updatedComposition.Composer
+                    Arranger = updatedComposition.Arranger
                     IsActive = updatedComposition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition))
@@ -206,6 +222,8 @@ type AdminController(db: Db, printer: Printer) =
             return
                 {
                     Title = composition.Title
+                    Composer = composition.Composer
+                    Arranger = composition.Arranger
                     IsActive = composition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})

@@ -62,6 +62,8 @@ type EditableVoice = Omit<Voice, 'links' | 'file'> & {
 type EditableComposition = {
   title: string
   titleValidationState: ValidationState
+  composer: string | null
+  arranger: string | null
   voices: EditableVoice[]
   links: {
     self: string
@@ -96,6 +98,8 @@ const loadComposition = async () => {
       composition.value = {
         title: '',
         titleValidationState: { type: 'success' },
+        composer: null,
+        arranger: null,
         voices: [],
         links: {
           self: props.compositionUrl,
@@ -110,6 +114,8 @@ const loadComposition = async () => {
         composition.value = {
           title: loadedComposition.title,
           titleValidationState: { type: 'success' },
+          composer: loadedComposition.composer,
+          arranger: loadedComposition.arranger,
           voices: loadedComposition.voices.map(parseLoadedVoice),
           links: loadedComposition.links
         }
@@ -331,10 +337,30 @@ const saveVoices = async (voices: EditableVoice[], newVoiceUrl: string) => {
   return await Promise.all(voices.map(voice => saveVoice(voice, newVoiceUrl)))
 }
 
-const getCompositionSaveMethod = () => {
+const getCompositionSaveHttpParams = () => {
+  if (composition.value === undefined) return undefined
+
   switch (modifyType.value) {
-    case 'create': return 'POST'
-    case 'edit': return 'PATCH'
+    case 'create': return {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: composition.value.title,
+        composer: composition.value.composer,
+        arranger: composition.value.arranger
+      })
+    }
+    case 'edit': return {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: composition.value.title,
+        updateComposer: true,
+        composer: composition.value.composer,
+        updateArranger: true,
+        arranger: composition.value.arranger
+      })
+    }
   }
 }
 
@@ -355,11 +381,7 @@ const saveComposition = async () => {
 
   try {
     isSaving.value = true
-    const result = await uiFetchAuthorized(isSavingComposition, hasSavingCompositionFailed, composition.value.links.self, {
-      method: getCompositionSaveMethod(),
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: composition.value.title })
-    })
+    const result = await uiFetchAuthorized(isSavingComposition, hasSavingCompositionFailed, composition.value.links.self, getCompositionSaveHttpParams())
     if (result.succeeded) {
       modifyType.value = 'edit'
       const compositionListItem = await result.response.json() as CompositionListItem
@@ -399,6 +421,8 @@ const saveComposition = async () => {
     <template v-else-if="composition !== undefined">
       <p v-if="hasSavingCompositionFailed" class="mt-4 text-musi-red">Fehler beim Speichern des Stücks.</p>
       <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" class="mt-6" />
+      <TextInput title="Komponist" :validation-state="{ type: 'success' }" v-model="composition.composer" :required="false" class="mt-6" />
+      <TextInput title="Arrangeur" :validation-state="{ type: 'success' }" v-model="composition.arranger" :required="false" class="mt-6" />
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
         <li v-for="voice in composition.voices" :key="voice.id">

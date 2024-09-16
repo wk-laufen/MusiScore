@@ -41,6 +41,8 @@ type Composition = {
   id: string
   title: string
   titleValidationState: ValidationState
+  composer: string | null
+  arranger: string | null
   isEditingTitle: boolean
   isActive: boolean
   enabled: boolean
@@ -57,6 +59,9 @@ type Metadata = {
   compositionName: string | undefined
   data?: {
     composition?: {
+      title?: string
+      composer?: string
+      arranger?: string
       is_active?: boolean
       voices?: {
         name?: string
@@ -96,9 +101,11 @@ watch(files, async files => {
       const compositionMetadata = metadata.find(v => v.compositionName === key)
       return {
         id: `${nextId++}`,
-        title: key,
+        title: compositionMetadata?.data?.composition?.title || key,
         titleValidationState: { type: 'notValidated' },
         isEditingTitle: false,
+        composer: compositionMetadata?.data?.composition?.composer || null,
+        arranger: compositionMetadata?.data?.composition?.arranger || null,
         isActive: compositionMetadata?.data?.composition?.is_active || false,
         enabled: true,
         isSaving: false,
@@ -220,6 +227,8 @@ const saveComposition = async (composition: Composition) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: composition.title,
+        composer: composition.composer,
+        arranger: composition.arranger,
         isActive: composition.isActive
       })
     }
@@ -229,6 +238,8 @@ const saveComposition = async (composition: Composition) => {
     const compositionListItem = await result.response.json() as CompositionListItem
     composition.title = compositionListItem.title
     composition.titleValidationState = { type: 'success' }
+    composition.composer = compositionListItem.composer
+    composition.arranger = compositionListItem.arranger
     composition.voicesUrl = compositionListItem.links.voices
   }
   else if (result.response !== undefined && result.response.status === 400) {

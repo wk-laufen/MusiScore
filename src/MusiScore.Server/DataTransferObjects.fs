@@ -3,6 +3,8 @@
 module Print =
     type ActiveCompositionDto = {
         Title: string
+        Composer: string option
+        Arranger: string option
         Voices: {| Name: string; PrintUrl: string |} list
     }
 
@@ -14,6 +16,8 @@ module Print =
 module Admin =
     type ExistingCompositionDto = {
         Title: string
+        Composer: string option
+        Arranger: string option
         IsActive: bool
         Links: {|
             Self: string
@@ -59,11 +63,17 @@ module Admin =
 
     type NewCompositionDto = {
         Title: string
+        Composer: string option
+        Arranger: string option
         IsActive: bool option
     }
 
     type CompositionUpdateDto = {
         Title: string option
+        UpdateComposer: bool option
+        Composer: string option
+        UpdateArranger: bool option
+        Arranger: string option
         IsActive: bool option
     }
 
@@ -82,6 +92,8 @@ module Admin =
 
     type FullCompositionDto = {
         Title: string
+        Composer: string option
+        Arranger: string option
         IsActive: bool
         Links: {| Self: string; Voice: string |}
         Voices: ExistingVoiceDto array

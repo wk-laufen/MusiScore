@@ -49,3 +49,8 @@ ALTER TABLE voice_print_config
     ALTER COLUMN reorder_pages_as_booklet SET NOT NULL,
     ALTER COLUMN cups_command_line_args SET NOT NULL,
     ALTER COLUMN sort_order SET NOT NULL;
+
+-- add composer and arranger
+ALTER TABLE composition
+    ADD COLUMN composer VARCHAR,
+    ADD COLUMN arranger VARCHAR;

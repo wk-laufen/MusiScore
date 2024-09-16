@@ -2,6 +2,8 @@ import { chunk } from "lodash-es"
 
 export type CompositionListItem = {
   title: string
+  composer: string | null
+  arranger: string | null
   isActive: boolean
   links: {
     self: string
@@ -25,6 +27,8 @@ export type Voice = {
 
 export type FullComposition = {
   title: string
+  composer: string | null
+  arranger: string | null
   isActive: boolean
   links: {
     self: string
@@ -35,6 +39,8 @@ export type FullComposition = {
 
 export type CompositionData = {
   title: string
+  composer: string | null
+  arranger: string | null
   isActive: boolean
   voices: VoiceData[]
 }

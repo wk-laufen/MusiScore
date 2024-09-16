@@ -26,8 +26,12 @@ const deleteComposition = async () => {
 </script>
 
 <template>
-  <div class="flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500">
-    <span class="grow flex items-center justify-center text-center !p-8 w-60">{{ composition.title }}</span>
+  <div class="flex items-stretch border rounded text-blue-700 border-blue-500 divide-x divide-blue-500">
+    <div class="grow flex flex-col items-center justify-center text-center !p-8 w-60">
+      <span class="font-semibold">{{ composition.title }}</span>
+      <span v-if="composition.composer !== null" class="text-stone-800 text-sm">{{ composition.composer }}</span>
+      <span v-if="composition.arranger !== null" class="text-stone-800 text-sm">arr. {{ composition.arranger }}</span>
+    </div>
     <button class="p-4"
       :title="composition.isActive ? 'Markierung entfernen' : 'Als aktuelles Stück markieren'"
       @click="$emit('toggleActivate')">

@@ -20,6 +20,8 @@ type PrintController(db: Db, printer: Printer) =
                 |> Seq.sortBy (fun v -> v.Title)
                 |> Seq.map (fun composition -> {
                     Title = composition.Title
+                    Composer = composition.Composer
+                    Arranger = composition.Arranger
                     Voices = [
                         for v in composition.Voices ->
                             let printUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = composition.Id; voiceId = v.Id |})
