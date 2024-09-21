@@ -214,6 +214,14 @@ const addVoiceFileModification = (modification: { isDraft: boolean } & PdfModifi
   activeVoice.value.fileModifications.push({ id: `${nextModificationId++}`, ...modification })
 }
 
+const extractPagesToNewVoice = async () => {
+  if (activeVoice.value === undefined || voiceFileWithModifications.value === undefined) return
+
+  const doc = await Pdf.extractPages(voiceFileWithModifications.value.data, selectedFilePages.value)
+  addVoice({ name: '', originalFile: doc, printConfig: '' })
+  addVoiceFileModification({ type: 'remove', pages: selectedFilePages.value, isDraft: false})
+}
+
 const pagesToString = (pages: readonly number[]) => {
   const pageNumbers = _.orderBy(pages.map(v => v + 1))
   if (pageNumbers.length === 0) return `Keine Seiten`
@@ -228,22 +236,26 @@ watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
   }
 }, { deep: true })
 
-const addVoice = () => {
+const addVoice = (data: { name: string, originalFile: Uint8Array | undefined, printConfig: string }) => {
   if (composition.value === undefined) return
 
   composition.value.voices.push({
+    ...data,
     id: nextVoiceId++,
     state: { type: 'newVoice' },
-    name: '',
     nameValidationState: { type: 'notValidated' },
-    originalFile: undefined,
     fileModifications: [],
     fileValidationState: { type: 'notValidated' },
-    printConfig: '',
     printConfigValidationState: { type: 'notValidated' },
     isSaving: false,
     hasSavingFailed: false
   })
+}
+
+const addVoiceAndActivate = () => {
+  if (composition.value === undefined) return
+
+  addVoice({ name: '', originalFile: undefined, printConfig: '' })
   activeVoice.value = last(composition.value.voices)
 }
 
@@ -445,7 +457,7 @@ const saveComposition = async () => {
           </a>
         </li>
         <li>
-          <a class="nav-item !py-5" @click="addVoice()">+ Neue Stimme</a>
+          <a class="nav-item !py-5" @click="addVoiceAndActivate()">+ Neue Stimme</a>
         </li>
       </ul>
       <div v-if="activeVoice !== undefined">
@@ -486,6 +498,7 @@ const saveComposition = async () => {
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotate', pages: selectedFilePages, degrees: 0, isDraft: true })" :disabled="selectedFilePages.length === 0">Seiten drehen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'orderPages', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length < 1">Seiten nach Markierungsreihenfolge sortieren</button>
+            <button class="btn btn-green" @click="extractPagesToNewVoice()" :disabled="selectedFilePages.length === 0">Seiten in neue Stimme ausschneiden</button>
           </div>
           <ol class="mt-2 list-decimal list-inside">
             <li v-for="modification in activeVoice.fileModifications" :key="modification.id">

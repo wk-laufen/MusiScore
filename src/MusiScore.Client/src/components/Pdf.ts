@@ -29,6 +29,15 @@ export type PDFFile = {
 }
 
 export module Pdf {
+  export const extractPages = async (doc: Uint8Array, pages: readonly number[]) => {
+    const pdfDoc = await PDFDocument.load(doc)
+    pdfDoc.getPageIndices()
+      .reverse()
+      .filter(i => !pages.includes(i))
+      .forEach(i => pdfDoc.removePage(i))
+    return await pdfDoc.save()
+  }
+
   export const applyModifications = async (doc: Uint8Array, modifications: PdfModification[]) : Promise<PDFFile> => {
     let pdfDoc = await PDFDocument.load(doc)
     for (const modification of modifications) {
