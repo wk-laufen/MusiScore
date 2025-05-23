@@ -12,7 +12,10 @@ export type PdfModification = {
   type: 'remove',
   pages: readonly number[]
 } | {
-  type: 'rotate',
+  type: 'rotatePage',
+  pages: readonly number[]
+} | {
+  type: 'rotateContent',
   degrees: number,
   pages: readonly number[]
 } | {
@@ -57,8 +60,10 @@ export module Pdf {
         return zoom(doc, modification.pages, modification.relativeBounds)
       case "remove":
         return removePages(doc, modification.pages)
-      case "rotate":
-        return rotatePages(doc, modification.pages, modification.degrees)
+      case "rotatePage":
+        return rotatePages(doc, modification.pages);
+      case "rotateContent":
+        return rotatePageContent(doc, modification.pages, modification.degrees)
       case "cutPageLeftRight":
         return cutPageLeftRight(doc, modification.pages)
       case "orderPages":
@@ -104,7 +109,27 @@ export module Pdf {
     return modifiedDoc
   }
 
-  const rotatePages = async (doc: PDFDocument, pageNumbers: readonly number[], degrees: number) => {
+  const rotatePages = async (doc: PDFDocument, pageNumbers: readonly number[]) => {
+    const modifiedDoc = await doc.copy()
+    for (const pageNumber of pageNumbers) {
+      const page = modifiedDoc.getPage(pageNumber)
+      page.node.normalize()
+      const startOperations = [
+        pushGraphicsState(),
+        rotateDegrees(-90),
+        translate(-page.getWidth(), 0),
+      ]
+      const endOperations = [ popGraphicsState() ]
+      page.node.wrapContentStreams(
+        page.doc.context.register(PDFContentStream.of(page.doc.context.obj({}), startOperations)),
+        page.doc.context.register(PDFContentStream.of(page.doc.context.obj({}), endOperations))
+      )
+      page.setSize(page.getHeight(), page.getWidth())
+    }
+    return modifiedDoc
+  }
+
+  const rotatePageContent = async (doc: PDFDocument, pageNumbers: readonly number[], degrees: number) => {
     const modifiedDoc = await doc.copy()
     for (const pageNumber of pageNumbers) {
       const page = modifiedDoc.getPage(pageNumber)

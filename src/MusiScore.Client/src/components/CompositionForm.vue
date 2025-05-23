@@ -495,7 +495,8 @@ const saveComposition = async () => {
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'scaleToA4', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seitenformat auf A4 ändern</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'zoom', pages: selectedFilePages, relativeBounds: { x: 0.01, y: 0.01, width: 0.98, height: 0.98 }, isDraft: true })" :disabled="selectedFilePages.length === 0">Zoomen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'remove', pages: selectedFilePages, isDraft: false})" :disabled="selectedFilePages.length === 0">Seiten entfernen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotate', pages: selectedFilePages, degrees: 0, isDraft: true })" :disabled="selectedFilePages.length === 0">Seiten drehen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotatePage', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten um 90° drehen</button>
+            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotateContent', pages: selectedFilePages, degrees: 0, isDraft: true })" :disabled="selectedFilePages.length === 0">Seiteninhalt drehen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
             <button class="btn btn-green" @click="addVoiceFileModification({ type: 'orderPages', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length < 1">Seiten nach Markierungsreihenfolge sortieren</button>
             <button class="btn btn-green" @click="extractPagesToNewVoice()" :disabled="selectedFilePages.length === 0">Seiten in neue Stimme ausschneiden</button>
@@ -521,7 +522,10 @@ const saveComposition = async () => {
               <template v-else-if="modification.type === 'remove'">
                 <span>{{ pagesToString(modification.pages) }} entfernen</span>
               </template>
-              <template v-else-if="modification.type === 'rotate'">
+              <template v-else-if="modification.type === 'rotatePage'">
+                <span>Inhalt von {{ pagesToString(modification.pages) }} um 90° drehen</span>
+              </template>
+              <template v-else-if="modification.type === 'rotateContent'">
                 <span>{{ pagesToString(modification.pages) }} um
                   <input v-if="modification.isDraft" class="input-text !w-20" type="number" step="0.1" v-model="modification.degrees">
                   <template v-else>{{ modification.degrees }}</template>
@@ -541,7 +545,7 @@ const saveComposition = async () => {
         <PdfPreview
           :file="voiceFileWithModifications?.data"
           v-model:selected-pages="selectedFilePages"
-          :is-rotating="lastFileModification?.type === 'rotate' && lastFileModification.isDraft"
+          :is-rotating="lastFileModification?.type === 'rotateContent' && lastFileModification.isDraft"
           class="mt-6" />
       </div>
     </template>
