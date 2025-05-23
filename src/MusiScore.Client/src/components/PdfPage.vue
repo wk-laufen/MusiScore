@@ -30,11 +30,10 @@ watch([() => props.pdfDoc, () => props.pageNumber, container], async ([pdfDoc, p
     const drawingContext = c.getContext('2d')
     if (drawingContext === null) return
 
-    const viewport = p.getViewport({ scale: 1 })
+    const viewport = p.getViewport({ scale: window.devicePixelRatio })
 
-    const outputScale = window.devicePixelRatio || 1
-    c.width = Math.floor(viewport.width * outputScale)
-    c.height = Math.floor(viewport.height * outputScale)
+    c.width = Math.floor(viewport.width)
+    c.height = Math.floor(viewport.height)
 
     const renderTask = toRaw(p).render({ canvasContext: drawingContext, viewport })
     onCleanup(() => renderTask.cancel())
