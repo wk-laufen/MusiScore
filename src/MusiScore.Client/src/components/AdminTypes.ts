@@ -60,12 +60,12 @@ export const deserializeFile = (text: string | undefined) => {
   return Uint8Array.from(atob(text), m => m.codePointAt(0) as number)
 }
 
-export function serializeFile (content: ArrayBuffer): string
+export function serializeFile (content: Uint8Array): string
 export function serializeFile (content: undefined): undefined
-export function serializeFile (content: ArrayBuffer | undefined) {
+export function serializeFile (content: Uint8Array | undefined) {
   if (content === undefined) return undefined
 
-  const encodedContent = chunk(new Uint8Array(content), 0x10FFF) // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/fromCodePoint
+  const encodedContent = chunk(content, 0x10FFF) // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/fromCodePoint
     .map(chunk => String.fromCodePoint(...chunk))
     .reduce((a, b) => a + b)
   return btoa(encodedContent)

@@ -137,7 +137,7 @@ watch(files, async files => {
 
 const inferPrintConfig = async (voice: Voice) => {
   if (typeof voice.file !== 'string') {
-    voice.file = serializeFile(await new Response(voice.file).arrayBuffer())
+    voice.file = serializeFile(await new Response(voice.file).bytes())
   }
 
   const result = await uiFetchAuthorized(
@@ -173,7 +173,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
   if (voice.isSaved) return
 
   if (typeof voice.file !== 'string') {
-    voice.file = serializeFile(await new Response(voice.file).arrayBuffer())
+    voice.file = serializeFile(await new Response(voice.file).bytes())
   }
   if (voice.printConfig === undefined) {
     voice.printConfig = await inferPrintConfig(voice)
