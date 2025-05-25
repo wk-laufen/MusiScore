@@ -44,8 +44,8 @@
     "postcss": "^8.4.33",
     "prettier": "^3.0.3",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.5.4",
+    "typescript": "^5.8.3",
     "vite": "^5.0.10",
-    "vue-tsc": "^2.0.29"
+    "vue-tsc": "^2.2.10"
   }
 }
