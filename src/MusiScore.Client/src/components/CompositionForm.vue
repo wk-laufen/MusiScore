@@ -226,8 +226,36 @@ const pagesToString = (pages: readonly number[]) => {
   const pageNumbers = _.orderBy(pages.map(v => v + 1))
   if (pageNumbers.length === 0) return `Keine Seiten`
   if (pageNumbers.length === 1) return `Seite ${pageNumbers[0]}`
-  const lastPage = pageNumbers.pop()
-  return `Seiten ${pageNumbers.join(', ')} und ${lastPage}`
+  const ranges : { start: number, end: number }[] = []
+  let currentRange : typeof ranges[0] | undefined = undefined
+  for (const pageNumber of pageNumbers) {
+    if (currentRange == undefined) {
+      currentRange = { start: pageNumber, end: pageNumber }
+    }
+    else if (currentRange.end == pageNumber - 1) {
+      currentRange.end = pageNumber
+    }
+    else {
+      ranges.push(currentRange)
+      currentRange = { start: pageNumber, end: pageNumber }
+    }
+  }
+  if (currentRange !== undefined) {
+    ranges.push(currentRange)
+  }
+  const rangesAsString = ranges.flatMap(v => {
+    if (v.start == v.end) {
+      return [`${v.start}`]
+    }
+    else if (v.start + 1 == v.end) {
+      return [`${v.start}`, `${v.end}`]
+    }
+    else {
+      return [`${v.start}-${v.end}`]
+    }
+  })
+  const lastPage = rangesAsString.pop()
+  return `Seiten ${rangesAsString.join(', ')} und ${lastPage}`
 }
 
 watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
