@@ -31,14 +31,15 @@ export type PDFFile = {
   pageCount: number
 }
 
-export module Pdf {
-  export const extractPages = async (doc: Uint8Array, pages: readonly number[]) => {
+export namespace Pdf {
+  export const extractPages = async (doc: Uint8Array, pageNumbers: readonly number[]) => {
     const pdfDoc = await PDFDocument.load(doc)
-    pdfDoc.getPageIndices()
-      .reverse()
-      .filter(i => !pages.includes(i))
-      .forEach(i => pdfDoc.removePage(i))
-    return await pdfDoc.save()
+    const newDoc = await PDFDocument.create()
+    const pages = await newDoc.copyPages(pdfDoc, [...pageNumbers])
+    for (const page of pages) {
+      newDoc.addPage(page)
+    }
+    return await newDoc.save()
   }
 
   export const applyModifications = async (doc: Uint8Array, modifications: PdfModification[]) : Promise<PDFFile> => {
@@ -102,11 +103,12 @@ export module Pdf {
   }
 
   const removePages = async (doc: PDFDocument, pageNumbers: readonly number[]) => {
-    const modifiedDoc = await doc.copy()
-    for (const pageNumber of _.orderBy(pageNumbers, v => v, 'desc')) {
-      modifiedDoc.removePage(pageNumber)
+    const newDoc = await PDFDocument.create()
+    const pages = await newDoc.copyPages(doc, doc.getPageIndices().filter(v => !pageNumbers.includes(v)))
+    for (const page of pages) {
+      newDoc.addPage(page)
     }
-    return modifiedDoc
+    return newDoc
   }
 
   const rotatePages = async (doc: PDFDocument, pageNumbers: readonly number[]) => {
