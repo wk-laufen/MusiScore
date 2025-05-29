@@ -1,10 +1,18 @@
 ﻿namespace MusiScore.Shared.DataTransfer
 
 module Print =
+    type ExistingTag = {
+        Key: string
+        Title: string
+        Settings: {|
+            OverviewDisplayFormat: {| Order: int; Format: string |} option
+        |}
+        Value: string option
+    }
+
     type ActiveCompositionDto = {
         Title: string
-        Composer: string option
-        Arranger: string option
+        Tags: ExistingTag list
         Voices: {| Name: string; PrintUrl: string |} list
     }
 
@@ -14,10 +22,18 @@ module Print =
     }
 
 module Admin =
+    type ExistingTag = {
+        Key: string
+        Title: string
+        Settings: {|
+            OverviewDisplayFormat: {| Order: int; Format: string |} option
+        |}
+        Value: string option
+    }
+
     type ExistingCompositionDto = {
         Title: string
-        Composer: string option
-        Arranger: string option
+        Tags: ExistingTag list
         IsActive: bool
         Links: {|
             Self: string
@@ -61,19 +77,21 @@ module Admin =
         CupsCommandLineArgs: string option
     }
 
+    type NewTag = {
+        Key: string
+        Value: string
+    }
+
     type NewCompositionDto = {
         Title: string
-        Composer: string option
-        Arranger: string option
+        Tags: NewTag list
         IsActive: bool option
     }
 
     type CompositionUpdateDto = {
         Title: string option
-        UpdateComposer: bool option
-        Composer: string option
-        UpdateArranger: bool option
-        Arranger: string option
+        TagsToRemove: string list
+        TagsToAdd: NewTag list
         IsActive: bool option
     }
 
@@ -92,8 +110,7 @@ module Admin =
 
     type FullCompositionDto = {
         Title: string
-        Composer: string option
-        Arranger: string option
+        Tags: ExistingTag list
         IsActive: bool
         Links: {| Self: string; Voice: string |}
         Voices: ExistingVoiceDto array

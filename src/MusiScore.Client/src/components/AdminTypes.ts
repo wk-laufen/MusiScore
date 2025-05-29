@@ -1,9 +1,20 @@
 import { chunk } from "lodash-es"
 
+export type ExistingTag = {
+  key: string
+  title: string
+  value: string | null
+  settings: {
+    overviewDisplayFormat: null | {
+      order: 1
+      format: string
+    }
+  }
+}
+
 export type CompositionListItem = {
   title: string
-  composer: string | null
-  arranger: string | null
+  tags: ExistingTag[]
   isActive: boolean
   links: {
     self: string
@@ -27,8 +38,7 @@ export type Voice = {
 
 export type FullComposition = {
   title: string
-  composer: string | null
-  arranger: string | null
+  tags: ExistingTag[]
   isActive: boolean
   links: {
     self: string
@@ -39,8 +49,7 @@ export type FullComposition = {
 
 export type CompositionData = {
   title: string
-  composer: string | null
-  arranger: string | null
+  tags: ExistingTag[]
   isActive: boolean
   voices: VoiceData[]
 }

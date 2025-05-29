@@ -9,19 +9,34 @@ type Voice = {
     Name: string
 }
 
+type CompositionTagType = {
+    Key: string
+    Name: string
+    Settings: {|
+        OverviewDisplayFormat: {| Order: int; Format: string |} option
+    |}
+}
+
+type ExistingTag = {
+    Key: string
+    Title: string
+    Settings: {|
+        OverviewDisplayFormat: {| Order: int; Format: string |} option
+    |}
+    Value: string option
+}
+
 type ActiveComposition = {
     Id: string
     Title: string
-    Composer: string option
-    Arranger: string option
+    Tags: ExistingTag list
     Voices: Voice list
 }
 
 type Composition = {
     Id: string
     Title: string
-    Composer: string option
-    Arranger: string option
+    Tags: ExistingTag list
     IsActive: bool
 }
 
@@ -51,17 +66,23 @@ type PrintableVoice = {
     PrintSettings: PrintSettings
 }
 
+type NewTag = {
+    Key: string
+    Value: string
+}
 type NewComposition = {
     Title: string
-    Composer: string option
-    Arranger: string option
+    Tags: NewTag list
     IsActive: bool
 }
 
+type TagUpdate =
+    | AddTag of NewTag
+    | RemoveTag of key: string
+
 type CompositionUpdate = {
     Title: string option
-    Composer: string option option
-    Arranger: string option option
+    TagUpdates: TagUpdate list
     IsActive: bool option
 }
 
@@ -93,28 +114,39 @@ module Validation =
 
 module Parse =
     let compositionTitle (title: string) = validation {
-        if System.String.IsNullOrWhiteSpace title then return! Error "EmptyTitle"
+        if String.IsNullOrWhiteSpace title then return! Error "EmptyTitle"
         else return title
+    }
+
+    let tagKey v = validation {
+        if String.IsNullOrWhiteSpace v then return! Error "EmptyTagKey"
+        else return v
+    }
+
+    let newTag (v: MusiScore.Shared.DataTransfer.Admin.NewTag) = validation {
+        let! key = tagKey v.Key
+        return { Key = key; Value = v.Value }
     }
 
     let newCompositionDto (v: MusiScore.Shared.DataTransfer.Admin.NewCompositionDto) = validation {
         let! title = compositionTitle v.Title
-        return { NewComposition.Title = title; Composer = v.Composer; Arranger = v.Arranger; IsActive = v.IsActive |> Option.defaultValue false }
+        let! tags = v.Tags |> List.map newTag |> List.sequenceValidationA
+        return { NewComposition.Title = title; Tags = tags; IsActive = v.IsActive |> Option.defaultValue false }
     }
 
     let private noneIfEmpty v =
-        if System.String.IsNullOrWhiteSpace v then None
+        if String.IsNullOrWhiteSpace v then None
         else Some v
 
     let compositionUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.CompositionUpdateDto) = validation {
         let! title = v.Title |> Option.map compositionTitle |> Validation.accumulateOption
-        let composer = if v.UpdateComposer |> Option.defaultValue false then Some (v.Composer |> Option.bind noneIfEmpty) else None
-        let arranger = if v.UpdateArranger |> Option.defaultValue false then Some (v.Arranger |> Option.bind noneIfEmpty) else None
-        return { Title = title; Composer = composer; Arranger = arranger; IsActive = v.IsActive }
+        let! tagsToAdd = v.TagsToAdd |> List.map newTag |> List.sequenceValidationA |> Validation.map (List.map AddTag)
+        let! tagsToRemove = v.TagsToRemove |> List.map tagKey |> List.sequenceValidationA |> Validation.map (List.map RemoveTag)
+        return { Title = title; TagUpdates = tagsToRemove @ tagsToAdd; IsActive = v.IsActive }
     }
 
     let voiceName (name: string) = validation {
-        if System.String.IsNullOrWhiteSpace name then return! Error "EmptyName"
+        if String.IsNullOrWhiteSpace name then return! Error "EmptyName"
         else return name
     }
 
@@ -131,7 +163,7 @@ module Parse =
     }
 
     let printConfigName (name: string) = validation {
-        if System.String.IsNullOrWhiteSpace name then return! Error "EmptyName"
+        if String.IsNullOrWhiteSpace name then return! Error "EmptyName"
         else return name
     }
 

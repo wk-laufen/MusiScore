@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef, computed } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
-import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type Voice } from './AdminTypes'
+import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -39,7 +39,7 @@ const hasLoadingPrintConfigsFailed = ref(false)
 const loadPrintConfigs = async () => {
   const result = await uiFetchAuthorized(isLoadingPrintConfigs, hasLoadingPrintConfigsFailed, props.printConfigsUrl)
   if (result.succeeded) {
-    printConfigs.value = (await result.response.json() as PrintConfig[])
+    printConfigs.value = await result.response.json()
   }
 }
 loadPrintConfigs()
@@ -62,8 +62,7 @@ type EditableVoice = Omit<Voice, 'links' | 'file'> & {
 type EditableComposition = {
   title: string
   titleValidationState: ValidationState
-  composer: string | null
-  arranger: string | null
+  tags: ExistingTag[]
   voices: EditableVoice[]
   links: {
     self: string
@@ -98,8 +97,7 @@ const loadComposition = async () => {
       composition.value = {
         title: '',
         titleValidationState: { type: 'success' },
-        composer: null,
-        arranger: null,
+        tags: [],
         voices: [],
         links: {
           self: props.compositionUrl,
@@ -114,8 +112,7 @@ const loadComposition = async () => {
         composition.value = {
           title: loadedComposition.title,
           titleValidationState: { type: 'success' },
-          composer: loadedComposition.composer,
-          arranger: loadedComposition.arranger,
+          tags: loadedComposition.tags,
           voices: loadedComposition.voices.map(parseLoadedVoice),
           links: loadedComposition.links
         }
@@ -386,8 +383,7 @@ const getCompositionSaveHttpParams = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: composition.value.title,
-        composer: composition.value.composer,
-        arranger: composition.value.arranger
+        tags: composition.value.tags.filter(v => v.value).map(v => ({ key: v.key, value: v.value })),
       })
     }
     case 'edit': return {
@@ -395,10 +391,8 @@ const getCompositionSaveHttpParams = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: composition.value.title,
-        updateComposer: true,
-        composer: composition.value.composer,
-        updateArranger: true,
-        arranger: composition.value.arranger
+        tagsToAdd: composition.value.tags.filter(v => v.value).map(v => ({ key: v.key, value: v.value})),
+        tagsToRemove: composition.value.tags.filter(v => !v.value).map(v => v.key),
       })
     }
   }
@@ -430,6 +424,7 @@ const saveComposition = async () => {
       const savedVoices = await saveVoices(composition.value.voices, compositionListItem.links.voices)
       composition.value = {
         ...compositionListItem,
+        tags: compositionListItem.tags,
         titleValidationState: { type: 'success' },
         voices: savedVoices.filter(v => v !== undefined) as EditableVoice[]
       }
@@ -461,8 +456,11 @@ const saveComposition = async () => {
     <template v-else-if="composition !== undefined">
       <p v-if="hasSavingCompositionFailed" class="mt-4 text-musi-red">Fehler beim Speichern des Stücks.</p>
       <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" class="mt-6" />
-      <TextInput title="Komponist" :validation-state="{ type: 'success' }" v-model="composition.composer" :required="false" class="mt-6" />
-      <TextInput title="Arrangeur" :validation-state="{ type: 'success' }" v-model="composition.arranger" :required="false" class="mt-6" />
+      <div class="flex flex-col md:flex-row md:flex-wrap gap-4 mt-6">
+        <template v-for="tag in composition.tags" :key="tag.key">
+          <TextInput :title="tag.title" :validation-state="{ type: 'success' }" v-model="tag.value" :required="false" />
+        </template>
+      </div>
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
         <li v-for="voice in composition.voices" :key="voice.id">

@@ -25,8 +25,7 @@ type AdminController(db: Db, printer: Printer) =
                     |> Seq.sortBy (fun v -> v.Title)
                     |> Seq.map (fun v -> {
                         Title = v.Title
-                        Composer = v.Composer
-                        Arranger = v.Arranger
+                        Tags = v.Tags |> List.sortBy (fun v -> v.Title) |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
                         IsActive = v.IsActive
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
@@ -129,15 +128,14 @@ type AdminController(db: Db, printer: Printer) =
         async {
             match Parse.newCompositionDto composition with
             | Ok newComposition ->
-                let! compositionId = db.CreateComposition newComposition
+                let! composition = db.CreateComposition newComposition
                 let result = {
-                    Title = newComposition.Title
-                    Composer = newComposition.Composer
-                    Arranger = newComposition.Arranger
-                    IsActive = newComposition.IsActive
+                    Title = composition.Title
+                    Tags = composition.Tags |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
+                    IsActive = composition.IsActive
                     Links = {|
-                        Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
-                        Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                        Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = composition.Id |})
+                        Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = composition.Id |})
                     |}
                 }
                 return this.Ok(result) :> IActionResult
@@ -157,12 +155,7 @@ type AdminController(db: Db, printer: Printer) =
                 )
             let! archivePath =
                 filteredCompositions
-                |> List.groupBy (fun composition ->
-                    match composition.Composer, composition.Arranger with
-                    | _, Some arranger -> $"%s{composition.Title} (arr. %s{arranger})"
-                    | Some composer, None -> $"%s{composition.Title} (%s{composer})"
-                    | _ -> composition.Title
-                )
+                |> List.groupBy _.Title // TODO add composer and/or arranger?
                 |> List.collect (fun (folderName, compositions) ->
                     compositions
                     |> List.mapi (fun index composition ->
@@ -194,8 +187,7 @@ type AdminController(db: Db, printer: Printer) =
                 let! updatedComposition = db.UpdateComposition compositionId compositionUpdate
                 let result = {
                     Title = updatedComposition.Title
-                    Composer = updatedComposition.Composer
-                    Arranger = updatedComposition.Arranger
+                    Tags = updatedComposition.Tags |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
                     IsActive = updatedComposition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition))
@@ -222,8 +214,7 @@ type AdminController(db: Db, printer: Printer) =
             return
                 {
                     Title = composition.Title
-                    Composer = composition.Composer
-                    Arranger = composition.Arranger
+                    Tags = composition.Tags |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
                     IsActive = composition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})

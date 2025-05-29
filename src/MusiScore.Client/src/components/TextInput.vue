@@ -14,7 +14,7 @@ withDefaults(defineProps<{
 
 <template>
   <div>
-    <label class="input w-min">
+    <label class="input">
       <span v-if="title !== undefined" class="input-label">{{ title }}</span>
       <div v-else-if="$slots.title" class="input-label"><slot name="title"></slot></div>
       <input class="input-text" type="text" :required="required" :disabled="disabled" :placeholder="placeholder" v-model="model" />
