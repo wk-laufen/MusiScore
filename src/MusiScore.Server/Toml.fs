@@ -3,14 +3,17 @@ namespace MusiScore.Server
 open Tomlyn
 
 module Toml =
+    type TomlTag (key: string, value: string) =
+        member val Key = key with get, set
+        member val Value = value with get, set
+
     type TomlVoice (name: string, printConfig: string) =
         member val Name = name with get, set
         member val PrintConfig = printConfig with get, set
 
-    type TomlComposition (title: string, composer: string, arranger: string, isActive: bool, voices: TomlVoice array) =
+    type TomlComposition (title: string, tags: TomlTag array, isActive: bool, voices: TomlVoice array) =
         member val Title = title with get, set
-        member val Composer = composer with get, set
-        member val Arranger = arranger with get, set
+        member val Tags = tags with get, set
         member val IsActive = isActive with get, set
         member val Voices = voices with get, set
 
@@ -22,8 +25,7 @@ module Toml =
             TomlMetadata(
                 TomlComposition(
                     composition.Title,
-                    composition.Composer |> Option.toObj,
-                    composition.Arranger |> Option.toObj,
+                    composition.Tags |> List.choose (fun v -> match v.Value with | Some value -> Some (TomlTag(v.Key, value)) | None -> None) |> Array.ofList,
                     composition.IsActive,
                     voices
                     |> List.map (fun v ->
