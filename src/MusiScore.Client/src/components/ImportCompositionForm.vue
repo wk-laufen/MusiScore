@@ -41,8 +41,7 @@ type Composition = {
   id: string
   title: string
   titleValidationState: ValidationState
-  composer: string | null
-  arranger: string | null
+  tags: { key: string, value: string }[]
   isEditingTitle: boolean
   isActive: boolean
   enabled: boolean
@@ -60,8 +59,7 @@ type Metadata = {
   data?: {
     composition?: {
       title?: string
-      composer?: string
-      arranger?: string
+      tags?: { key?: string, value?: string }[]
       is_active?: boolean
       voices?: {
         name?: string
@@ -104,8 +102,7 @@ watch(files, async files => {
         title: compositionMetadata?.data?.composition?.title || key,
         titleValidationState: { type: 'notValidated' },
         isEditingTitle: false,
-        composer: compositionMetadata?.data?.composition?.composer || null,
-        arranger: compositionMetadata?.data?.composition?.arranger || null,
+        tags: compositionMetadata?.data?.composition?.tags?.flatMap(v => v.key && v.value ? [{ key: v.key, value: v.value }] : []) || [],
         isActive: compositionMetadata?.data?.composition?.is_active || false,
         enabled: true,
         isSaving: false,
@@ -227,8 +224,7 @@ const saveComposition = async (composition: Composition) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: composition.title,
-        composer: composition.composer,
-        arranger: composition.arranger,
+        tags: composition.tags,
         isActive: composition.isActive
       })
     }
@@ -238,8 +234,7 @@ const saveComposition = async (composition: Composition) => {
     const compositionListItem = await result.response.json() as CompositionListItem
     composition.title = compositionListItem.title
     composition.titleValidationState = { type: 'success' }
-    composition.composer = compositionListItem.composer
-    composition.arranger = compositionListItem.arranger
+    composition.tags = compositionListItem.tags.flatMap(v => v.value ? [{ key: v.key, value: v.value }] : [])
     composition.voicesUrl = compositionListItem.links.voices
   }
   else if (result.response !== undefined && result.response.status === 400) {

@@ -205,8 +205,10 @@ type Db(connectionString: string) =
             IsActive = newComposition.IsActive
         |}
         let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, is_active) VALUES(@Title, @IsActive) RETURNING id", data, tx) |> Async.AwaitTask
+        let! tagTypes = connection.QueryAsync<string>("SELECT key FROM composition_tag_type") |> Async.AwaitTask
         let tags =
             newComposition.Tags
+            |> List.filter (fun v -> tagTypes |> Seq.contains v.Key)
             |> List.map (fun v -> {|
                 CompositionId = compositionId
                 TagType = v.Key
