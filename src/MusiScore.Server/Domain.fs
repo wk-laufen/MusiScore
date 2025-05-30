@@ -28,6 +28,7 @@ type ExistingTag = {
         OverviewDisplayFormat: {| Order: int; Format: string |} option
     |}
     Value: string option
+    OtherValues: string list
 }
 
 type ActiveComposition = {
@@ -203,7 +204,7 @@ module Serialize =
             let settings = {|
                 OverviewDisplayFormat = v.Settings.OverviewDisplayFormat
             |}
-            { Key = v.Key; Title = v.Title; Value = v.Value; Settings = settings }
+            { Key = v.Key; Title = v.Title; Settings = settings; Value = v.Value }
 
     module Admin =
         let existingTag (v: ExistingTag) : MusiScore.Shared.DataTransfer.Admin.ExistingTag =
@@ -214,4 +215,4 @@ module Serialize =
                     | TagValueTypeMultiLineText -> "multi-line-text"
                 OverviewDisplayFormat = v.Settings.OverviewDisplayFormat
             |}
-            { Key = v.Key; Title = v.Title; Value = v.Value; Settings = settings }
+            { Key = v.Key; Title = v.Title; Settings = settings; Value = v.Value; OtherValues = v.OtherValues }

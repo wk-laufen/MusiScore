@@ -30,6 +30,7 @@ module Admin =
             OverviewDisplayFormat: {| Order: int; Format: string |} option
         |}
         Value: string option
+        OtherValues: string list
     }
 
     type ExistingCompositionDto = {

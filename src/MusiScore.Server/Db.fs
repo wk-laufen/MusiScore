@@ -33,12 +33,13 @@ module private DbModels =
         value: string
     }
     module DbCompositionTag =
-        let toDomain (tagType: CompositionTagType) value : ExistingTag =
+        let toDomain (tagType: CompositionTagType) value otherValues : ExistingTag =
             {
                 Key = tagType.Key
                 Title = tagType.Name
                 Settings = tagType.Settings
                 Value = value
+                OtherValues = otherValues
             }
 
 
@@ -120,7 +121,7 @@ type Db(connectionString: string) =
         let! tagTypes = connection.QueryAsync<DbCompositionTagType>("SELECT key, name, settings FROM composition_tag_type") |> Async.AwaitTask
         let tagTypes = [ for v in tagTypes -> DbCompositionTagType.toDomain v ]
 
-        let! tags = connection.QueryAsync<DbCompositionTag>("SELECT composition_id, tag_type, value FROM composition_tag WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        let! tags = connection.QueryAsync<DbCompositionTag>("SELECT composition_id, tag_type, value FROM composition_tag") |> Async.AwaitTask
         let tagsLookup =
             tags
             |> Seq.map (fun v -> (v.composition_id, v.tag_type), v.value)
@@ -132,7 +133,14 @@ type Db(connectionString: string) =
                 tagTypes
                 |> Seq.map (fun tagType ->
                     let tagValue = tagsLookup |> Map.tryFind (compositionId, tagType.Key)
-                    DbCompositionTag.toDomain tagType tagValue
+                    let otherValues =
+                        tags
+                        |> Seq.filter (fun v -> v.tag_type = tagType.Key && v.composition_id <> compositionId)
+                        |> Seq.map _.value
+                        |> Seq.distinct
+                        |> Seq.sort
+                        |> Seq.toList
+                    DbCompositionTag.toDomain tagType tagValue otherValues
                 )
                 |> Seq.toList
             (compositionId, tags)

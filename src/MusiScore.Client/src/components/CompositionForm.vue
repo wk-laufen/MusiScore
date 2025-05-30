@@ -458,11 +458,19 @@ const saveComposition = async () => {
       <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" class="mt-6" />
       <div class="flex flex-col md:flex-row md:flex-wrap gap-4 mt-6">
         <template v-for="tag in composition.tags" :key="tag.key">
-          <TextInput v-if="tag.settings.valueType === 'text'" :title="tag.title" :validation-state="{ type: 'success' }" v-model="tag.value" :required="false" />
+          <div v-if="tag.settings.valueType === 'text'">
+            <label class="input">
+              <span class="input-label">{{ tag.title }}</span>
+              <input class="input-text" type="text" :list="`${tag.key}-values`" v-model="tag.value" />
+              <datalist :id="`${tag.key}-values`">
+                <option v-for="value in tag.otherValues" :key="value" :value="value"></option>
+              </datalist>
+            </label>
+          </div>
           <div v-else-if="tag.settings.valueType === 'multi-line-text'">
             <label class="input">
               <span class="input-label">{{ tag.title }}</span>
-              <textarea class="input-text" type="text" v-model="tag.value"></textarea>
+              <textarea class="input-textarea" v-model="tag.value"></textarea>
             </label>
           </div>
         </template>

@@ -3,7 +3,6 @@ import { chunk } from "lodash-es"
 export type ExistingTag = {
   key: string
   title: string
-  value: string | null
   settings: {
     valueType: "text" | "multi-line-text"
     overviewDisplayFormat: null | {
@@ -11,6 +10,8 @@ export type ExistingTag = {
       format: string
     }
   }
+  value: string | null
+  otherValues: string[]
 }
 
 export type CompositionListItem = {
