@@ -5,6 +5,7 @@ export type ExistingTag = {
   title: string
   value: string | null
   settings: {
+    valueType: "text" | "multi-line-text"
     overviewDisplayFormat: null | {
       order: 1
       format: string

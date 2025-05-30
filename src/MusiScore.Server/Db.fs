@@ -14,11 +14,15 @@ module private DbModels =
     }
     module DbCompositionTagType =
         let toDomain v : CompositionTagType =
-            let settings = JsonSerializer.Deserialize<{| overview_display_format: {| order: int; format: string |} option |}>(v.settings)
+            let settings = JsonSerializer.Deserialize<{| value_type: string; overview_display_format: {| order: int; format: string |} option |}>(v.settings)
             {
                 Key = v.key
                 Name = v.name
                 Settings = {|
+                    ValueType =
+                        if settings.value_type = "text" then TagValueTypeText
+                        elif settings.value_type = "multi-line-text" then TagValueTypeMultiLineText
+                        else failwith $"Invalid tag type \"%s{settings.value_type}\""
                     OverviewDisplayFormat =
                         settings.overview_display_format |> Option.map (fun v -> {| Order = v.order; Format = v.format |})
                 |}

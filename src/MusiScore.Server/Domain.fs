@@ -9,10 +9,13 @@ type Voice = {
     Name: string
 }
 
+type TagValueType = TagValueTypeText | TagValueTypeMultiLineText
+
 type CompositionTagType = {
     Key: string
     Name: string
     Settings: {|
+        ValueType: TagValueType
         OverviewDisplayFormat: {| Order: int; Format: string |} option
     |}
 }
@@ -21,6 +24,7 @@ type ExistingTag = {
     Key: string
     Title: string
     Settings: {|
+        ValueType: TagValueType
         OverviewDisplayFormat: {| Order: int; Format: string |} option
     |}
     Value: string option
@@ -192,3 +196,22 @@ module Parse =
         and! printConfig = v.PrintConfig |> Option.map printConfigKey |> Validation.accumulateOption
         return { Name = name; File = file; PrintConfig = printConfig }
     }
+
+module Serialize =
+    module Print =
+        let existingTag (v: ExistingTag) : MusiScore.Shared.DataTransfer.Print.ExistingTag =
+            let settings = {|
+                OverviewDisplayFormat = v.Settings.OverviewDisplayFormat
+            |}
+            { Key = v.Key; Title = v.Title; Value = v.Value; Settings = settings }
+
+    module Admin =
+        let existingTag (v: ExistingTag) : MusiScore.Shared.DataTransfer.Admin.ExistingTag =
+            let settings = {|
+                ValueType =
+                    match v.Settings.ValueType with
+                    | TagValueTypeText -> "text"
+                    | TagValueTypeMultiLineText -> "multi-line-text"
+                OverviewDisplayFormat = v.Settings.OverviewDisplayFormat
+            |}
+            { Key = v.Key; Title = v.Title; Value = v.Value; Settings = settings }

@@ -70,11 +70,11 @@ CREATE TABLE composition_tag (
     FOREIGN KEY (tag_type) REFERENCES composition_tag_type("key") ON DELETE CASCADE
 );
 INSERT INTO composition_tag_type ("key", name, settings) VALUES
-    ('composer', 'Komponist', '{ "overview_display_format": { "order": 1, "format": "%s" } }'::jsonb),
-    ('arranger', 'Arrangeur', '{ "overview_display_format": { "order": 2, "format": "arr. %s" } }'::jsonb),
-    ('category', 'Kategorie', '{}'::jsonb),
-    ('difficultyLevel', 'Schwierigkeitsgrad', '{}'::jsonb),
-    ('notes', 'Notizen', '{}'::jsonb);
+    ('composer', 'Komponist', '{ "value_type": "text", "overview_display_format": { "order": 1, "format": "%s" } }'::jsonb),
+    ('arranger', 'Arrangeur', '{ "value_type": "text", "overview_display_format": { "order": 2, "format": "arr. %s" } }'::jsonb),
+    ('category', 'Kategorie', '{ "value_type": "text" }'::jsonb),
+    ('difficultyLevel', 'Schwierigkeitsgrad', '{ "value_type": "text" }'::jsonb),
+    ('notes', 'Notizen', '{ "value_type": "multi-line-text" }'::jsonb);
 INSERT INTO composition_tag (composition_id, tag_type, value) SELECT id, 'composer', composer FROM composition WHERE composer IS NOT NULL;
 INSERT INTO composition_tag (composition_id, tag_type, value) SELECT id, 'arranger', arranger FROM composition WHERE arranger IS NOT NULL;
 ALTER TABLE composition DROP COLUMN composer, DROP COLUMN arranger;

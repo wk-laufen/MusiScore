@@ -26,6 +26,7 @@ module Admin =
         Key: string
         Title: string
         Settings: {|
+            ValueType: string
             OverviewDisplayFormat: {| Order: int; Format: string |} option
         |}
         Value: string option

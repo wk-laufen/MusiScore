@@ -25,7 +25,7 @@ type AdminController(db: Db, printer: Printer) =
                     |> Seq.sortBy (fun v -> v.Title)
                     |> Seq.map (fun v -> {
                         Title = v.Title
-                        Tags = v.Tags |> List.sortBy (fun v -> v.Title) |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
+                        Tags = v.Tags |> List.sortBy (fun v -> v.Title) |> List.map Serialize.Admin.existingTag
                         IsActive = v.IsActive
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
@@ -131,7 +131,7 @@ type AdminController(db: Db, printer: Printer) =
                 let! composition = db.CreateComposition newComposition
                 let result = {
                     Title = composition.Title
-                    Tags = composition.Tags |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
+                    Tags = composition.Tags |> List.map Serialize.Admin.existingTag
                     IsActive = composition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = composition.Id |})
@@ -187,7 +187,7 @@ type AdminController(db: Db, printer: Printer) =
                 let! updatedComposition = db.UpdateComposition compositionId compositionUpdate
                 let result = {
                     Title = updatedComposition.Title
-                    Tags = updatedComposition.Tags |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
+                    Tags = updatedComposition.Tags |> List.map Serialize.Admin.existingTag
                     IsActive = updatedComposition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition))
@@ -214,7 +214,7 @@ type AdminController(db: Db, printer: Printer) =
             return
                 {
                     Title = composition.Title
-                    Tags = composition.Tags |> List.map (fun v -> { Key = v.Key; Title = v.Title; Value = v.Value; Settings = v.Settings })
+                    Tags = composition.Tags |> List.map Serialize.Admin.existingTag
                     IsActive = composition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
