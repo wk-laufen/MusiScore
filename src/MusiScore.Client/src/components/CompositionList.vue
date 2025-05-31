@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { type CompositionListItem } from './AdminTypes'
-import { groupBy } from 'lodash-es'
 import InfoNotification from './InfoNotification.vue'
 import HorizontalDivider from './HorizontalDivider.vue'
 import CompositionItem from './CompositionItem.vue'
 import { uiFetchAuthorized } from './UIFetch'
+import _ from 'lodash'
 
 const props = defineProps<{
   compositions: CompositionListItem[]
@@ -23,7 +23,13 @@ const filteredCompositions = computed(() =>
   props.compositions.filter(v => v.title.toLocaleLowerCase().includes(filterText.value.toLocaleLowerCase()) && (!showActiveCompositionsOnly.value || v.isActive))
 )
 const filteredCompositionsByFirstChar = computed(() => {
-  return groupBy(filteredCompositions.value, (v: CompositionListItem) => v.title.length > 0 ? v.title[0].toLocaleUpperCase() : '<leer>')
+  return _(filteredCompositions.value)
+    .groupBy(v => {
+      if (v.title.length === 0) return '<leer>'
+      if (v.title[0] >= '0' && v.title[0] <= '9') return '0-9'
+      return v.title[0].toLocaleUpperCase()
+    })
+    .value()
 })
 
 const isTogglingActivate = ref(false)
