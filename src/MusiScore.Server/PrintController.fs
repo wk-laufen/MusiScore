@@ -15,18 +15,37 @@ type PrintController(db: Db, printer: Printer) =
     member this.GetActiveCompositions () =
         async {
             let! compositions = db.GetActiveCompositions()
+            let! voiceSortOrderPatterns = db.GetVoiceSortOrderPatterns()
             return
                 compositions
                 |> Seq.sortBy (fun v -> v.Title)
-                |> Seq.map (fun composition -> {
-                    Title = composition.Title
-                    Tags = composition.Tags |> List.map Serialize.Print.existingTag
-                    Voices = [
-                        for v in composition.Voices ->
-                            let printUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = composition.Id; voiceId = v.Id |})
-                            {| Name = v.Name; PrintUrl = printUrl |}
-                    ]
-                })
+                |> Seq.map (fun composition ->
+                    let allVoices =
+                        composition.Voices
+                        |> List.map (fun voice ->
+                            let sortOrder =
+                                voiceSortOrderPatterns
+                                |> List.indexed
+                                |> List.tryPick (fun (i, v) ->
+                                    let m = v.Match(voice.Name)
+                                    if m.Success then Some (i + 1)
+                                    else None
+                                )
+                            (voice, sortOrder)
+                        )
+                        |> List.sortBy snd
+                    let voicesWithSortOrder =
+                        allVoices |> List.choose (fun (voice, sortOrder) -> match sortOrder with | Some v -> Some (voice, v) | None -> None)
+                    {
+                        Title = composition.Title
+                        Tags = composition.Tags |> List.map Serialize.Print.existingTag
+                        Voices = [
+                            for (v, sortOrder) in voicesWithSortOrder ->
+                                let printUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = composition.Id; voiceId = v.Id |})
+                                {| Name = v.Name; GlobalSortOrder = sortOrder; PrintUrl = printUrl |}
+                        ]
+                    }
+                )
         }
 
 

@@ -1,5 +1,6 @@
 export type VoiceDto = {
   name: string
+  globalSortOrder: number
   printUrl: string
 }
 

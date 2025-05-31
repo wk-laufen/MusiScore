@@ -13,7 +13,7 @@ module Print =
     type ActiveCompositionDto = {
         Title: string
         Tags: ExistingTag list
-        Voices: {| Name: string; PrintUrl: string |} list
+        Voices: {| Name: string; GlobalSortOrder: int; PrintUrl: string |} list
     }
 
     type VoiceDto = {

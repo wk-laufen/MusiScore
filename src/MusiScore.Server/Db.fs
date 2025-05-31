@@ -172,6 +172,12 @@ type Db(connectionString: string) =
             |> Seq.toList
     }
 
+    member _.GetVoiceSortOrderPatterns() = async {
+        use connection = dataSource.CreateConnection()
+        let! voiceSettings = connection.QueryAsync<string>("SELECT voice_pattern FROM voice_settings ORDER BY sort_order") |> Async.AwaitTask
+        return voiceSettings |> Seq.map Text.RegularExpressions.Regex |> Seq.toList
+    }
+
     member _.GetCompositionVoices(compositionId: string) = async {
         use connection = dataSource.CreateConnection()
         let! voices = connection.QueryAsync<DbVoice>("SELECT id, name FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask

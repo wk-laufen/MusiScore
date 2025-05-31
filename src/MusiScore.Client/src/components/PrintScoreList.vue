@@ -7,6 +7,7 @@ import LoadButton from './LoadButton.vue'
 import HorizontalDivider from './HorizontalDivider.vue'
 import { uiFetch } from './UIFetch'
 import type { ActiveCompositionDto } from './PrintTypes'
+import _ from 'lodash'
 
 const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
@@ -24,9 +25,12 @@ const voiceNames = computed(() =>
 {
   if (compositionList.value === undefined) return undefined
 
-  const allVoices = compositionList.value.flatMap(v => v.voices).map(v => v.name)
-  const uniqueVoices = [...new Set(allVoices)]
-  return uniqueVoices.sort((a, b) => a.localeCompare(b))
+  return _(compositionList.value)
+    .flatMap(v => v.voices)
+    .uniqBy(v => v.name)
+    .sortBy(v => v.globalSortOrder, v => v.name)
+    .map(v => v.name)
+    .toArray()
 })
 
 const selectedComposition = ref<ActiveCompositionDto>()

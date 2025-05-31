@@ -78,3 +78,41 @@ INSERT INTO composition_tag_type ("key", name, settings) VALUES
 INSERT INTO composition_tag (composition_id, tag_type, value) SELECT id, 'composer', composer FROM composition WHERE composer IS NOT NULL;
 INSERT INTO composition_tag (composition_id, tag_type, value) SELECT id, 'arranger', arranger FROM composition WHERE arranger IS NOT NULL;
 ALTER TABLE composition DROP COLUMN composer, DROP COLUMN arranger;
+
+-- add voice settings
+CREATE TABLE voice_settings (
+    voice_pattern VARCHAR PRIMARY KEY NOT NULL,
+    sort_order INT UNIQUE NOT NULL
+);
+INSERT INTO voice_settings (voice_pattern, sort_order) VALUES
+    ('Partitur', 1),
+    ('Piccolo', 2),
+    ('Flöte \d in C', 3),
+    ('Oboe in C', 4),
+    ('Fagott in C', 5),
+    ('Klarinette in Es', 6),
+    ('Klarinette \d in B', 7),
+    ('Alt Klarinette', 8),
+    ('Bass Klarinette in C', 9),
+    ('Alt Sax \d in Es', 10),
+    ('Tenor Sax \d in B', 11),
+    ('Bariton Sax in Es', 12),
+    ('Flügelhorn \d in B', 13),
+    ('Trompete \d in B', 14),
+    ('Bariton in B', 15),
+    ('Tenorhorn \d in B', 16),
+    ('Horn \d in F', 17),
+    ('Horn \d in Es', 18),
+    ('Posaune \d in C', 19),
+    ('Posaune \d in B', 20),
+    ('Tuba in C', 21),
+    ('Tuba in B', 22),
+    ('Kontrabass', 23),
+    ('Pauken', 24),
+    ('Schlagzeug', 25),
+    ('Stabspiele', 26),
+    ('Percussion 1,2', 27),
+    ('Percussion 3', 28),
+    ('Klavier', 29),
+    ('Gesang', 30),
+    ('Sonstige', 31);
