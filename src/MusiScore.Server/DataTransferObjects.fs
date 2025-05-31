@@ -92,8 +92,8 @@ module Admin =
 
     type CompositionUpdateDto = {
         Title: string option
-        TagsToRemove: string list
-        TagsToAdd: NewTag list
+        TagsToRemove: string list option
+        TagsToAdd: NewTag list option
         IsActive: bool option
     }
 

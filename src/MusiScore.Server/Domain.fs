@@ -145,8 +145,8 @@ module Parse =
 
     let compositionUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.CompositionUpdateDto) = validation {
         let! title = v.Title |> Option.map compositionTitle |> Validation.accumulateOption
-        let! tagsToAdd = v.TagsToAdd |> List.map newTag |> List.sequenceValidationA |> Validation.map (List.map AddTag)
-        let! tagsToRemove = v.TagsToRemove |> List.map tagKey |> List.sequenceValidationA |> Validation.map (List.map RemoveTag)
+        let! tagsToAdd = v.TagsToAdd |> Option.defaultValue [] |> List.map newTag |> List.sequenceValidationA |> Validation.map (List.map AddTag)
+        let! tagsToRemove = v.TagsToRemove |> Option.defaultValue [] |> List.map tagKey |> List.sequenceValidationA |> Validation.map (List.map RemoveTag)
         return { Title = title; TagUpdates = tagsToRemove @ tagsToAdd; IsActive = v.IsActive }
     }
 
