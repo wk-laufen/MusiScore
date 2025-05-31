@@ -30,7 +30,7 @@ const voiceNames = computed(() =>
     .uniqBy(v => v.name)
     .sortBy(v => v.globalSortOrder, v => v.name)
     .map(v => v.name)
-    .toArray()
+    .value()
 })
 
 const selectedComposition = ref<ActiveCompositionDto>()
