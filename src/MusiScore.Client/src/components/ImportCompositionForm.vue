@@ -93,7 +93,7 @@ watch(files, async files => {
     .filter(v => v !== undefined)
   compositions.value = _(files)
     .filter(v => v.type === 'application/pdf')
-    .map(v => ({ directoryName: v.webkitRelativePath.split('/').slice(1, -1).join(' - ') || '<unbekannt>', fileName: v.name, content: v.stream() }))
+    .map(v => ({ directoryName: v.webkitRelativePath.split('/').at(-2) || '<unbekannt>', fileName: v.name, content: v.stream() }))
     .groupBy(v => v.directoryName)
     .map((value, key) : Composition => {
       const compositionMetadata = metadata.find(v => v.compositionName === key)
