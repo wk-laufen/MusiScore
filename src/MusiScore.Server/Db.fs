@@ -178,6 +178,19 @@ type Db(connectionString: string) =
         return voiceSettings |> Seq.map Text.RegularExpressions.Regex |> Seq.toList
     }
 
+    member _.UpdateVoiceSortOrderPatterns (voiceSortOrderPatterns: Text.RegularExpressions.Regex list) = async {
+        use connection = dataSource.CreateConnection()
+        // TODO improve
+        do! connection.ExecuteAsync("DELETE FROM voice_settings") |> Async.AwaitTask |> Async.Ignore
+        let voiceSettings =
+            voiceSortOrderPatterns
+            |> List.mapi (fun i v -> {|
+                VoicePattern = $"%O{v}"
+                SortOrder = i + 1
+            |})
+        do! connection.ExecuteAsync("INSERT INTO voice_settings (voice_pattern, sort_order) VALUES (@VoicePattern, @SortOrder)", voiceSettings) |> Async.AwaitTask |> Async.Ignore
+    }
+
     member _.GetCompositionVoices(compositionId: string) = async {
         use connection = dataSource.CreateConnection()
         let! voices = connection.QueryAsync<DbVoice>("SELECT id, name FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask

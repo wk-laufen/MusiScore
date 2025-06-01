@@ -51,6 +51,7 @@ module Admin =
             TestPrintConfig: string
             Composition: string
             Export: string
+            VoiceSettings: string
         |}
     }
 
@@ -122,4 +123,8 @@ module Admin =
         Name: string option
         File: byte[] option
         PrintConfig: string option
+    }
+
+    type VoiceSettingsDto = {
+        SortOrderPatterns: string list
     }

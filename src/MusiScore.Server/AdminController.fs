@@ -39,6 +39,7 @@ type AdminController(db: Db, printer: Printer) =
                     TestPrintConfig = this.Url.Action(nameof(this.TestPrintConfig))
                     Composition = this.Url.Action(nameof(this.CreateComposition))
                     Export = this.Url.Action(nameof(this.ExportCompositions))
+                    VoiceSettings = this.Url.Action(nameof(this.GetVoiceSettings))
                 |}
             }
         }
@@ -274,4 +275,27 @@ type AdminController(db: Db, printer: Printer) =
     member _.DeleteVoice (compositionId: string) (voiceId: string) =
         async {
             do! db.DeleteVoice compositionId voiceId
+        }
+
+    [<Route("voice-settings")>]
+    [<HttpGet>]
+    member _.GetVoiceSettings () =
+        async {
+            let! sortOrderPatterns =  db.GetVoiceSortOrderPatterns()
+            return {
+                SortOrderPatterns = sortOrderPatterns |> List.map (fun v -> $"%O{v}")
+            }
+        }
+
+    [<Route("voice-settings")>]
+    [<HttpPut>]
+    member this.SaveVoiceSettings ([<FromBody>]voiceSettings: VoiceSettingsDto) =
+        async {
+            match Parse.voiceSortOrderPatterns voiceSettings.SortOrderPatterns with
+            | Ok voiceSortOrderPatterns ->
+                do! db.UpdateVoiceSortOrderPatterns voiceSortOrderPatterns
+                return this.Ok({
+                    SortOrderPatterns = voiceSortOrderPatterns |> List.map (fun v -> $"%O{v}")
+                }) :> IActionResult
+            | Error errors -> return this.BadRequest(errors)
         }

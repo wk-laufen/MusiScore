@@ -198,6 +198,21 @@ module Parse =
         return { Name = name; File = file; PrintConfig = printConfig }
     }
 
+    let regex v = validation {
+        try
+            return Regex(v)
+        with _ -> return! Error ()
+    }
+
+    let voiceSortOrderPatterns (v: string list) = validation {
+        return! v
+            |> List.mapi (fun i v -> 
+                if v = "" then Error [ {| Type = "EmptyPattern"; LineIndex = i |} ]
+                else regex v |> Validation.mapError (fun () -> {| Type = "InvalidPattern"; LineIndex = i |})
+            )
+            |> List.traverseValidationA id
+    }
+
 module Serialize =
     module Print =
         let existingTag (v: ExistingTag) : MusiScore.Shared.DataTransfer.Print.ExistingTag =

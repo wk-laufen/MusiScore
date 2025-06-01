@@ -20,6 +20,7 @@ type CompositionData = {
     testPrintConfig: string
     composition: string
     export: string
+    voiceSettings: string
   }
 }
 
@@ -137,6 +138,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
       @cancel-import="cancelImport" />
     <SettingsForm v-else-if="compositionList !== undefined && isEditingSettings"
       :printConfigsUrl="compositionList.links.printConfigs"
+      :voice-settings-url="compositionList.links.voiceSettings"
       @cancel-edit-settings="cancelEditSettings" />
   </div>
   <div v-if="!showLogin" id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">
