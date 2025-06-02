@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef, computed } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
-import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice } from './AdminTypes'
+import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -29,6 +29,7 @@ const props = defineProps<{
   printConfigsUrl: string
   testPrintConfigUrl: string
   compositionUrl: string
+  compositionTemplateUrl: string
 }>()
 
 const modifyType = ref(props.type)
@@ -93,18 +94,24 @@ const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
 const loadComposition = async () => {
   switch (modifyType.value) {
-    case 'create':
-      composition.value = {
-        title: '',
-        titleValidationState: { type: 'success' },
-        tags: [],
-        voices: [],
-        links: {
-          self: props.compositionUrl,
-          voices: undefined
+    case 'create': {
+      const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, props.compositionTemplateUrl)
+      if (result.succeeded) {
+        const template = await result.response.json() as CompositionTemplate
+        composition.value = {
+          title: template.title,
+          titleValidationState: { type: 'success' },
+          tags: template.tags,
+          voices: [],
+          links: {
+            self: props.compositionUrl,
+            voices: undefined
+          }
         }
+        activeVoice.value = first(composition.value.voices)
       }
       break
+    }
     case 'edit': {
       const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, props.compositionUrl)
       if (result.succeeded) {

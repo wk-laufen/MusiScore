@@ -38,9 +38,23 @@ type AdminController(db: Db, printer: Printer) =
                     InferPrintConfig = this.Url.Action(nameof(this.InferPrintConfig))
                     TestPrintConfig = this.Url.Action(nameof(this.TestPrintConfig))
                     Composition = this.Url.Action(nameof(this.CreateComposition))
+                    CompositionTemplate = this.Url.Action(nameof(this.GetCompositionTemplate))
                     Export = this.Url.Action(nameof(this.ExportCompositions))
                     VoiceSettings = this.Url.Action(nameof(this.GetVoiceSettings))
                 |}
+            }
+        }
+
+    [<Route("compositions/template")>]
+    [<HttpGet>]
+    member _.GetCompositionTemplate() =
+        async {
+            let! tags = db.GetTags()
+            return {
+                Title = ""
+                Tags = tags |> List.map Serialize.Admin.existingTag
+                IsActive = false
+                Voices = [||]
             }
         }
 

@@ -50,6 +50,7 @@ module Admin =
             InferPrintConfig: string
             TestPrintConfig: string
             Composition: string
+            CompositionTemplate: string
             Export: string
             VoiceSettings: string
         |}
@@ -109,6 +110,13 @@ module Admin =
         File: byte[]
         PrintConfig: string
         Links: {| Self: string |}
+    }
+
+    type CompositionTemplateDto = {
+        Title: string
+        Tags: ExistingTag list
+        IsActive: bool
+        Voices: ExistingVoiceDto array
     }
 
     type FullCompositionDto = {

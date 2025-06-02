@@ -38,6 +38,13 @@ export type Voice = {
   }
 }
 
+export type CompositionTemplate = {
+  title: string
+  tags: ExistingTag[]
+  ssActive: boolean
+  voices: Voice[]
+}
+
 export type FullComposition = {
   title: string
   tags: ExistingTag[]

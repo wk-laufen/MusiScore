@@ -117,11 +117,19 @@ module private DbModels =
 type Db(connectionString: string) =
     let dataSource = NpgsqlDataSource.Create(connectionString)
 
-    let getTagLookupForCompositions (connection: NpgsqlConnection) (compositionIds: int[]) = async {
+    let getTagTypes (connection: NpgsqlConnection) = async {
         let! tagTypes = connection.QueryAsync<DbCompositionTagType>("SELECT key, name, settings FROM composition_tag_type") |> Async.AwaitTask
-        let tagTypes = [ for v in tagTypes -> DbCompositionTagType.toDomain v ]
+        return [ for v in tagTypes -> DbCompositionTagType.toDomain v ]
+    }
 
-        let! tags = connection.QueryAsync<DbCompositionTag>("SELECT composition_id, tag_type, value FROM composition_tag") |> Async.AwaitTask
+    let getTags (connection: NpgsqlConnection) = async {
+        return! connection.QueryAsync<DbCompositionTag>("SELECT composition_id, tag_type, value FROM composition_tag") |> Async.AwaitTask
+    }
+
+    let getTagLookupForCompositions (connection: NpgsqlConnection) (compositionIds: int[]) = async {
+        let! tagTypes = getTagTypes connection
+
+        let! tags = getTags connection
         let tagsLookup =
             tags
             |> Seq.map (fun v -> (v.composition_id, v.tag_type), v.value)
@@ -170,6 +178,23 @@ type Db(connectionString: string) =
                 DbActiveComposition.toDomain v tags voices
             )
             |> Seq.toList
+    }
+
+    member _.GetTags() = async {
+        use connection = dataSource.CreateConnection()
+        let! tagTypes = getTagTypes connection
+        let! tags = getTags connection
+        return tagTypes
+            |> List.map (fun tagType ->
+                let values =
+                    tags
+                    |> Seq.filter (fun v -> v.tag_type = tagType.Key)
+                    |> Seq.map _.value
+                    |> Seq.distinct
+                    |> Seq.sort
+                    |> Seq.toList
+                DbCompositionTag.toDomain tagType None values
+            )
     }
 
     member _.GetVoiceSortOrderPatterns() = async {

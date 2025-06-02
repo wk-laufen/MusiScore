@@ -19,6 +19,7 @@ type CompositionData = {
     inferPrintConfig: string
     testPrintConfig: string
     composition: string
+    compositionTemplate: string
     export: string
     voiceSettings: string
   }
@@ -73,6 +74,7 @@ const isInListView = computed(() => editComposition.value === undefined && !isIm
 type EditComposition = {
   type: 'create' | 'edit'
   compositionUrl: string
+  templateUrl: string
 }
 const editComposition = ref<EditComposition>()
 
@@ -81,7 +83,8 @@ const createComposition = () => {
 
   editComposition.value = {
     type: 'create',
-    compositionUrl: compositionList.value.links.composition
+    compositionUrl: compositionList.value.links.composition,
+    templateUrl: compositionList.value.links.compositionTemplate
   }
 }
 
@@ -90,7 +93,8 @@ const startEditComposition = (composition: CompositionListItem) => {
 
   editComposition.value = {
     type: 'edit',
-    compositionUrl: composition.links.self
+    compositionUrl: composition.links.self,
+    templateUrl: compositionList.value.links.compositionTemplate
   }
 }
 
@@ -133,6 +137,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
       :printConfigsUrl="compositionList.links.printConfigs"
       :testPrintConfigUrl="compositionList.links.testPrintConfig"
       :composition-url="editComposition.compositionUrl"
+      :composition-template-url="editComposition.templateUrl"
       @cancel-edit="cancelEdit" />
     <ImportCompositionForm v-else-if="compositionList !== undefined && isImportingCompositions"
       :composition-url="compositionList.links.composition"
