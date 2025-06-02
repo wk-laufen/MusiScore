@@ -55,7 +55,9 @@ const isImportingCompositions = ref(false)
 const isExportingCompositions = ref(false)
 const hasExportingCompositionsFailed = ref(false)
 const exportCompositions = async () => {
-  const result = await uiFetchAuthorized(isExportingCompositions, hasExportingCompositionsFailed, '/api/admin/compositions/export')
+  if (compositionList.value === undefined) return
+
+  const result = await uiFetchAuthorized(isExportingCompositions, hasExportingCompositionsFailed, compositionList.value.links.export)
   if (result.succeeded) {
     const blob = await result.response.blob()
     const url = window.URL.createObjectURL(blob)
