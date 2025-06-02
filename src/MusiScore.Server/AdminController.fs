@@ -50,11 +50,14 @@ type AdminController(db: Db, printer: Printer) =
     member _.GetCompositionTemplate() =
         async {
             let! tags = db.GetTags()
+            let! voiceSortOrderPatterns = db.GetVoiceSortOrderPatterns()
+            let! otherVoiceNames = db.GetOtherVoiceNames []
             return {
                 Title = ""
                 Tags = tags |> List.map Serialize.Admin.existingTag
                 IsActive = false
                 Voices = [||]
+                OtherVoiceNames = Voice.sortBySortOrder voiceSortOrderPatterns otherVoiceNames id |> List.toArray
             }
         }
 
@@ -226,6 +229,8 @@ type AdminController(db: Db, printer: Printer) =
         async {
             let! composition = db.GetComposition(compositionId)
             let! voices = db.GetFullCompositionVoices(compositionId)
+            let! voiceSortOrderPatterns = db.GetVoiceSortOrderPatterns()
+            let! otherVoiceNames = db.GetOtherVoiceNames [compositionId]
             return
                 {
                     Title = composition.Title
@@ -245,6 +250,7 @@ type AdminController(db: Db, printer: Printer) =
                             Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |}) |}
                         })
                         |> Seq.toArray
+                    OtherVoiceNames = Voice.sortBySortOrder voiceSortOrderPatterns otherVoiceNames id |> List.toArray
                 }
         }
 

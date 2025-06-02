@@ -117,6 +117,7 @@ module Admin =
         Tags: ExistingTag list
         IsActive: bool
         Voices: ExistingVoiceDto array
+        OtherVoiceNames: string array
     }
 
     type FullCompositionDto = {
@@ -125,6 +126,7 @@ module Admin =
         IsActive: bool
         Links: {| Self: string; Voice: string |}
         Voices: ExistingVoiceDto array
+        OtherVoiceNames: string array
     }
 
     type UpdateVoiceDto = {

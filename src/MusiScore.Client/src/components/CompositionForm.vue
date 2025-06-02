@@ -65,6 +65,7 @@ type EditableComposition = {
   titleValidationState: ValidationState
   tags: ExistingTag[]
   voices: EditableVoice[]
+  voiceNameSuggestions: string[]
   links: {
     self: string
     voices?: string
@@ -103,6 +104,7 @@ const loadComposition = async () => {
           titleValidationState: { type: 'success' },
           tags: template.tags,
           voices: [],
+          voiceNameSuggestions: template.otherVoiceNames,
           links: {
             self: props.compositionUrl,
             voices: undefined
@@ -121,6 +123,7 @@ const loadComposition = async () => {
           titleValidationState: { type: 'success' },
           tags: loadedComposition.tags,
           voices: loadedComposition.voices.map(parseLoadedVoice),
+          voiceNameSuggestions: loadedComposition.otherVoiceNames,
           links: loadedComposition.links
         }
         activeVoice.value = first(composition.value.voices)
@@ -433,7 +436,8 @@ const saveComposition = async () => {
         ...compositionListItem,
         tags: compositionListItem.tags,
         titleValidationState: { type: 'success' },
-        voices: savedVoices.filter(v => v !== undefined) as EditableVoice[]
+        voices: savedVoices.filter(v => v !== undefined) as EditableVoice[],
+        voiceNameSuggestions: composition.value.voiceNameSuggestions
       }
       updateActiveVoice(savedVoices, activeVoiceIndexOrFirst)
     }
@@ -465,15 +469,7 @@ const saveComposition = async () => {
       <TextInput title="Titel" :validation-state="composition.titleValidationState" v-model="composition.title" class="mt-6" />
       <div class="flex flex-col md:flex-row md:flex-wrap gap-4 mt-6">
         <template v-for="tag in composition.tags" :key="tag.key">
-          <div v-if="tag.settings.valueType === 'text'">
-            <label class="input">
-              <span class="input-label">{{ tag.title }}</span>
-              <input class="input-text" type="text" :list="`${tag.key}-values`" v-model="tag.value" />
-              <datalist :id="`${tag.key}-values`">
-                <option v-for="value in tag.otherValues" :key="value" :value="value"></option>
-              </datalist>
-            </label>
-          </div>
+          <TextInput v-if="tag.settings.valueType === 'text'" :title="tag.title" :required="false" :suggestions="tag.otherValues" :validation-state="{ type: 'success' }" v-model="tag.value" />
           <div v-else-if="tag.settings.valueType === 'multi-line-text'">
             <label class="input">
               <span class="input-label">{{ tag.title }}</span>
@@ -508,7 +504,7 @@ const saveComposition = async () => {
         </li>
       </ul>
       <div v-if="activeVoice !== undefined">
-        <TextInput title="Name" :validation-state="activeVoice.nameValidationState" v-model="activeVoice.name" class="mt-6" />
+        <TextInput title="Name" :validation-state="activeVoice.nameValidationState" :suggestions="composition.voiceNameSuggestions" v-model="activeVoice.name" class="mt-6" />
         <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" class="mt-6" />
         <div class="mt-6 flex gap-2">
           <SelectInput v-if="printConfigs !== undefined" title="Druckeinstellung" :options="printConfigs.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printConfigValidationState" v-model="activeVoice.printConfig" />

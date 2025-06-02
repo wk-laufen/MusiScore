@@ -339,6 +339,13 @@ type Db(connectionString: string) =
             |> Seq.toList
     }
 
+    member _.GetOtherVoiceNames (excludeCompositionIds: string list) = async {
+        use connection = dataSource.CreateConnection()
+        let compositionIds = excludeCompositionIds |> List.map int |> List.toArray
+        let! voiceNames = connection.QueryAsync<string>("SELECT DISTINCT name FROM voice WHERE NOT (composition_id = ANY(@CompositionIds))", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        return Seq.toList voiceNames
+    }
+
     member _.CreateVoice (compositionId: string) (createVoice: CreateVoice) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()

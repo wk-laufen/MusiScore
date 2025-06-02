@@ -8,6 +8,23 @@ type Voice = {
     Id: string
     Name: string
 }
+module Voice =
+    let tryGetSortOrder (patterns: Regex list) voiceName =
+        patterns
+        |> List.indexed
+        |> List.tryPick (fun (i, v) ->
+            let m = v.Match(voiceName)
+            if m.Success then Some (i + 1)
+            else None
+        )
+    let sortBySortOrder (patterns: Regex list) list nameFn =
+        list
+        |> List.sortBy (nameFn >> fun voiceName ->
+            let patternSortOrder =
+                tryGetSortOrder patterns voiceName
+                |> Option.defaultValue Int32.MaxValue
+            (patternSortOrder, voiceName.ToLowerInvariant())
+        )
 
 type TagValueType = TagValueTypeText | TagValueTypeMultiLineText
 

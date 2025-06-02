@@ -23,15 +23,7 @@ type PrintController(db: Db, printer: Printer) =
                     let allVoices =
                         composition.Voices
                         |> List.map (fun voice ->
-                            let sortOrder =
-                                voiceSortOrderPatterns
-                                |> List.indexed
-                                |> List.tryPick (fun (i, v) ->
-                                    let m = v.Match(voice.Name)
-                                    if m.Success then Some (i + 1)
-                                    else None
-                                )
-                            (voice, sortOrder)
+                            (voice, Voice.tryGetSortOrder voiceSortOrderPatterns voice.Name)
                         )
                         |> List.sortBy snd
                     let voicesWithSortOrder =
