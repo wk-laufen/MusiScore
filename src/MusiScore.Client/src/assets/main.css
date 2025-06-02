@@ -56,7 +56,7 @@ main {
 }
 
 .input {
-  @apply flex flex-col md:items-start;
+  @apply flex md:inline-flex flex-col md:items-start;
 }
 .input-label {
   @apply text-sm font-medium text-slate-700;
