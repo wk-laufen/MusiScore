@@ -126,7 +126,9 @@ const savePrintConfig = async (printConfig: EditablePrintConfig) => {
 
 const canSave = computed(() => modifiedPrintConfigs.value.length > 0)
 const save = async () => {
-  modifiedPrintConfigs.value.map(v => savePrintConfig(v))
+  if (!canSave.value) return
+
+  await Promise.all(modifiedPrintConfigs.value.map(v => savePrintConfig(v)))
 }
 
 defineExpose({ canSave, save })

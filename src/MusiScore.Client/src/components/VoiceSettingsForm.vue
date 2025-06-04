@@ -57,7 +57,8 @@ const canSave = computed(() => {
 const isSaving = ref(false)
 const hasSavingFailed = ref(false)
 const save = async () => {
-  if (voiceSettings.value === undefined) return false
+  if (voiceSettings.value === undefined) return
+  if (!canSave.value) return
 
   const voiceSettingsToSave = voiceSettings.value
   voiceSettingsToSave.sortOrderPatternsSaveErrors = []
