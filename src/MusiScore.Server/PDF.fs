@@ -38,6 +38,6 @@ module PDF =
             |> List.iter (fun pageNumber ->
                 match pageNumber with
                 | Some pageNumber -> sourceDocument.CopyPagesTo([| pageNumber |], targetDocument) |> ignore
-                | None -> sourceDocument.AddNewPage() |> ignore
+                | None -> targetDocument.AddNewPage() |> ignore
             )
         targetStream.ToArray()
