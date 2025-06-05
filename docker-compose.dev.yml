@@ -25,6 +25,7 @@ services:
     ports:
       - 8081:8080
   print:
-    image: ydkn/cups
+    build:
+      context: ./cups-docker
     ports:
       - 8082:631

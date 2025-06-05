@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/wk-laufen/musiscore:c869291596e5ed8c6cc6027ec9be830f2357821c
+    image: ghcr.io/wk-laufen/musiscore:1c3519341904d4d65ea77db9cdcaf08752e9bd8f
     restart: unless-stopped
     ports:
       - 80:8080
@@ -23,7 +23,7 @@ services:
     secrets:
       - db_password
   print:
-    image: ydkn/cups
+    image: ghcr.io/wk-laufen/musiscore-cups:1c3519341904d4d65ea77db9cdcaf08752e9bd8f
     restart: unless-stopped
     ports:
       - 81:631
