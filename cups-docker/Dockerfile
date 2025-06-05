@@ -17,6 +17,7 @@ FROM debian:stable
 RUN apt update && apt install -y libavahi-client3 procps rsync && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /cups/dist /install
 RUN rsync -a /install/ / && rm -rf /install
+VOLUME /etc/cups
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 EXPOSE 631
 ENTRYPOINT [ "/docker-entrypoint.sh" ]
