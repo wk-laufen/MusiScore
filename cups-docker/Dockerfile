@@ -11,7 +11,7 @@ RUN apt update && apt install -y autoconf build-essential \
 RUN apt update && apt install -y git
 
 RUN git clone -b v2.4.12 --depth 1 https://github.com/OpenPrinting/cups
-RUN cd ./cups && ./configure && make clean && make && make BUILDROOT=/cups/dist install
+RUN mkdir /usr/lib64/fakeroot && cd ./cups && ./configure && make clean && make && make BUILDROOT=/cups/dist install
 
 FROM debian:stable
 RUN apt update && apt install -y libavahi-client3 procps rsync && rm -rf /var/lib/apt/lists/*
