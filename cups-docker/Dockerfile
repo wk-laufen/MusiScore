@@ -18,6 +18,5 @@ RUN apt update && apt install -y libavahi-client3 procps rsync && rm -rf /var/li
 COPY --from=builder /cups/dist /install
 RUN rsync -a /install/ / && rm -rf /install
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
-RUN ldconfig
 EXPOSE 631
 ENTRYPOINT [ "/docker-entrypoint.sh" ]
