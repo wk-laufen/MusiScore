@@ -1,9 +1,11 @@
 #!/bin/bash
 
-/usr/sbin/cupsd \
-&& while [ ! -f /var/run/cups/cupsd.pid ]; do sleep 1; done \
-&& cupsctl --remote-admin --remote-any --share-printers \
-&& kill $(cat /var/run/cups/cupsd.pid) \
-&& echo "ServerAlias *" >> /etc/cups/cupsd.conf \
-&& service cups start \
+if [ ! -f /etc/cups/cupsd.conf ]; then
+    echo '/etc/cups/cupsd.conf not found - using default config'
+    cp -r /etc/cups-default/* /etc/cups/
+else
+    echo 'Found /etc/cups/cupsd.conf'
+fi
+
+service cups start \
 && /usr/sbin/cupsd -f

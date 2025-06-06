@@ -17,6 +17,12 @@ FROM debian:stable
 RUN apt update && apt install -y libavahi-client3 procps rsync && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /cups/dist /install
 RUN rsync -a /install/ / && rm -rf /install
+RUN /usr/sbin/cupsd && \
+    while [ ! -f /var/run/cups/cupsd.pid ]; do sleep 1; done && \
+    cupsctl --remote-admin --remote-any --share-printers && \
+    kill $(cat /var/run/cups/cupsd.pid) && \
+    echo "ServerAlias *" >> /etc/cups/cupsd.conf && \
+    mv /etc/cups /etc/cups-default
 VOLUME /etc/cups
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 EXPOSE 631

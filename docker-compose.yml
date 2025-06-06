@@ -28,7 +28,7 @@ services:
     ports:
       - 631:631
     volumes:
-      - /opt/musiscore/print:/etc/cups
+      - .\print:/etc/cups
 secrets:
   db_password:
     file: ./db_password.txt

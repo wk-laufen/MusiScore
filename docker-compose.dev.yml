@@ -29,3 +29,5 @@ services:
       context: ./cups-docker
     ports:
       - 8082:631
+    volumes:
+      - .\print:/etc/cups
