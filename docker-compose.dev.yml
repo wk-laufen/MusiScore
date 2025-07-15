@@ -30,4 +30,4 @@ services:
     ports:
       - 8082:631
     volumes:
-      - .\print:/etc/cups
+      - ./print:/etc/cups
