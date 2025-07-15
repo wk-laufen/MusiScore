@@ -90,3 +90,7 @@ main {
 .nav-item.active {
   @apply border-blue-500;
 }
+
+.sortable-ghost {
+  opacity: 0.4;
+}

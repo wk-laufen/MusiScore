@@ -458,6 +458,10 @@ type Db(connectionString: string) =
                 match update.CupsCommandLineArgs with
                 | Some _ -> "cups_command_line_args = @CupsCommandLineArgs"
                 | None -> ()
+
+                match update.SortOrder with
+                | Some _ -> "sort_order = @SortOrder"
+                | None -> ()
             ]
             |> String.concat ", "
         if updateFields <> "" then
@@ -466,6 +470,7 @@ type Db(connectionString: string) =
                 Name = update.Name |> Option.defaultValue ""
                 ReorderPagesAsBooklet = update.ReorderPagesAsBooklet |> Option.defaultValue false
                 CupsCommandLineArgs = update.CupsCommandLineArgs |> Option.defaultValue ""
+                SortOrder = update.SortOrder |> Option.defaultValue 0
             |}
             let command = $"UPDATE voice_print_config SET %s{updateFields} WHERE \"key\" = @Key"
             do! connection.ExecuteAsync(command, updateArgs) |> Async.AwaitTask |> Async.Ignore

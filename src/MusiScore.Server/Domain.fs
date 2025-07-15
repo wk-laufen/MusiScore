@@ -78,6 +78,7 @@ type PrintConfigUpdate = {
     Name: string option
     ReorderPagesAsBooklet: bool option
     CupsCommandLineArgs: string option
+    SortOrder: int option
 }
 
 type PrintConfigCreateError =
@@ -198,7 +199,7 @@ module Parse =
 
     let printConfigUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.PrintConfigUpdateDto) = validation {
         let! name = v.Name |> Option.map printConfigName |> Validation.accumulateOption
-        return { Name = name; ReorderPagesAsBooklet = v.ReorderPagesAsBooklet; CupsCommandLineArgs = v.CupsCommandLineArgs }
+        return { Name = name; ReorderPagesAsBooklet = v.ReorderPagesAsBooklet; CupsCommandLineArgs = v.CupsCommandLineArgs; SortOrder = v.SortOrder }
     }
 
     let createVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) = validation {

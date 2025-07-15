@@ -79,6 +79,7 @@ module Admin =
         Name: string option
         ReorderPagesAsBooklet: bool option
         CupsCommandLineArgs: string option
+        SortOrder: int option
     }
 
     type NewTag = {

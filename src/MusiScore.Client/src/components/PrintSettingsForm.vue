@@ -6,6 +6,7 @@ import _ from 'lodash'
 import PrintConfigItem from './PrintConfigItem.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import LoadingBar from './LoadingBar.vue'
+import draggable from 'vuedraggable'
 
 const props = defineProps<{
   printConfigsUrl: string
@@ -20,14 +21,13 @@ const loadPrintConfigs = async () => {
   if (result.succeeded) {
     const loadedPrintConfigs = await result.response.json() as PrintConfigDto[]
     printConfigs.value = loadedPrintConfigs.map((v) : EditablePrintConfig => ({
-      loadedData: { key: v.key, name: v.name, cupsCommandLineArgs: v.cupsCommandLineArgs, reorderPagesAsBooklet: v.reorderPagesAsBooklet },
+      loadedData: { key: v.key, name: v.name, cupsCommandLineArgs: v.cupsCommandLineArgs, reorderPagesAsBooklet: v.reorderPagesAsBooklet, sortOrder: v.sortOrder },
       ...v,
       id: `${nextPrintConfigId++}`,
       isNew: false,
       keyValidationState: { type: 'success' },
       keyIsReadOnly: true,
       nameValidationState: { type: 'success' },
-      sortOrder: v.sortOrder,
       cupsCommandLineArgsValidationState: { type: 'success' },
       isSaving: false,
       hasSavingFailed: false
@@ -35,6 +35,14 @@ const loadPrintConfigs = async () => {
   }
 }
 loadPrintConfigs()
+
+const updateSortOrder = () => {
+  if (printConfigs.value === undefined) return
+
+  printConfigs.value.forEach((v, i) => {
+    v.sortOrder = i + 1
+  })
+}
 
 const addPrintConfig = () => {
   if (printConfigs.value === undefined) return
@@ -68,7 +76,8 @@ const modifiedPrintConfigs = computed(() => {
       key: v.key,
       name: v.name,
       cupsCommandLineArgs: v.cupsCommandLineArgs,
-      reorderPagesAsBooklet: v.reorderPagesAsBooklet
+      reorderPagesAsBooklet: v.reorderPagesAsBooklet,
+      sortOrder: v.sortOrder
     }
     return !_.isEqual(v.loadedData, currentData)
   })
@@ -105,7 +114,8 @@ const savePrintConfig = async (printConfig: EditablePrintConfig) => {
         key: response.key,
         name: response.name,
         cupsCommandLineArgs: response.cupsCommandLineArgs,
-        reorderPagesAsBooklet: response.reorderPagesAsBooklet
+        reorderPagesAsBooklet: response.reorderPagesAsBooklet,
+        sortOrder: response.sortOrder
       }
     }
     else {
@@ -113,7 +123,8 @@ const savePrintConfig = async (printConfig: EditablePrintConfig) => {
         key: printConfig.key,
         name: printConfig.name,
         cupsCommandLineArgs: printConfig.cupsCommandLineArgs,
-        reorderPagesAsBooklet: printConfig.reorderPagesAsBooklet
+        reorderPagesAsBooklet: printConfig.reorderPagesAsBooklet,
+        sortOrder: printConfig.sortOrder
       }
     }
   }
@@ -138,14 +149,20 @@ defineExpose({ canSave, save })
   <h3 class="mt-2 text-xl small-caps">Druckeinstellungen</h3>
   <LoadingBar v-if="isLoadingPrintConfigs" />
   <ErrorWithRetry v-else-if="hasLoadingPrintConfigsFailed" type="inline" @retry="loadPrintConfigs">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
-  <div v-else-if="printConfigs !== undefined" class="mt-4 flex flex-wrap items-start gap-4">
-    <PrintConfigItem v-for="printConfig in printConfigs" :key="printConfig.id"
-      :printConfig="printConfig"
-      v-model:name="printConfig.name"
-      v-model:id="printConfig.key"
-      v-model:id-is-read-only="printConfig.keyIsReadOnly"
-      v-model:reorder-pages-as-booklet="printConfig.reorderPagesAsBooklet"
-      v-model:cups-command-line-args="printConfig.cupsCommandLineArgs" />
-    <button class="btn btn-green btn-solid self-center !px-8 !py-4" @click="addPrintConfig">Neue Druckeinstellung</button>
+  <div v-else-if="printConfigs !== undefined">
+    <draggable v-model="printConfigs" item-key="id" animation="150" class="mt-4 flex flex-wrap items-start gap-4" @end="updateSortOrder">
+      <template #item="{element: printConfig}">
+        <PrintConfigItem
+          :printConfig="printConfig"
+          v-model:name="printConfig.name"
+          v-model:id="printConfig.key"
+          v-model:id-is-read-only="printConfig.keyIsReadOnly"
+          v-model:reorder-pages-as-booklet="printConfig.reorderPagesAsBooklet"
+          v-model:cups-command-line-args="printConfig.cupsCommandLineArgs" />
+      </template>
+      <template #footer>
+        <button class="btn btn-green btn-solid self-center !px-8 !py-4" @click="addPrintConfig">Neue Druckeinstellung</button>
+      </template>
+    </draggable>
   </div>
 </template>

@@ -16,6 +16,7 @@ export type PrintConfigInputs = {
   name: string
   cupsCommandLineArgs: string
   reorderPagesAsBooklet: boolean
+  sortOrder: number
 }
 
 export type EditablePrintConfig = PrintConfigDto & {
@@ -25,7 +26,6 @@ export type EditablePrintConfig = PrintConfigDto & {
   keyValidationState: ValidationState
   keyIsReadOnly: boolean
   nameValidationState: ValidationState
-  sortOrder: number
   cupsCommandLineArgsValidationState: ValidationState
   isSaving: boolean
   hasSavingFailed: boolean

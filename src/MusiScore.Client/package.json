@@ -27,7 +27,8 @@
     "tailwindcss-opentype": "^1.1.0",
     "toml": "^3.0.0",
     "vue": "^3.5.16",
-    "vue-router": "^4.2.5"
+    "vue-router": "^4.2.5",
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.3.3",
