@@ -26,7 +26,7 @@ const reorderPagesAsBooklet = defineModel<boolean>('reorderPagesAsBooklet', { re
 </script>
 
 <template>
-  <div class="grid border rounded p-4" :class="{ 'border-musi-red': printConfig.hasSavingFailed }">
+  <div class="grid border rounded-sm p-4" :class="{ 'border-musi-red': printConfig.hasSavingFailed }">
     <fieldset :disabled="printConfig.isSaving" class="col-span-full row-span-full" :class="{ 'opacity-50': printConfig.isSaving }">
       <div class="flex gap-2">
         <ActivatableTextInput v-if="printConfig.isNew"

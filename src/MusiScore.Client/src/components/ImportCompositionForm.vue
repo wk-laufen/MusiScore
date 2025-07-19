@@ -321,19 +321,19 @@ const importInfo = computed(() : ImportInfo | undefined => {
       <h3 class="text-lg">Keine PDF-Dateien im ausgewählten Ordner gefunden.</h3>
     </div>
     <div v-else class="flex flex-col gap-2">
-      <div v-for="composition in compositions" :key="composition.id" class="border rounded mt-2 p-4">
+      <div v-for="composition in compositions" :key="composition.id" class="border rounded-sm mt-2 p-4">
         <fieldset :disabled="isSaving || composition.isSaved">
           <div v-if="composition.isEditingTitle" class="flex">
-            <input class="input-text !rounded-r-none" type="text" required v-model="composition.title" />
-            <button class="btn !rounded-l-none !border-l-none" @click="composition.isEditingTitle = false">✔</button>
+            <input class="input-text rounded-r-none!" type="text" required v-model="composition.title" />
+            <button class="btn rounded-l-none! !border-l-none" @click="composition.isEditingTitle = false">✔</button>
           </div>
           <div v-else class="flex">
-            <LoadButton :loading="composition.isSaving" class="btn-green !rounded-r-none" :class="{ 'btn-solid': composition.enabled }" @click="composition.enabled = !composition.enabled">
+            <LoadButton :loading="composition.isSaving" class="btn-green rounded-r-none!" :class="{ 'btn-solid': composition.enabled }" @click="composition.enabled = !composition.enabled">
               {{ composition.title }}
               <template v-if="composition.isSaved">✔</template>
               <template v-else-if="composition.hasSavingFailed">❌</template>
             </LoadButton>
-            <button class="btn !rounded-l-none !border-l-0" @click="composition.isEditingTitle = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
+            <button class="btn rounded-l-none! border-l-0!" @click="composition.isEditingTitle = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
           </div>
         </fieldset>
         <h4 class="mt-4 text-xl small-caps" :class="{ 'opacity-50': isSaving || !composition.enabled }">Stimmen</h4>
@@ -341,16 +341,16 @@ const importInfo = computed(() : ImportInfo | undefined => {
           <div v-for="voice in composition.voices" :key="voice.id">
             <fieldset :disabled="!composition.enabled || isSaving || voice.isSaved">
               <div v-if="voice.isEditingName" class="flex">
-                <input class="input-text !rounded-r-none" type="text" required v-model="voice.name" />
-                <button class="btn !rounded-l-none !border-l-none" @click="voice.isEditingName = false">✔</button>
+                <input class="input-text rounded-r-none!" type="text" required v-model="voice.name" />
+                <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">✔</button>
               </div>
               <div v-else class="flex">
-                <LoadButton :loading="voice.isSaving" class="btn-blue !rounded-r-none" :class="{ 'btn-solid': voice.enabled }" @click="voice.enabled = !voice.enabled">
+                <LoadButton :loading="voice.isSaving" class="btn-blue rounded-r-none!" :class="{ 'btn-solid': voice.enabled }" @click="voice.enabled = !voice.enabled">
                   {{ voice.name || '<leer>' }}
                   <template v-if="voice.isSaved">✔</template>
                   <template v-else-if="voice.hasSavingFailed">❌</template>
                 </LoadButton>
-                <button class="btn !rounded-l-none !border-l-0" @click="voice.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
+                <button class="btn rounded-l-none! border-l-0!" @click="voice.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
               </div>
             </fieldset>
           </div>
@@ -360,8 +360,8 @@ const importInfo = computed(() : ImportInfo | undefined => {
   </div>
 
   <Teleport to="#command-bar">
-    <button class="btn btn-solid btn-gold !px-8 !py-4" :disabled="isSaving" @click="$emit('cancelImport')">Zurück zur Übersicht</button>
-    <LoadButton :loading="isSaving" :disabled="!canImport" class="btn-solid btn-gold !px-8 !py-4" @click="doImport">
+    <button class="btn btn-solid btn-gold px-8! py-4!" :disabled="isSaving" @click="$emit('cancelImport')">Zurück zur Übersicht</button>
+    <LoadButton :loading="isSaving" :disabled="!canImport" class="btn-solid btn-gold px-8! py-4!" @click="doImport">
       {{ importInfo?.type === 'error' ? 'Import erneut versuchen' : 'Import starten' }}
     </LoadButton>
     <span v-if="importInfo?.type === 'success'" class="text-musi-green">{{ importInfo.message }}</span>

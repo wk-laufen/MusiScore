@@ -18,7 +18,7 @@ const errorMessage = props.apiKey !== undefined ? 'Login fehlgeschlagen' : undef
 <template>
   <div class="flex flex-col items-center gap-2">
     <div class="flex items-center justify-center gap-4">
-      <input type="text" placeholder="Passwort" v-model="apiKey" class="input-text !w-96 h-12" />
+      <input type="text" placeholder="Passwort" v-model="apiKey" class="input-text w-96! h-12" />
       <a class="btn btn-blue" @click="$emit('login', apiKey, rememberAPIKey)">Login</a>
     </div>
     <label class="flex gap-2">

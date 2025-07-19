@@ -1,6 +1,41 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-musi-gold: #b18e36;
+  --color-musi-green: #36b151;
+  --color-musi-blue: #3659b1;
+  --color-musi-red: #b13696;
+
+  --animate-wiggle: wiggle 0.1s ease-in-out 5;
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: rotate(-3deg);
+    }
+    50% {
+      transform: rotate(3deg);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 html, body, #app, main {
   @apply h-full;
@@ -9,14 +44,18 @@ main {
   @apply flex flex-col;
 }
 
+.small-caps {
+  font-variant-caps: small-caps;
+}
+
 .btn {
-  @apply inline-block text-center cursor-pointer bg-transparent font-semibold py-2 px-4 border rounded;
+  @apply inline-block text-center cursor-pointer bg-transparent font-semibold py-2 px-4 border rounded-sm;
 }
 .btn:disabled {
   @apply opacity-50 cursor-not-allowed;
 }
 .btn:hover:not(:disabled) {
-  @apply shadow;
+  @apply shadow-sm;
 }
 .btn-blue:not(.btn-solid) {
   @apply text-musi-blue border-musi-blue;
@@ -62,13 +101,13 @@ main {
   @apply text-sm font-medium text-slate-700;
 }
 .input-textarea {
-  @apply min-w-72 px-2 py-1 border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
+  @apply min-w-72 px-2 py-1 border border-slate-300 rounded-md text-sm shadow-xs focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
 }
 .input-textarea:disabled {
   @apply bg-gray-200
 }
 .input-text {
-  @apply min-w-72 px-2 py-1 border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
+  @apply min-w-72 px-2 py-1 border border-slate-300 rounded-md text-sm shadow-xs focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
 }
 .input-text:disabled {
   @apply bg-gray-200
@@ -78,7 +117,7 @@ main {
 }
 
 .input-select {
-  @apply px-3 py-1.5 border border-gray-300 rounded transition ease-in-out focus:border-blue-600;
+  @apply px-3 py-1.5 border border-gray-300 rounded-sm transition ease-in-out focus:border-blue-600;
 }
 
 .nav-container {

@@ -86,18 +86,18 @@ const tryPrint = async () => {
         <div class="flex flex-wrap items-stretch justify-center gap-2 m-4">
           <div v-for="voiceName in voiceNames" :key="voiceName"
             @click="() => trySelectVoiceName(voiceName)"
-            :class="{ 'bg-blue-500 text-white': selectedVoiceName === voiceName, 'opacity-50 !cursor-not-allowed': !isVoiceNameSelectable(voiceName) }"
-            class="flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
-            <span class="grow flex items-center justify-center text-center !p-8 w-60">{{ voiceName }}</span>
+            :class="{ 'bg-blue-500 text-white': selectedVoiceName === voiceName, 'opacity-50 cursor-not-allowed!': !isVoiceNameSelectable(voiceName) }"
+            class="flex items-stretch border rounded-sm font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
+            <span class="grow flex items-center justify-center text-center p-8! w-60">{{ voiceName }}</span>
           </div>
         </div>
         <HorizontalDivider>Stück</HorizontalDivider>
         <div class="flex flex-wrap items-stretch justify-center gap-2 m-4">
           <div v-for="composition in compositionList" :key="composition.title"
             @click="() => trySelectComposition(composition)"
-            :class="{ 'bg-blue-500 text-white': selectedComposition === composition, 'opacity-50 !cursor-not-allowed': !isCompositionSelectable(composition) }"
-            class="flex items-stretch border rounded font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
-            <span class="grow flex items-center justify-center text-center !p-8 w-60">{{ composition.title }}</span>
+            :class="{ 'bg-blue-500 text-white': selectedComposition === composition, 'opacity-50 cursor-not-allowed!': !isCompositionSelectable(composition) }"
+            class="flex items-stretch border rounded-sm font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
+            <span class="grow flex items-center justify-center text-center p-8! w-60">{{ composition.title }}</span>
           </div>
         </div>
         <div class="flex justify-center my-8">
@@ -105,7 +105,7 @@ const tryPrint = async () => {
             :loading="true"
             class="btn-solid btn-gold w-60 h-24">&nbsp;</LoadButton>
           <button v-else @click="() => tryPrint()"
-            :class="{ 'opacity-50 !cursor-not-allowed': !canPrint(), 'animate-wiggle': hasPrintingFailed }"
+            :class="{ 'opacity-50 cursor-not-allowed!': !canPrint(), 'animate-wiggle': hasPrintingFailed }"
             class="btn btn-solid btn-gold w-60 h-24">
             <span v-if="hasPrintingFailed">Fehler beim Drucken.<br />Nochmal versuchen</span>
             <span v-else>Drucken</span>

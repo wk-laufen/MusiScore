@@ -20,7 +20,7 @@ withDefaults(defineProps<{
       <div v-else-if="$slots.title" class="input-label"><slot name="title"></slot></div>
       <div class="flex gap-2">
         <input type="checkbox" v-model="isActive" />
-        <input class="input-text !w-[16.6rem]" type="text" :required="required" :disabled="disabled" :placeholder="placeholder" v-model="text" />
+        <input class="input-text w-[16.6rem]!" type="text" :required="required" :disabled="disabled" :placeholder="placeholder" v-model="text" />
       </div>
       <span v-if="validationState.type === 'error'" class="text-sm text-musi-red">{{ validationState.error }}</span>
     </label>

@@ -43,7 +43,7 @@ const saveSettings = async () => {
   </div>
 
   <Teleport to="#command-bar">
-    <button class="btn btn-solid btn-gold !px-8 !py-4" :disabled="isSaving" @click="$emit('cancelEditSettings')">Zurück zur Übersicht</button>
-    <LoadButton :loading="isSaving" :disabled="!canSave" class="btn-solid btn-gold !px-8 !py-4" @click="saveSettings">Einstellungen speichern</LoadButton>
+    <button class="btn btn-solid btn-gold px-8! py-4!" :disabled="isSaving" @click="$emit('cancelEditSettings')">Zurück zur Übersicht</button>
+    <LoadButton :loading="isSaving" :disabled="!canSave" class="btn-solid btn-gold px-8! py-4!" @click="saveSettings">Einstellungen speichern</LoadButton>
   </Teleport>
 </template>

@@ -27,8 +27,8 @@ const deleteComposition = async () => {
 </script>
 
 <template>
-  <div class="flex items-stretch border rounded text-blue-700 border-blue-500 divide-x divide-blue-500">
-    <div class="grow flex flex-col items-center justify-center text-center !p-8 w-60">
+  <div class="flex items-stretch border rounded-sm text-blue-700 border-blue-500 divide-x divide-blue-500">
+    <div class="grow flex flex-col items-center justify-center text-center p-8! w-60">
       <span class="font-semibold">{{ composition.title }}</span>
       <span v-for="tag in sortBy(composition.tags.filter(v => v.value !== null && v.settings.overviewDisplayFormat !== null), [v => v.settings.overviewDisplayFormat?.order])"
         :key="tag.key"

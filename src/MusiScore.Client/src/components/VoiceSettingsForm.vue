@@ -103,10 +103,10 @@ defineExpose({ canSave, save })
       <span class="input-label">Sortierreihenfolge</span>
       <textarea class="input-textarea min-h-96" :disabled="isSaving" v-model="voiceSettings.sortOrderPatterns"></textarea>
     </label>
-    <span class="text-sm text-slate-700">Tipp: Um alle Stimmen beim Druck anzuzeigen, füge <a class="px-3 py-2 border rounded font-bold text-musi-blue cursor-pointer" @click="addMatchAllSortOrderPattern">.*</a> am Ende ein.</span>
+    <span class="text-sm text-slate-700">Tipp: Um alle Stimmen beim Druck anzuzeigen, füge <a class="px-3 py-2 border rounded-sm font-bold text-musi-blue cursor-pointer" @click="addMatchAllSortOrderPattern">.*</a> am Ende ein.</span>
     <ul v-if="voiceSettings.sortOrderPatternsSaveErrors.length > 0">
       <li v-for="error in voiceSettings.sortOrderPatternsSaveErrors" :key="JSON.stringify(error)">
-        <span v-if="error.type === 'InvalidPattern'" class="text-sm text-musi-red">Zeile {{error.lineIndex + 1}}: Ungültiges Muster <span class="px-2 py-1 border rounded text-slate-700">{{ error.pattern }}</span></span>
+        <span v-if="error.type === 'InvalidPattern'" class="text-sm text-musi-red">Zeile {{error.lineIndex + 1}}: Ungültiges Muster <span class="px-2 py-1 border rounded-sm text-slate-700">{{ error.pattern }}</span></span>
         <span v-else-if="error.type === 'EmptyPattern'" class="text-sm text-musi-red">Zeile {{error.lineIndex + 1}}: Muster darf nicht leer sein</span>
       </li>
     </ul>

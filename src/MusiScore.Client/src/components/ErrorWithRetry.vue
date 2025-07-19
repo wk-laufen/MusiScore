@@ -10,12 +10,12 @@ const props = withDefaults(
   }
 )
 const containerClasses = props.type === 'banner'
-  ? [ "flex", "justify-center", "items-center", "gap-2", "bg-musi-red", "p-4", "rounded", "text-white" ]
-  : [ "inline-flex", "justify-center", "items-center", "gap-2", "rounded", "text-musi-red" ]
+  ? [ "flex", "justify-center", "items-center", "gap-2", "bg-musi-red", "p-4", "rounded-sm", "text-white" ]
+  : [ "inline-flex", "justify-center", "items-center", "gap-2", "rounded-sm", "text-musi-red" ]
 
 const buttonClasses = props.type === 'banner'
-  ? [ "btn", "text-white", "bg-white", "has-hover:hover:bg-white", "has-hover:hover:text-musi-red" ]
-  : [ "btn", "text-musi-red", "bg-white", "has-hover:hover:bg-musi-red", "has-hover:hover:text-white" ]
+  ? [ "btn", "text-white", "bg-white", "hover:bg-white", "hover:text-musi-red" ]
+  : [ "btn", "text-musi-red", "bg-white", "hover:bg-musi-red", "hover:text-white" ]
 </script>
 
 <template>

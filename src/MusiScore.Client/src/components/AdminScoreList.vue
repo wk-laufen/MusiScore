@@ -149,16 +149,16 @@ const compositionDeleted = (composition: CompositionListItem) => {
       @cancel-edit-settings="cancelEditSettings" />
   </div>
   <div v-if="!showLogin" id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">
-    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="isEditingSettings = true">Einstellungen</button>
-    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="isImportingCompositions = true">Importieren</button>
+    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold px-8! py-4!" @click="isEditingSettings = true">Einstellungen</button>
+    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold px-8! py-4!" @click="isImportingCompositions = true">Importieren</button>
     <LoadButton v-if="compositionList !== undefined && compositionList?.compositions.length > 0 && isInListView"
       :loading="isExportingCompositions"
       :disabled="false"
-      class="btn-solid btn-gold !px-8 !py-4"
+      class="btn-solid btn-gold px-8! py-4!"
       @click="exportCompositions">
       <template v-if="hasExportingCompositionsFailed">Exportieren fehlgeschlagen. Erneut versuchen.</template>
       <template v-else>Exportieren</template>
     </LoadButton>
-    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold !px-8 !py-4" @click="createComposition">Neues Stück hinzufügen</button>
+    <button v-if="compositionList !== undefined && isInListView" class="btn btn-solid btn-gold px-8! py-4!" @click="createComposition">Neues Stück hinzufügen</button>
   </div>
 </template>

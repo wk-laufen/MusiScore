@@ -161,7 +161,7 @@ defineExpose({ canSave, save })
           v-model:cups-command-line-args="printConfig.cupsCommandLineArgs" />
       </template>
       <template #footer>
-        <button class="btn btn-green btn-solid self-center !px-8 !py-4" @click="addPrintConfig">Neue Druckeinstellung</button>
+        <button class="btn btn-green btn-solid self-center px-8! py-4!" @click="addPrintConfig">Neue Druckeinstellung</button>
       </template>
     </draggable>
   </div>

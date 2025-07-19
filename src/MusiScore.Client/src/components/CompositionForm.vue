@@ -481,7 +481,7 @@ const saveComposition = async () => {
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
       <ul class="nav-container">
         <li v-for="voice in composition.voices" :key="voice.id">
-          <a @click="activeVoice = voice" class="nav-item !flex items-center !pr-2" :class="{ active: activeVoice === voice }">
+          <a @click="activeVoice = voice" class="nav-item flex! items-center pr-2!" :class="{ active: activeVoice === voice }">
             <span :class="{
               'text-green-500': voice.state.type === 'newVoice',
               'text-yellow-500': voice.state.type === 'modifiedVoice' && !voice.state.isMarkedForDeletion,
@@ -500,7 +500,7 @@ const saveComposition = async () => {
           </a>
         </li>
         <li>
-          <a class="nav-item !py-5" @click="addVoiceAndActivate()">+ Neue Stimme</a>
+          <a class="nav-item py-5!" @click="addVoiceAndActivate()">+ Neue Stimme</a>
         </li>
       </ul>
       <div v-if="activeVoice !== undefined">
@@ -570,7 +570,7 @@ const saveComposition = async () => {
               </template>
               <template v-else-if="modification.type === 'rotateContent'">
                 <span>{{ pagesToString(modification.pages) }} um
-                  <input v-if="modification.isDraft" class="input-text !w-20" type="number" step="0.1" v-model="modification.degrees">
+                  <input v-if="modification.isDraft" class="input-text w-20!" type="number" step="0.1" v-model="modification.degrees">
                   <template v-else>{{ modification.degrees }}</template>
                   Grad drehen</span>
               </template>
@@ -580,8 +580,8 @@ const saveComposition = async () => {
               <template v-else-if="modification.type === 'orderPages'">
                 <span>{{ pagesToString(modification.pages) }} sortieren</span>
               </template>
-              <a v-if="modification.isDraft" title="Änderung akzeptieren" class="ml-2 btn btn-green !py-1 !px-2" @click="modification.isDraft = false">✔</a>
-              <a v-if="modification === lastFileModification" title="Änderung verwerfen" class="ml-2 btn btn-red !py-1 !px-2" @click="activeVoice.fileModifications.pop()">❌</a>
+              <a v-if="modification.isDraft" title="Änderung akzeptieren" class="ml-2 btn btn-green py-1! px-2!" @click="modification.isDraft = false">✔</a>
+              <a v-if="modification === lastFileModification" title="Änderung verwerfen" class="ml-2 btn btn-red py-1! px-2!" @click="activeVoice.fileModifications.pop()">❌</a>
             </li>
           </ol>
         </div>
@@ -595,7 +595,7 @@ const saveComposition = async () => {
   </div>
 
   <Teleport to="#command-bar">
-    <button class="btn btn-solid btn-gold !px-8 !py-4" :disabled="isSaving" @click="$emit('cancelEdit')">Zurück zur Übersicht</button>
-    <LoadButton :loading="isSaving" class="btn-solid btn-gold !px-8 !py-4" @click="saveComposition">Speichern</LoadButton>
+    <button class="btn btn-solid btn-gold px-8! py-4!" :disabled="isSaving" @click="$emit('cancelEdit')">Zurück zur Übersicht</button>
+    <LoadButton :loading="isSaving" class="btn-solid btn-gold px-8! py-4!" @click="saveComposition">Speichern</LoadButton>
   </Teleport>
 </template>
