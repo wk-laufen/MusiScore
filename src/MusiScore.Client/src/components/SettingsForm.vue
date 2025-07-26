@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import PrintSettingsForm from './PrintSettingsForm.vue'
+import PrintSettingsForm from './PrintConfigsForm.vue'
 import LoadButton from './LoadButton.vue'
 import VoiceSettingsForm from './VoiceSettingsForm.vue'
 
