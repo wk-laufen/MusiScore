@@ -126,6 +126,15 @@ type AdminController(db: Db, printer: Printer) =
             | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
+    [<Route("print-config/{key}")>]
+    [<HttpDelete>]
+    member this.DeletePrintConfig (key: string, [<FromBody>]options: PrintConfigDeleteDto) =
+        async {
+            match! db.DeletePrintConfig key options.ReplacementConfigId with
+            | Ok () -> return this.NoContent() :> IActionResult
+            | Error e -> return this.BadRequest([ Serialize.Admin.printConfigDeleteError e ])
+        }
+
     [<Route("test-print-config")>]
     [<HttpPost>]
     member this.TestPrintConfig ([<FromBody>]data: {| File: byte[]; PrintConfig: string |}) =

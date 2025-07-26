@@ -84,6 +84,9 @@ type PrintConfigUpdate = {
 type PrintConfigCreateError =
     | PrintConfigExists
 
+type PrintConfigDeleteError =
+    | InvalidReplacementConfigId
+
 type PrintableVoice = {
     File: byte[]
     PrintSettings: PrintSettings
@@ -249,3 +252,6 @@ module Serialize =
                 OverviewDisplayFormat = v.Settings.OverviewDisplayFormat
             |}
             { Key = v.Key; Title = v.Title; Settings = settings; Value = v.Value; OtherValues = v.OtherValues }
+        let printConfigDeleteError e =
+            match e with
+            | InvalidReplacementConfigId -> "InvalidReplacementConfigId"

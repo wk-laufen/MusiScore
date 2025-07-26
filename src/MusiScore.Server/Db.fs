@@ -114,6 +114,18 @@ module private DbModels =
         let toDomain v : PrintConfig =
             { Key = v.key; Name = v.name; SortOrder = v.sort_order; Settings = { ReorderPagesAsBooklet = v.reorder_pages_as_booklet; CupsCommandLineArgs = v.cups_command_line_args } }
 
+[<AutoOpen>]
+module private DbHelper =
+    let (|ForeignKeyViolation|_|) (e: Exception) =
+        let innerException =
+            match e with
+            | :? AggregateException as e -> e.InnerException
+            | _ -> e
+        match innerException with
+        | :? PostgresException as e when e.SqlState = "23503" (* foreign_key_violation *) ->
+            Some e.ConstraintName
+        | _ -> None
+
 type Db(connectionString: string) =
     let dataSource = NpgsqlDataSource.Create(connectionString)
 
@@ -474,4 +486,19 @@ type Db(connectionString: string) =
             |}
             let command = $"UPDATE voice_print_config SET %s{updateFields} WHERE \"key\" = @Key"
             do! connection.ExecuteAsync(command, updateArgs) |> Async.AwaitTask |> Async.Ignore
+    }
+
+    member _.DeletePrintConfig (key: string) (replacementConfigId: string) = async {
+        use connection = dataSource.CreateConnection()
+        connection.Open()
+        use tx = connection.BeginTransaction()
+        try
+            do! connection.ExecuteAsync("UPDATE voice SET print_config_id = @NewConfigId WHERE print_config_id = @OldConfigId", {| OldConfigId = key; NewConfigId = replacementConfigId |}, tx) |> Async.AwaitTask |> Async.Ignore
+            do! connection.ExecuteAsync("DELETE FROM voice_print_config WHERE \"key\" = @Key", {| Key = key |}, tx) |> Async.AwaitTask |> Async.Ignore
+            do! tx.CommitAsync() |> Async.AwaitTask
+            return Ok ()
+        with
+        | ForeignKeyViolation "voice_print_setting_id_fkey" ->
+            do! tx.RollbackAsync() |> Async.AwaitTask
+            return Error InvalidReplacementConfigId
     }

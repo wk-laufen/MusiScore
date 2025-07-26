@@ -82,6 +82,10 @@ module Admin =
         SortOrder: int option
     }
 
+    type PrintConfigDeleteDto = {
+        ReplacementConfigId: string
+    }
+
     type NewTag = {
         Key: string
         Value: string

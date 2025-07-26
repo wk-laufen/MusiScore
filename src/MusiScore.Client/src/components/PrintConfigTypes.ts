@@ -17,6 +17,7 @@ export type PrintConfigInputs = {
   cupsCommandLineArgs: string
   reorderPagesAsBooklet: boolean
   sortOrder: number
+  delete: boolean
 }
 
 export type EditablePrintConfig = PrintConfigDto & {
@@ -27,8 +28,13 @@ export type EditablePrintConfig = PrintConfigDto & {
   keyIsReadOnly: boolean
   nameValidationState: ValidationState
   cupsCommandLineArgsValidationState: ValidationState
+  delete: boolean
+  replacementConfigId: string
+  replacementConfigIdValidationState: ValidationState
   isSaving: boolean
   hasSavingFailed: boolean
 }
 
 export type PrintConfigSaveError = 'InvalidKey' | 'EmptyName' | 'PrintConfigExists'
+
+export type PrintConfigDeleteError = 'InvalidReplacementConfigId'
