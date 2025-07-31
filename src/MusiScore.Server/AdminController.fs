@@ -11,6 +11,7 @@ open System.Text
 [<ApiController>]
 [<Route("api/admin")>]
 [<Authorize("Notenarchivar")>]
+[<RequestSizeLimit(1L * 1024L * 1024L * 1024L)>]
 type AdminController(db: Db, printer: Printer) =
     inherit ControllerBase()
 
