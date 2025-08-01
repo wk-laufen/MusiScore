@@ -1,0 +1,42 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run DB",
+			"type": "process",
+			"command": "docker",
+			"args": [
+				"compose",
+				"-f", "./docker-compose.dev.yml",
+				"up",
+			],
+			"problemMatcher": [],
+		},
+		{
+			"label": "Run server",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"watch",
+				"run",
+				"--environment", "Development",
+				"--urls", "https://localhost:5001",
+			],
+			"problemMatcher": "$msCompile",
+			"options": {
+				"cwd": "${workspaceFolder}/src/MusiScore.Server",
+			},
+		},
+		{
+			"label": "Run client",
+			"type": "npm",
+			"script": "dev",
+			"path": "src/MusiScore.Client",
+			"problemMatcher": [],
+		},
+		{
+			"label": "Dev",
+			"dependsOn": [ "Run DB", "Run server", "Run client" ]
+		},
+	]
+}
