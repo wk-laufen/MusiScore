@@ -7,6 +7,7 @@ open System.Text.RegularExpressions
 type Voice = {
     Id: string
     Name: string
+    PrintConfigId: string
 }
 module Voice =
     let tryGetSortOrder (patterns: Regex list) voiceName =
@@ -60,6 +61,7 @@ type Composition = {
     Title: string
     Tags: ExistingTag list
     IsActive: bool
+    Voices: Voice list
 }
 
 type PrintSettings = {

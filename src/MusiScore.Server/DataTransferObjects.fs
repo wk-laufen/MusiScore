@@ -112,9 +112,8 @@ module Admin =
 
     type ExistingVoiceDto = {
         Name: string
-        File: byte[]
         PrintConfig: string
-        Links: {| Self: string |}
+        Links: {| Self: string; Sheet: string |}
     }
 
     type CompositionTemplateDto = {

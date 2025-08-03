@@ -31,10 +31,10 @@ export type PrintConfig = {
 
 export type Voice = {
   name: string
-  file: string // base 64 encoded
   printConfig: string
   links: {
     self: string
+    sheet: string
   }
 }
 
@@ -58,27 +58,9 @@ export type FullComposition = {
   otherVoiceNames: string[]
 }
 
-export type CompositionData = {
-  title: string
-  tags: ExistingTag[]
-  isActive: boolean
-  voices: VoiceData[]
-}
-
-export type VoiceData = {
-  title: string
-  file: ArrayBuffer
-  printConfig: string
-}
-
 export type SaveCompositionServerError = 'EmptyTitle'
 export type VoiceFileServerError = 'EmptyFile' | 'InvalidFile'
 export type SaveVoiceServerError = 'EmptyName' | VoiceFileServerError | 'UnknownPrintConfig'
-
-export const deserializeFile = (text: string | undefined) => {
-  if (text === undefined) return undefined
-  return Uint8Array.from(atob(text), m => m.codePointAt(0) as number)
-}
 
 export function serializeFile (content: Uint8Array): string
 export function serializeFile (content: undefined): undefined

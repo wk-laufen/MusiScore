@@ -60,15 +60,17 @@ module private DbModels =
         composition_id: int
         id: int
         name: string
+        print_config_id: string
     }
 
     type DbVoice = {
         id: int
         name: string
+        print_config_id: string
     }
     module DbVoice =
         let toDomain v : Voice =
-            { Id = string v.id; Name = v.name }
+            { Id = string v.id; Name = v.name; PrintConfigId = v.print_config_id }
 
     type DbPrintableVoice = {
         file: byte[]
@@ -85,12 +87,13 @@ module private DbModels =
         is_active: bool
     }
     module DbComposition =
-        let toDomain v tags : Composition =
+        let toDomain v tags voices : Composition =
             {
                 Id = string v.id
                 Title = v.title
                 Tags = tags
                 IsActive = v.is_active
+                Voices = voices
             }
 
     type DbFullVoice = {
@@ -168,6 +171,23 @@ type Db(connectionString: string) =
         |> Map.ofSeq
     }
 
+    let getVoicesLookup (connection: NpgsqlConnection) (compositionIds: int[]) = async {
+        let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT composition_id, id, name, print_config_id FROM voice WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        return
+            voices
+            |> Seq.groupBy _.composition_id
+            |> Seq.map (fun (compositionId, voices) -> (compositionId, [ for v in voices -> DbVoice.toDomain { id = v.id; name = v.name; print_config_id = v.print_config_id } ]))
+            |> Map.ofSeq
+    }
+
+    let getVoices (connection: NpgsqlConnection) (compositionId) = async {
+        let! voices = connection.QueryAsync<DbVoice>("SELECT id, name, print_config_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
+        return
+            voices
+            |> Seq.map DbVoice.toDomain
+            |> Seq.toList
+    }
+
     interface IAsyncDisposable with
         member _.DisposeAsync() = dataSource.DisposeAsync()
 
@@ -176,12 +196,7 @@ type Db(connectionString: string) =
         let! compositions = connection.QueryAsync<DbActiveComposition>("SELECT id, title FROM composition WHERE is_active = true") |> Async.AwaitTask
         let compositionIds = [| for v in compositions -> v.id |]
         let! tagLookup = getTagLookupForCompositions connection compositionIds
-        let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT composition_id, id, name FROM voice WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
-        let voiceLookup =
-            voices
-            |> Seq.groupBy _.composition_id
-            |> Seq.map (fun (compositionId, voices) -> (compositionId, [ for v in voices -> DbVoice.toDomain { id = v.id; name = v.name } ]))
-            |> Map.ofSeq
+        let! voiceLookup = getVoicesLookup connection compositionIds
         return
             compositions
             |> Seq.map (fun v ->
@@ -230,11 +245,7 @@ type Db(connectionString: string) =
 
     member _.GetCompositionVoices(compositionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! voices = connection.QueryAsync<DbVoice>("SELECT id, name FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
-        return
-            voices
-            |> Seq.map DbVoice.toDomain
-            |> Seq.toList
+        return! getVoices connection (int compositionId)
     }
 
     member _.GetPrintableVoice (_compositionId: string, voiceId: string) = async {
@@ -248,11 +259,13 @@ type Db(connectionString: string) =
         let! compositions = connection.QueryAsync<DbComposition>("SELECT id, title, is_active FROM composition") |> Async.AwaitTask
         let compositionIds = [| for v in compositions -> v.id |]
         let! tagLookup = getTagLookupForCompositions connection compositionIds
+        let! voiceLookup = getVoicesLookup connection compositionIds
         return
             compositions
             |> Seq.map (fun v ->
                 let tags = tagLookup.[v.id]
-                DbComposition.toDomain v tags
+                let voices = Map.tryFind v.id voiceLookup |> Option.defaultValue []
+                DbComposition.toDomain v tags voices
             )
             |> Seq.toList
     }
@@ -261,7 +274,8 @@ type Db(connectionString: string) =
         use connection = dataSource.CreateConnection()
         let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask
         let! tagLookup = getTagLookupForCompositions connection [| composition.id |]
-        return DbComposition.toDomain composition tagLookup.[composition.id]
+        let! voices = getVoices connection composition.id
+        return DbComposition.toDomain composition tagLookup.[composition.id] voices
     }
 
     member this.CreateComposition (newComposition: NewComposition) = async {
@@ -333,8 +347,9 @@ type Db(connectionString: string) =
 
         let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = compositionId |}, tx) |> Async.AwaitTask
         let! tagLookup = getTagLookupForCompositions connection [| composition.id |]
+        let! voices = getVoices connection composition.id
         do! tx.CommitAsync() |> Async.AwaitTask
-        return DbComposition.toDomain composition tagLookup.[composition.id]
+        return DbComposition.toDomain composition tagLookup.[composition.id] voices
     }
 
     member _.DeleteComposition (compositionId: string) = async {

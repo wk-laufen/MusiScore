@@ -6,6 +6,7 @@ open Microsoft.AspNetCore.Mvc
 open MusiScore.Shared.DataTransfer.Admin
 open System
 open System.IO
+open System.Net.Mime
 open System.Text
 
 [<ApiController>]
@@ -238,7 +239,6 @@ type AdminController(db: Db, printer: Printer) =
     member this.GetFullComposition (compositionId: string) =
         async {
             let! composition = db.GetComposition(compositionId)
-            let! voices = db.GetFullCompositionVoices(compositionId)
             let! voiceSortOrderPatterns = db.GetVoiceSortOrderPatterns()
             let! otherVoiceNames = db.GetOtherVoiceNames [compositionId]
             return
@@ -251,13 +251,15 @@ type AdminController(db: Db, printer: Printer) =
                         Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
                     |}
                     Voices =
-                        voices
+                        composition.Voices
                         |> Seq.sortBy (fun v -> v.Name)
                         |> Seq.map (fun v -> {
                             Name = v.Name
-                            File = v.File
-                            PrintConfig = v.PrintConfig
-                            Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |}) |}
+                            PrintConfig = v.PrintConfigId
+                            Links = {|
+                                Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |})
+                                Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = v.Id |})
+                            |}
                         })
                         |> Seq.toArray
                     OtherVoiceNames = Voice.sortBySortOrder voiceSortOrderPatterns otherVoiceNames id |> List.toArray
@@ -273,10 +275,10 @@ type AdminController(db: Db, printer: Printer) =
                 let! voiceId = db.CreateVoice compositionId createVoice
                 let result = {
                     Name = createVoice.Name
-                    File = createVoice.File
                     PrintConfig = createVoice.PrintConfig
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
+                        Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = voiceId |})
                     |}
                 }
                 return this.Ok(result) :> IActionResult
@@ -292,9 +294,11 @@ type AdminController(db: Db, printer: Printer) =
                 let! updatedVoice = db.UpdateVoice compositionId voiceId updateVoice
                 let result = {
                     Name = updatedVoice.Name
-                    File = updatedVoice.File
                     PrintConfig = updatedVoice.PrintConfig
-                    Links = {| Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |}) |}
+                    Links = {|
+                        Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
+                        Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = voiceId |})
+                    |}
                 }
                 return this.Ok(result) :> IActionResult
             | Error list -> return this.BadRequest(list) :> IActionResult
@@ -305,6 +309,14 @@ type AdminController(db: Db, printer: Printer) =
     member _.DeleteVoice (compositionId: string) (voiceId: string) =
         async {
             do! db.DeleteVoice compositionId voiceId
+        }
+
+    [<Route("compositions/{compositionId}/voices/{voiceId}/sheet")>]
+    [<HttpGet>]
+    member this.GetVoiceSheet (compositionId: string) (voiceId: string) =
+        async {
+            let! voice = db.GetPrintableVoice (compositionId, voiceId)
+            return this.File(voice.File, MediaTypeNames.Application.Pdf)
         }
 
     [<Route("voice-settings")>]

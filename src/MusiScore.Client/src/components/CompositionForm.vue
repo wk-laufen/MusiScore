@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef, computed } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
-import { deserializeFile, serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate } from './AdminTypes'
+import { serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -14,9 +14,21 @@ import { first, last } from 'lodash-es'
 import { Pdf, type PDFFile, type PdfModification } from './Pdf'
 import _ from 'lodash'
 
-const serializeVoiceFile = async (content: Uint8Array | undefined, modifications: PdfModification[]) => {
-  if (content === undefined) return undefined
-  const file = await Pdf.applyModifications(content, modifications)
+// see https://stackoverflow.com/a/67600346
+const getSHA256Hash = async (data: Uint8Array) => {
+  const hashBuffer = await window.crypto.subtle.digest("SHA-256", data)
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(item => item.toString(16).padStart(2, "0"))
+    .join("")
+};
+
+const getFileHash = async (file: Loadable<Uint8Array>) => {
+  return file.type === 'loaded' ? await getSHA256Hash(file.data) : undefined
+}
+
+const serializeVoiceFile = async (content: Loadable<Uint8Array>, modifications: PdfModification[]) => {
+  if (content.type !== 'loaded') return undefined
+  const file = await Pdf.applyModifications(content.data, modifications)
   return serializeFile(file.data)
 }
 
@@ -45,15 +57,24 @@ const loadPrintConfigs = async () => {
 }
 loadPrintConfigs()
 
+type Loadable<T> =
+  { type: 'empty' } |
+  { type: 'notLoaded', url: string } |
+  { type: 'loading', url: string } |
+  { type: 'loadingFailed', url: string } |
+  { type: 'loaded', data: T }
+
 type EditableVoiceState =
     | { type: 'loadedVoice', isMarkedForDeletion: boolean, links: { self: string } }
     | { type: 'newVoice' }
     | { type: 'modifiedVoice', isMarkedForDeletion: boolean, links: { self: string } }
-type EditableVoice = Omit<Voice, 'links' | 'file'> & {
+type LoadedVoice = Pick<EditableVoice, 'name' | 'printConfig'> & { fileHash: string | undefined }
+type EditableVoice = Omit<Voice, 'links'> & {
+  loadedData: LoadedVoice | undefined
   id: number
   state: EditableVoiceState
   nameValidationState: ValidationState
-  originalFile?: Uint8Array
+  originalFile: Loadable<Uint8Array>
   fileModifications: ({ id: string; isDraft: boolean } & PdfModification)[]
   fileValidationState: ValidationState
   printConfigValidationState: ValidationState
@@ -75,11 +96,12 @@ type EditableComposition = {
 let nextVoiceId = 1
 const parseLoadedVoice = (voice: Voice, voiceId?: number) : EditableVoice => {
   return {
+    loadedData: { name: voice.name, printConfig: voice.printConfig, fileHash: undefined },
     id: voiceId || nextVoiceId++,
     state: { type: 'loadedVoice', isMarkedForDeletion: false, links: voice.links },
     name: voice.name,
     nameValidationState: { type: 'success' },
-    originalFile: deserializeFile(voice.file),
+    originalFile: { type: 'notLoaded', url: voice.links.sheet },
     fileModifications: [],
     fileValidationState: { type: 'success' },
     printConfig: voice.printConfig,
@@ -134,9 +156,32 @@ const loadComposition = async () => {
 }
 loadComposition()
 
+watch([() => activeVoice.value], async ([activeVoice]) => {
+  if (activeVoice === undefined) {
+    return
+  }
+
+  if (activeVoice.originalFile.type !== 'notLoaded' && activeVoice.originalFile.type != 'loadingFailed') {
+    return
+  }
+
+  const isLoading = ref(false)
+  const hasLoadingFailed = ref(false)
+  const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, activeVoice.originalFile.url)
+  if (result.succeeded) {
+    const fileContent = await result.response.bytes()
+    if (activeVoice.loadedData !== undefined) {
+      activeVoice.loadedData.fileHash = await getSHA256Hash(fileContent)
+    }
+    activeVoice.originalFile = { 'type': 'loaded', data: fileContent }
+  }
+  else {
+    activeVoice.originalFile = { 'type': 'loadingFailed', url: activeVoice.originalFile.url }
+  }
+})
+
 const activeVoiceFile = ref<File>()
-watch(activeVoiceFile, async v =>
-{
+watch(activeVoiceFile, async v => {
   if (activeVoice.value === undefined) return
   if (v === undefined) {
     activeVoice.value = undefined
@@ -145,7 +190,7 @@ watch(activeVoiceFile, async v =>
   if (!activeVoice.value.name) {
     activeVoice.value.name = v.name.substring(0, v.name.lastIndexOf('.'))
   }
-  activeVoice.value.originalFile = new Uint8Array(await v.arrayBuffer())
+  activeVoice.value.originalFile = { type: 'loaded', data: new Uint8Array(await v.arrayBuffer()) }
 })
 
 const voiceFileWithModifications = ref<PDFFile>()
@@ -156,7 +201,12 @@ watch(
     return
   }
 
-  voiceFileWithModifications.value = await Pdf.applyModifications(originalFile, fileModifications)
+  if (originalFile.type !== 'loaded') {
+    voiceFileWithModifications.value = undefined
+    return
+  }
+
+  voiceFileWithModifications.value = await Pdf.applyModifications(originalFile.data, fileModifications)
 }, { deep: true })
 
 const isPrinting = ref(false)
@@ -225,7 +275,7 @@ const extractPagesToNewVoice = async () => {
   if (activeVoice.value === undefined || voiceFileWithModifications.value === undefined) return
 
   const doc = await Pdf.extractPages(voiceFileWithModifications.value.data, selectedFilePages.value)
-  addVoice({ name: '', originalFile: doc, printConfig: '' })
+  await addVoice({ name: '', originalFile: { type: 'loaded', data: doc }, printConfig: '' })
   addVoiceFileModification({ type: 'remove', pages: selectedFilePages.value, isDraft: false})
 }
 
@@ -265,16 +315,31 @@ const pagesToString = (pages: readonly number[]) => {
   return `Seiten ${rangesAsString.join(', ')} und ${lastPage}`
 }
 
-watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
-  if (newActiveVoice !== undefined && oldActiveVoice === newActiveVoice && newActiveVoice.state.type === 'loadedVoice') {
-    newActiveVoice.state = { ...newActiveVoice.state, type: 'modifiedVoice' }
+watch(activeVoice, async (oldActiveVoice, newActiveVoice) => {
+  if (newActiveVoice === undefined || oldActiveVoice !== newActiveVoice || (newActiveVoice.state.type !== 'loadedVoice' && newActiveVoice.state.type !== 'modifiedVoice')) {
+    return
   }
+  const currentData : LoadedVoice = {
+    name: newActiveVoice.name,
+    printConfig: newActiveVoice.printConfig,
+    fileHash: await getFileHash(newActiveVoice.originalFile),
+  }
+
+  const isUnmodified = newActiveVoice.fileModifications.length === 0 && _.isEqual(newActiveVoice.loadedData, currentData)
+  const newState : typeof newActiveVoice.state = isUnmodified
+    ? { ...newActiveVoice.state, type: 'loadedVoice' }
+    : { ...newActiveVoice.state, type: 'modifiedVoice' }
+  if (_.isEqual(newActiveVoice.state, newState)) {
+    return
+  }
+  newActiveVoice.state = newState
 }, { deep: true })
 
-const addVoice = (data: { name: string, originalFile: Uint8Array | undefined, printConfig: string }) => {
+const addVoice = async (data: { name: EditableVoice['name'], originalFile: EditableVoice['originalFile'], printConfig: EditableVoice['printConfig'] }) => {
   if (composition.value === undefined) return
 
   composition.value.voices.push({
+    loadedData: { ...data, fileHash: await getFileHash(data.originalFile) },
     ...data,
     id: nextVoiceId++,
     state: { type: 'newVoice' },
@@ -287,10 +352,10 @@ const addVoice = (data: { name: string, originalFile: Uint8Array | undefined, pr
   })
 }
 
-const addVoiceAndActivate = () => {
+const addVoiceAndActivate = async () => {
   if (composition.value === undefined) return
 
-  addVoice({ name: '', originalFile: undefined, printConfig: '' })
+  await addVoice({ name: '', originalFile: { type: 'empty' }, printConfig: '' })
   activeVoice.value = last(composition.value.voices)
 }
 
