@@ -30,7 +30,7 @@ watch([() => props.pdfDoc, () => props.pageNumber, container], async ([pdfDoc, p
     const drawingContext = c.getContext('2d')
     if (drawingContext === null) return
 
-    const viewport = p.getViewport({ scale: window.devicePixelRatio })
+    const viewport = p.getViewport({ scale: 0.5 * window.devicePixelRatio })
 
     c.width = Math.floor(viewport.width)
     c.height = Math.floor(viewport.height)
