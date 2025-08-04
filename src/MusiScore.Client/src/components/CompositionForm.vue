@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, toRef, computed } from 'vue'
+import { ref, watch, toRef } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
 import { serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate } from './AdminTypes'
 import type { ValidationState } from './Validation'
@@ -9,9 +9,9 @@ import LoadButton from './LoadButton.vue'
 import TextInput from './TextInput.vue'
 import FileInput from './FileInput.vue'
 import SelectInput from './SelectInput.vue'
-import PdfPreview from './PdfPreview.vue'
+import VoiceSheetEditor from './VoiceSheetEditor.vue'
 import { first, last } from 'lodash-es'
-import { Pdf, type PDFFile, type PdfModification } from './Pdf'
+import { Pdf, type PdfModification } from './Pdf'
 import _ from 'lodash'
 
 // see https://stackoverflow.com/a/67600346
@@ -156,29 +156,30 @@ const loadComposition = async () => {
 }
 loadComposition()
 
-watch([() => activeVoice.value], async ([activeVoice]) => {
-  if (activeVoice === undefined) {
+const loadVoiceSheet = async () => {
+  if (activeVoice.value === undefined) {
     return
   }
 
-  if (activeVoice.originalFile.type !== 'notLoaded' && activeVoice.originalFile.type != 'loadingFailed') {
+  if (activeVoice.value.originalFile.type !== 'notLoaded' && activeVoice.value.originalFile.type != 'loadingFailed') {
     return
   }
 
-  const isLoading = ref(false)
-  const hasLoadingFailed = ref(false)
-  const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, activeVoice.originalFile.url)
+  activeVoice.value.originalFile = { type: 'loading', url: activeVoice.value.originalFile.url }
+
+  const result = await uiFetchAuthorized(ref(false), ref(false), activeVoice.value.originalFile.url)
   if (result.succeeded) {
     const fileContent = await result.response.bytes()
-    if (activeVoice.loadedData !== undefined) {
-      activeVoice.loadedData.fileHash = await getSHA256Hash(fileContent)
+    if (activeVoice.value.loadedData !== undefined) {
+      activeVoice.value.loadedData.fileHash = await getSHA256Hash(fileContent)
     }
-    activeVoice.originalFile = { 'type': 'loaded', data: fileContent }
+    activeVoice.value.originalFile = { 'type': 'loaded', data: fileContent }
   }
   else {
-    activeVoice.originalFile = { 'type': 'loadingFailed', url: activeVoice.originalFile.url }
+    activeVoice.value.originalFile = { 'type': 'loadingFailed', url: activeVoice.value.originalFile.url }
   }
-})
+}
+watch(activeVoice, loadVoiceSheet)
 
 const activeVoiceFile = ref<File>()
 watch(activeVoiceFile, async v => {
@@ -193,22 +194,6 @@ watch(activeVoiceFile, async v => {
   activeVoice.value.originalFile = { type: 'loaded', data: new Uint8Array(await v.arrayBuffer()) }
 })
 
-const voiceFileWithModifications = ref<PDFFile>()
-watch(
-  [() => activeVoice.value?.originalFile, () => activeVoice.value?.fileModifications], async ([originalFile, fileModifications]) => {
-  if (originalFile === undefined || fileModifications === undefined) {
-    voiceFileWithModifications.value = undefined
-    return
-  }
-
-  if (originalFile.type !== 'loaded') {
-    voiceFileWithModifications.value = undefined
-    return
-  }
-
-  voiceFileWithModifications.value = await Pdf.applyModifications(originalFile.data, fileModifications)
-}, { deep: true })
-
 const isPrinting = ref(false)
 const hasPrintingFailed = ref(false)
 const printWithPrintConfig = async (voice: EditableVoice) => {
@@ -222,7 +207,10 @@ const printWithPrintConfig = async (voice: EditableVoice) => {
   })
 }
 
-const printWithPrintDialog = async (file: Uint8Array) => {
+const printWithPrintDialog = async (voice: EditableVoice) => {
+  const file = await serializeVoiceFile(voice.originalFile, voice.fileModifications)
+  if (file === undefined) return
+
   const pdfBlob = new Blob([file], { type: 'application/pdf' })
   const pdfUrl = URL.createObjectURL(pdfBlob)
 
@@ -237,82 +225,6 @@ const printWithPrintDialog = async (file: Uint8Array) => {
   }
   iframe.contentWindow.focus()
   iframe.contentWindow.print()
-}
-
-const selectedFilePages = ref([] as readonly number[])
-const selectAllPages = () => {
-  if (voiceFileWithModifications.value === undefined) {
-    selectedFilePages.value = []
-    return
-  }
-  selectedFilePages.value = _.range(0, voiceFileWithModifications.value.pageCount)
-}
-
-watch(() => voiceFileWithModifications.value?.pageCount, pageCount => {
-  if (pageCount === undefined) {
-    selectedFilePages.value = []
-    return
-  }
-  selectedFilePages.value = selectedFilePages.value.filter(v => v < pageCount)
-})
-
-const lastFileModification = computed(() => activeVoice.value?.fileModifications.at(-1))
-
-watch(selectedFilePages, selectedPages => {
-  if (lastFileModification.value?.isDraft) {
-    lastFileModification.value.pages = selectedPages
-  }
-})
-
-let nextModificationId = 1
-const addVoiceFileModification = (modification: { isDraft: boolean } & PdfModification) => {
-  if (activeVoice.value === undefined) return
-
-  activeVoice.value.fileModifications.push({ id: `${nextModificationId++}`, ...modification })
-}
-
-const extractPagesToNewVoice = async () => {
-  if (activeVoice.value === undefined || voiceFileWithModifications.value === undefined) return
-
-  const doc = await Pdf.extractPages(voiceFileWithModifications.value.data, selectedFilePages.value)
-  await addVoice({ name: '', originalFile: { type: 'loaded', data: doc }, printConfig: '' })
-  addVoiceFileModification({ type: 'remove', pages: selectedFilePages.value, isDraft: false})
-}
-
-const pagesToString = (pages: readonly number[]) => {
-  const pageNumbers = _.orderBy(pages.map(v => v + 1))
-  if (pageNumbers.length === 0) return `Keine Seiten`
-  if (pageNumbers.length === 1) return `Seite ${pageNumbers[0]}`
-  const ranges : { start: number, end: number }[] = []
-  let currentRange : typeof ranges[0] | undefined = undefined
-  for (const pageNumber of pageNumbers) {
-    if (currentRange == undefined) {
-      currentRange = { start: pageNumber, end: pageNumber }
-    }
-    else if (currentRange.end == pageNumber - 1) {
-      currentRange.end = pageNumber
-    }
-    else {
-      ranges.push(currentRange)
-      currentRange = { start: pageNumber, end: pageNumber }
-    }
-  }
-  if (currentRange !== undefined) {
-    ranges.push(currentRange)
-  }
-  const rangesAsString = ranges.flatMap(v => {
-    if (v.start == v.end) {
-      return [`${v.start}`]
-    }
-    else if (v.start + 1 == v.end) {
-      return [`${v.start}`, `${v.end}`]
-    }
-    else {
-      return [`${v.start}-${v.end}`]
-    }
-  })
-  const lastPage = rangesAsString.pop()
-  return `Seiten ${rangesAsString.join(', ')} und ${lastPage}`
 }
 
 watch(activeVoice, async (oldActiveVoice, newActiveVoice) => {
@@ -578,7 +490,7 @@ const saveComposition = async () => {
         <div class="mt-6">
           <span class="input-label">PDF drucken</span>
           <div class="flex flex-row flex-wrap gap-2">
-            <LoadButton v-if="voiceFileWithModifications !== undefined && activeVoice.printConfig !== ''"
+            <LoadButton v-if="activeVoice.originalFile.type === 'loaded' && activeVoice.printConfig !== ''"
               :loading="isPrinting"
               class="btn-blue"
               @click="printWithPrintConfig(activeVoice)">
@@ -589,72 +501,19 @@ const saveComposition = async () => {
             </LoadButton>
             <button v-else class="btn btn-blue" disabled="true">Mit Druckeinstellungen drucken</button>
             
-            <button v-if="voiceFileWithModifications !== undefined" class="btn btn-blue" @click="printWithPrintDialog(voiceFileWithModifications.data)">Mit Druckdialog drucken</button>
+            <button v-if="activeVoice.originalFile.type === 'loaded'" class="btn btn-blue" @click="printWithPrintDialog(activeVoice)">Mit Druckdialog drucken</button>
             <button v-else class="btn btn-blue" disabled="true">Mit Druckdialog drucken</button>
           </div>
         </div>
         <div class="mt-6">
           <span class="input-label">PDF bearbeiten</span>
-          <div class="flex flex-row flex-wrap gap-2">
-            <button class="btn btn-blue" @click="selectAllPages()" :disabled="selectedFilePages.length === voiceFileWithModifications?.pageCount">Alle Seiten auswählen</button>
-            <button class="btn btn-blue" @click="selectedFilePages = []" :disabled="selectedFilePages.length === 0">Seitenauswahl aufheben</button>
-          </div>
-          <div class="mt-2 flex flex-row flex-wrap gap-2">
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'scaleToA4', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seitenformat auf A4 ändern</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'zoom', pages: selectedFilePages, relativeBounds: { x: 0.01, y: 0.01, width: 0.98, height: 0.98 }, isDraft: true })" :disabled="selectedFilePages.length === 0">Zoomen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'remove', pages: selectedFilePages, isDraft: false})" :disabled="selectedFilePages.length === 0">Seiten entfernen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotatePage', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten um 90° drehen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'rotateContent', pages: selectedFilePages, degrees: 0, isDraft: true })" :disabled="selectedFilePages.length === 0">Seiteninhalt drehen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'cutPageLeftRight', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length === 0">Seiten in linke und rechte Hälfte teilen</button>
-            <button class="btn btn-green" @click="addVoiceFileModification({ type: 'orderPages', pages: selectedFilePages, isDraft: false })" :disabled="selectedFilePages.length < 1">Seiten nach Markierungsreihenfolge sortieren</button>
-            <button class="btn btn-green" @click="extractPagesToNewVoice()" :disabled="selectedFilePages.length === 0">Seiten in neue Stimme ausschneiden</button>
-          </div>
-          <ol class="mt-2 list-decimal list-inside">
-            <li v-for="modification in activeVoice.fileModifications" :key="modification.id">
-              <template v-if="modification.type === 'scaleToA4'">Seitenformat auf A4 ändern</template>
-              <template v-else-if="modification.type === 'zoom'">
-                <div class="inline-flex flex-row items-center gap-2">
-                  <span>{{ pagesToString(modification.pages) }} zoomen</span>
-                  <template v-if="modification.isDraft">
-                    <div class="grid grid-cols-3 grid-rows-4 gap-1">
-                      <a title="Ausschnitt nach oben bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y += 0.02"><font-awesome-icon :icon="['fas', 'arrow-up']" /></a>
-                      <a title="Ausschnitt nach unten bewegen" class="col-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.y -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-down']" /></a>
-                      <a title="Ausschnitt nach links bewegen" class="col-start-1 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x -= 0.02"><font-awesome-icon :icon="['fas', 'arrow-left']" /></a>
-                      <a title="Ausschnitt nach rechts bewegen" class="col-start-3 row-start-2 row-span-2 btn btn-blue" @click="modification.relativeBounds.x += 0.02"><font-awesome-icon :icon="['fas', 'arrow-right']" /></a>
-                    </div>
-                    <a title="Ausschnitt verkleinern" class="btn btn-blue" @click="modification.relativeBounds.x -= 0.01; modification.relativeBounds.y -= 0.01; modification.relativeBounds.width += 0.02; modification.relativeBounds.height += 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-minus']" /></a>
-                    <a title="Ausschnitt vergrößern" class="btn btn-blue" @click="modification.relativeBounds.x += 0.01; modification.relativeBounds.y += 0.01; modification.relativeBounds.width -= 0.02; modification.relativeBounds.height -= 0.02"><font-awesome-icon :icon="['fas', 'magnifying-glass-plus']" /></a>
-                  </template>
-                </div>
-              </template>
-              <template v-else-if="modification.type === 'remove'">
-                <span>{{ pagesToString(modification.pages) }} entfernen</span>
-              </template>
-              <template v-else-if="modification.type === 'rotatePage'">
-                <span>Inhalt von {{ pagesToString(modification.pages) }} um 90° drehen</span>
-              </template>
-              <template v-else-if="modification.type === 'rotateContent'">
-                <span>{{ pagesToString(modification.pages) }} um
-                  <input v-if="modification.isDraft" class="input-text w-20!" type="number" step="0.1" v-model="modification.degrees">
-                  <template v-else>{{ modification.degrees }}</template>
-                  Grad drehen</span>
-              </template>
-              <template v-else-if="modification.type === 'cutPageLeftRight'">
-                <span>{{ pagesToString(modification.pages) }} in linke und rechte Hälfte teilen</span>
-              </template>
-              <template v-else-if="modification.type === 'orderPages'">
-                <span>{{ pagesToString(modification.pages) }} sortieren</span>
-              </template>
-              <a v-if="modification.isDraft" title="Änderung akzeptieren" class="ml-2 btn btn-green py-1! px-2!" @click="modification.isDraft = false">✔</a>
-              <a v-if="modification === lastFileModification" title="Änderung verwerfen" class="ml-2 btn btn-red py-1! px-2!" @click="activeVoice.fileModifications.pop()">❌</a>
-            </li>
-          </ol>
+          <LoadingBar v-if="activeVoice.originalFile.type === 'loading'"></LoadingBar>
+          <ErrorWithRetry v-else-if="activeVoice.originalFile.type === 'loadingFailed'" type="banner" @retry="loadVoiceSheet" class="self-end">Fehler beim Laden der Vorschau.</ErrorWithRetry>
+          <VoiceSheetEditor v-else-if="activeVoice.originalFile.type === 'loaded'"
+            :original-file="activeVoice.originalFile.data"
+            v-model:file-modifications="activeVoice.fileModifications"
+            @extract-pages="doc => addVoice({name: '', originalFile: { type: 'loaded', data: doc }, printConfig: '' })"></VoiceSheetEditor>
         </div>
-        <PdfPreview
-          :file="voiceFileWithModifications?.data"
-          v-model:selected-pages="selectedFilePages"
-          :is-rotating="lastFileModification?.type === 'rotateContent' && lastFileModification.isDraft"
-          class="mt-6" />
       </div>
     </template>
   </div>
