@@ -111,3 +111,7 @@ INSERT INTO voice_settings (voice_pattern, sort_order) VALUES
     ('Klavier', 29),
     ('Gesang', 30),
     ('Sonstige', 31);
+
+-- fix constraint names
+ALTER TABLE voice_print_config RENAME CONSTRAINT voice_print_setting_pkey to voice_print_config_pkey;
+ALTER TABLE voice RENAME CONSTRAINT voice_print_setting_id_fkey to voice_print_config_id_fkey;
