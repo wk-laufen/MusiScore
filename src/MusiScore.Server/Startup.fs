@@ -50,8 +50,6 @@ let main args =
 
     let app = builder.Build()
 
-    app.UseHttpsRedirection() |> ignore
-
     if app.Environment.IsProduction() then
         app
             .UseDefaultFiles()

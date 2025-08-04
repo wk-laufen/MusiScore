@@ -14,16 +14,18 @@ import { first, last } from 'lodash-es'
 import { Pdf, type PdfModification } from './Pdf'
 import _ from 'lodash'
 
-// see https://stackoverflow.com/a/67600346
-const getSHA256Hash = async (data: Uint8Array) => {
-  const hashBuffer = await window.crypto.subtle.digest("SHA-256", data)
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(item => item.toString(16).padStart(2, "0"))
-    .join("")
+// see https://stackoverflow.com/a/7616484
+const getBlobHash = (data: Uint8Array) => {
+  let hash = 0
+  for (const v of data) {
+    hash = (hash << 5) - hash + v
+    hash |= 0
+  }
+  return `${hash}`
 };
 
-const getFileHash = async (file: Loadable<Uint8Array>) => {
-  return file.type === 'loaded' ? await getSHA256Hash(file.data) : undefined
+const getFileHash = (file: Loadable<Uint8Array>) => {
+  return file.type === 'loaded' ? getBlobHash(file.data) : undefined
 }
 
 const serializeVoiceFile = async (content: Loadable<Uint8Array>, modifications: PdfModification[]) => {
@@ -171,7 +173,7 @@ const loadVoiceSheet = async () => {
   if (result.succeeded) {
     const fileContent = await result.response.bytes()
     if (activeVoice.value.loadedData !== undefined) {
-      activeVoice.value.loadedData.fileHash = await getSHA256Hash(fileContent)
+      activeVoice.value.loadedData.fileHash = getBlobHash(fileContent)
     }
     activeVoice.value.originalFile = { 'type': 'loaded', data: fileContent }
   }
@@ -227,14 +229,14 @@ const printWithPrintDialog = async (voice: EditableVoice) => {
   iframe.contentWindow.print()
 }
 
-watch(activeVoice, async (oldActiveVoice, newActiveVoice) => {
+watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
   if (newActiveVoice === undefined || oldActiveVoice !== newActiveVoice || (newActiveVoice.state.type !== 'loadedVoice' && newActiveVoice.state.type !== 'modifiedVoice')) {
     return
   }
   const currentData : LoadedVoice = {
     name: newActiveVoice.name,
     printConfig: newActiveVoice.printConfig,
-    fileHash: await getFileHash(newActiveVoice.originalFile),
+    fileHash: getFileHash(newActiveVoice.originalFile),
   }
 
   const isUnmodified = newActiveVoice.fileModifications.length === 0 && _.isEqual(newActiveVoice.loadedData, currentData)
@@ -247,11 +249,11 @@ watch(activeVoice, async (oldActiveVoice, newActiveVoice) => {
   newActiveVoice.state = newState
 }, { deep: true })
 
-const addVoice = async (data: { name: EditableVoice['name'], originalFile: EditableVoice['originalFile'], printConfig: EditableVoice['printConfig'] }) => {
+const addVoice = (data: { name: EditableVoice['name'], originalFile: EditableVoice['originalFile'], printConfig: EditableVoice['printConfig'] }) => {
   if (composition.value === undefined) return
 
   composition.value.voices.push({
-    loadedData: { ...data, fileHash: await getFileHash(data.originalFile) },
+    loadedData: { ...data, fileHash: getFileHash(data.originalFile) },
     ...data,
     id: nextVoiceId++,
     state: { type: 'newVoice' },
@@ -264,10 +266,10 @@ const addVoice = async (data: { name: EditableVoice['name'], originalFile: Edita
   })
 }
 
-const addVoiceAndActivate = async () => {
+const addVoiceAndActivate = () => {
   if (composition.value === undefined) return
 
-  await addVoice({ name: '', originalFile: { type: 'empty' }, printConfig: '' })
+  addVoice({ name: '', originalFile: { type: 'empty' }, printConfig: '' })
   activeVoice.value = last(composition.value.voices)
 }
 
