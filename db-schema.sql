@@ -1,8 +1,3 @@
-DROP TABLE IF EXISTS voice_print;
-DROP TABLE IF EXISTS voice;
-DROP TABLE IF EXISTS voice_print_setting;
-DROP TABLE IF EXISTS composition;
-
 CREATE TABLE composition(
     id SERIAL PRIMARY KEY NOT NULL,
     title VARCHAR(50) NOT NULL,
