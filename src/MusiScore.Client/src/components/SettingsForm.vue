@@ -2,11 +2,11 @@
 import { computed, ref } from 'vue'
 import PrintSettingsForm from './PrintConfigsForm.vue'
 import LoadButton from './LoadButton.vue'
-import VoiceSettingsForm from './VoiceSettingsForm.vue'
+import VoiceDefinitionForm from './VoiceDefinitionForm.vue'
 
 defineProps<{
   printConfigsUrl: string
-  voiceSettingsUrl: string
+  voiceDefinitionsUrl: string
 }>()
 
 defineEmits<{
@@ -14,10 +14,10 @@ defineEmits<{
 }>()
 
 const printSettingsFormRef = ref<InstanceType<typeof PrintSettingsForm>>()
-const voiceSettingsFormRef = ref<InstanceType<typeof VoiceSettingsForm>>()
+const voiceDefinitionFormRef = ref<InstanceType<typeof VoiceDefinitionForm>>()
 
 const canSave = computed(() => {
-  return (printSettingsFormRef.value?.canSave || false) || (voiceSettingsFormRef.value?.canSave || false)
+  return (printSettingsFormRef.value?.canSave || false) || (voiceDefinitionFormRef.value?.canSave || false)
 })
 
 const isSaving = ref(false)
@@ -26,7 +26,7 @@ const saveSettings = async () => {
   try {
     await Promise.all([
       printSettingsFormRef.value?.save() || Promise.resolve(),
-      voiceSettingsFormRef.value?.save() || Promise.resolve()
+      voiceDefinitionFormRef.value?.save() || Promise.resolve()
     ])
   }
   finally {
@@ -39,7 +39,7 @@ const saveSettings = async () => {
   <div class="p-4">
     <h2 class="text-2xl small-caps">Einstellungen</h2>
     <PrintSettingsForm ref="printSettingsFormRef" :printConfigsUrl="printConfigsUrl" />
-    <VoiceSettingsForm ref="voiceSettingsFormRef" :voice-settings-url="voiceSettingsUrl" />
+    <VoiceDefinitionForm ref="voiceDefinitionFormRef" :voice-settings-url="voiceDefinitionsUrl" />
   </div>
 
   <Teleport to="#command-bar">

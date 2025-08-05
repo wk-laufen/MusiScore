@@ -9,9 +9,6 @@ const props = defineProps<{
   voiceSettingsUrl: string
 }>()
 
-type VoiceSettingsDto = {
-  sortOrderPatterns: string[]
-}
 type VoiceSettingsSaveError =
   { type: 'InvalidPattern', lineIndex: number } |
   { type: 'EmptyPattern', lineIndex: number }

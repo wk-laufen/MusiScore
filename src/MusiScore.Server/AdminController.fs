@@ -42,7 +42,7 @@ type AdminController(db: Db, printer: Printer) =
                     Composition = this.Url.Action(nameof(this.CreateComposition))
                     CompositionTemplate = this.Url.Action(nameof(this.GetCompositionTemplate))
                     Export = this.Url.Action(nameof(this.ExportCompositions))
-                    VoiceSettings = this.Url.Action(nameof(this.GetVoiceSettings))
+                    VoiceDefinitions = this.Url.Action(nameof(this.GetVoiceDefinitions))
                 |}
             }
         }
@@ -52,14 +52,14 @@ type AdminController(db: Db, printer: Printer) =
     member _.GetCompositionTemplate() =
         async {
             let! tags = db.GetTags()
-            let! voiceSortOrderPatterns = db.GetVoiceSortOrderPatterns()
+            let! voiceDefinitions = db.GetVoiceDefinitions()
             let! otherVoiceNames = db.GetOtherVoiceNames []
             return {
                 Title = ""
                 Tags = tags |> List.map Serialize.Admin.existingTag
                 IsActive = false
                 Voices = [||]
-                OtherVoiceNames = Voice.sortBySortOrder voiceSortOrderPatterns otherVoiceNames id |> List.toArray
+                OtherVoiceNames = Voice.sortBySortOrder voiceDefinitions otherVoiceNames id |> List.toArray
             }
         }
 
@@ -239,7 +239,7 @@ type AdminController(db: Db, printer: Printer) =
     member this.GetFullComposition (compositionId: string) =
         async {
             let! composition = db.GetComposition(compositionId)
-            let! voiceSortOrderPatterns = db.GetVoiceSortOrderPatterns()
+            let! voiceDefinitions = db.GetVoiceDefinitions()
             let! otherVoiceNames = db.GetOtherVoiceNames [compositionId]
             return
                 {
@@ -262,7 +262,7 @@ type AdminController(db: Db, printer: Printer) =
                             |}
                         })
                         |> Seq.toArray
-                    OtherVoiceNames = Voice.sortBySortOrder voiceSortOrderPatterns otherVoiceNames id |> List.toArray
+                    OtherVoiceNames = Voice.sortBySortOrder voiceDefinitions otherVoiceNames id |> List.toArray
                 }
         }
 
@@ -270,11 +270,16 @@ type AdminController(db: Db, printer: Printer) =
     [<HttpPost>]
     member this.CreateVoice (compositionId: string, [<FromBody>]voice: CreateVoiceDto) =
         async {
-            match Parse.createVoiceDto voice with
+            let! voiceDefinitions = db.GetVoiceDefinitions()
+            match Parse.createVoiceDto voice voiceDefinitions with
             | Ok createVoice ->
-                let! voiceId = db.CreateVoice compositionId createVoice
+                let! voiceDefinition =
+                    match createVoice.Definition with
+                    | CreateNewDefinition voiceDefinition -> db.GetOrCreateVoiceDefinition voiceDefinition
+                    | UseExistingDefinition definitionId -> db.GetVoiceDefinition definitionId
+                let! voiceId = db.CreateVoice compositionId voiceDefinition.Id createVoice.File createVoice.PrintConfig
                 let result = {
-                    Name = createVoice.Name
+                    Name = voiceDefinition.Name
                     PrintConfig = createVoice.PrintConfig
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
@@ -321,19 +326,17 @@ type AdminController(db: Db, printer: Printer) =
 
     [<Route("voice-settings")>]
     [<HttpGet>]
-    member _.GetVoiceSettings () =
+    member _.GetVoiceDefinitions () =
         async {
-            let! sortOrderPatterns =  db.GetVoiceSortOrderPatterns()
-            return {
-                SortOrderPatterns = sortOrderPatterns |> List.map (fun v -> $"%O{v}")
-            }
+            let! voiceDefinitions =  db.GetVoiceDefinitions()
+            return voiceDefinitions |> List.map Serialize.Admin.voiceDefinitions
         }
 
     [<Route("voice-settings")>]
     [<HttpPut>]
-    member this.SaveVoiceSettings ([<FromBody>]voiceSettings: VoiceSettingsDto) =
+    member this.SaveVoiceDefinitions ([<FromBody>]voiceDefinitions: VoiceDefinitionsDto) =
         async {
-            match Parse.voiceSortOrderPatterns voiceSettings.SortOrderPatterns with
+            match Parse.voiceSortOrderPatterns voiceDefinitions.SortOrderPatterns with
             | Ok voiceSortOrderPatterns ->
                 do! db.UpdateVoiceSortOrderPatterns voiceSortOrderPatterns
                 return this.Ok({

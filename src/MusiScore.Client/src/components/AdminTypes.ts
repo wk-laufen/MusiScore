@@ -29,6 +29,11 @@ export type PrintConfig = {
   name: string
 }
 
+export type VoiceDefinition = {
+  name: string
+  allowPublicPrint: boolean
+}
+
 export type Voice = {
   name: string
   printConfig: string

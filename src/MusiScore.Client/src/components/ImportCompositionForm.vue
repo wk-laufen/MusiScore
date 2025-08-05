@@ -5,18 +5,36 @@ import LoadButton from './LoadButton.vue'
 import _ from 'lodash'
 import type { ValidationState } from './Validation'
 import { uiFetchAuthorized } from './UIFetch'
-import { serializeFile, type CompositionListItem, type SaveCompositionServerError, type SaveVoiceServerError, type Voice as VoiceDto, type VoiceFileServerError } from './AdminTypes'
+import { serializeFile, type CompositionListItem, type SaveCompositionServerError, type SaveVoiceServerError, type Voice as VoiceDto, type VoiceFileServerError, type VoiceDefinition } from './AdminTypes'
 import toml from 'toml'
 import pLimit from 'p-limit'
+import LoadingBar from './LoadingBar.vue'
+import ErrorWithRetry from './ErrorWithRetry.vue'
+import VoiceForm, { type SelectedVoice } from './VoiceForm.vue'
 
 const props = defineProps<{
   compositionUrl: string
   inferPrintConfigUrl: string
+  voiceDefinitionsUrl: string
 }>()
 
 defineEmits<{
   'cancelImport': []
 }>()
+
+const voiceDefinitions = ref<VoiceDefinition[]>()
+const isLoadingVoiceDefinitions = ref(false)
+const hasLoadingVoiceDefinitionsFailed = ref(false)
+const loadVoiceDefinitions = async () => {
+  const result = await uiFetchAuthorized(isLoadingVoiceDefinitions, hasLoadingVoiceDefinitionsFailed, props.voiceDefinitionsUrl)
+  if (result.succeeded) {
+    voiceDefinitions.value = await result.response.json() as VoiceDefinition[]
+  }
+  else {
+    voiceDefinitions.value = undefined
+  }
+}
+loadVoiceDefinitions()
 
 const isSaving = ref(false)
 
@@ -24,7 +42,7 @@ const files = ref<File[]>()
 
 type Voice = {
   id: string
-  name: string
+  name: SelectedVoice
   nameValidationState: ValidationState
   isEditingName: boolean
   printConfig: string | undefined
@@ -114,7 +132,7 @@ watch(files, async files => {
           const voiceMetadata = compositionMetadata?.data?.composition?.voices?.find?.(v => v.name === voiceName)
           return {
             id: `${nextId++}`,
-            name: voiceName,
+            name: { type: voiceDefinitions.value?.some(v => v.name === voiceName) ? 'existing' : 'new', value: voiceName },
             nameValidationState: { type: 'notValidated' },
             isEditingName: false,
             printConfig: voiceMetadata?.print_config,
@@ -185,7 +203,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: voice.name,
+        name: voice.name.value,
         file: voice.file,
         printConfig: voice.printConfig
       })
@@ -194,7 +212,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
   if (result.succeeded) {
     const newVoice = await result.response.json() as VoiceDto
     voice.isSaved = true
-    voice.name = newVoice.name
+    voice.name = { type: 'existing', value: newVoice.name }
     voice.nameValidationState = { type: 'success' }
   }
   else if (result.response !== undefined && result.response.status === 400) {
@@ -314,49 +332,53 @@ const importInfo = computed(() : ImportInfo | undefined => {
   <div class="p-4">
     <h2 class="text-2xl small-caps">Stücke importieren</h2>
 
-    <FolderInput v-model="files" :disabled="isSaving" class="mt-2" />
+    <LoadingBar v-if="isLoadingVoiceDefinitions" />
+    <ErrorWithRetry v-else-if="hasLoadingVoiceDefinitionsFailed" @retry="loadVoiceDefinitions">Fehler beim Laden der Stimmen.</ErrorWithRetry>
+    <template v-else>
+      <FolderInput v-model="files" :disabled="isSaving" class="mt-2" />
 
-    <template v-if="compositions === undefined"></template>
-    <div v-else-if="compositions.length === 0" class="mt-4">
-      <h3 class="text-lg">Keine PDF-Dateien im ausgewählten Ordner gefunden.</h3>
-    </div>
-    <div v-else class="flex flex-col gap-2">
-      <div v-for="composition in compositions" :key="composition.id" class="border rounded-sm mt-2 p-4">
-        <fieldset :disabled="isSaving || composition.isSaved">
-          <div v-if="composition.isEditingTitle" class="flex">
-            <input class="input-text rounded-r-none!" type="text" required v-model="composition.title" />
-            <button class="btn rounded-l-none! !border-l-none" @click="composition.isEditingTitle = false">✔</button>
-          </div>
-          <div v-else class="flex">
-            <LoadButton :loading="composition.isSaving" class="btn-green rounded-r-none!" :class="{ 'btn-solid': composition.enabled }" @click="composition.enabled = !composition.enabled">
-              {{ composition.title }}
-              <template v-if="composition.isSaved">✔</template>
-              <template v-else-if="composition.hasSavingFailed">❌</template>
-            </LoadButton>
-            <button class="btn rounded-l-none! border-l-0!" @click="composition.isEditingTitle = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
-          </div>
-        </fieldset>
-        <h4 class="mt-4 text-xl small-caps" :class="{ 'opacity-50': isSaving || !composition.enabled }">Stimmen</h4>
-        <div class="ml-4 mt-2 flex flex-wrap items-center gap-2">
-          <div v-for="voice in composition.voices" :key="voice.id">
-            <fieldset :disabled="!composition.enabled || isSaving || voice.isSaved">
-              <div v-if="voice.isEditingName" class="flex">
-                <input class="input-text rounded-r-none!" type="text" required v-model="voice.name" />
-                <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">✔</button>
-              </div>
-              <div v-else class="flex">
-                <LoadButton :loading="voice.isSaving" class="btn-blue rounded-r-none!" :class="{ 'btn-solid': voice.enabled }" @click="voice.enabled = !voice.enabled">
-                  {{ voice.name || '<leer>' }}
-                  <template v-if="voice.isSaved">✔</template>
-                  <template v-else-if="voice.hasSavingFailed">❌</template>
-                </LoadButton>
-                <button class="btn rounded-l-none! border-l-0!" @click="voice.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
-              </div>
-            </fieldset>
+      <template v-if="compositions === undefined"></template>
+      <div v-else-if="compositions.length === 0" class="mt-4">
+        <h3 class="text-lg">Keine PDF-Dateien im ausgewählten Ordner gefunden.</h3>
+      </div>
+      <div v-else class="flex flex-col gap-2">
+        <div v-for="composition in compositions" :key="composition.id" class="border rounded-sm mt-2 p-4">
+          <fieldset :disabled="isSaving || composition.isSaved">
+            <div v-if="composition.isEditingTitle" class="flex">
+              <input class="input-text rounded-r-none!" type="text" required v-model="composition.title" />
+              <button class="btn rounded-l-none! !border-l-none" @click="composition.isEditingTitle = false">✔</button>
+            </div>
+            <div v-else class="flex">
+              <LoadButton :loading="composition.isSaving" class="btn-blue rounded-r-none!" :class="{ 'btn-solid': composition.enabled }" @click="composition.enabled = !composition.enabled">
+                {{ composition.title }}
+                <template v-if="composition.isSaved">✔</template>
+                <template v-else-if="composition.hasSavingFailed">❌</template>
+              </LoadButton>
+              <button class="btn rounded-l-none! border-l-0!" @click="composition.isEditingTitle = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
+            </div>
+          </fieldset>
+          <h4 class="mt-4 text-xl small-caps" :class="{ 'opacity-50': isSaving || !composition.enabled }">Stimmen</h4>
+          <div class="ml-4 mt-2 flex flex-wrap items-center gap-2">
+            <div v-for="voice in composition.voices" :key="voice.id">
+              <fieldset :disabled="!composition.enabled || isSaving || voice.isSaved">
+                <div v-if="voice.isEditingName" class="flex">
+                  <VoiceForm :voices="voiceDefinitions || []" v-model="voice.name" />
+                  <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">✔</button>
+                </div>
+                <div v-else class="flex">
+                  <LoadButton :loading="voice.isSaving" class="rounded-r-none!" :class="{ 'bg-yellow-500/50': voice.enabled && voice.name.type === 'new', 'bg-green-500/50': voice.enabled && voice.name.type === 'existing' }" @click="voice.enabled = !voice.enabled">
+                    {{ voice.name.value || '<leer>' }}
+                    <template v-if="voice.isSaved">✔</template>
+                    <template v-else-if="voice.hasSavingFailed">❌</template>
+                  </LoadButton>
+                  <button class="btn rounded-l-none! border-l-0!" @click="voice.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
+                </div>
+              </fieldset>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 
   <Teleport to="#command-bar">

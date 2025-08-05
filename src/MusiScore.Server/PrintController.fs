@@ -15,7 +15,7 @@ type PrintController(db: Db, printer: Printer) =
     member this.GetActiveCompositions () =
         async {
             let! compositions = db.GetActiveCompositions()
-            let! voiceSortOrderPatterns = db.GetVoiceSortOrderPatterns()
+            let! voiceDefinitions = db.GetVoiceDefinitions()
             return
                 compositions
                 |> Seq.sortBy (fun v -> v.Title)
@@ -23,7 +23,7 @@ type PrintController(db: Db, printer: Printer) =
                     let allVoices =
                         composition.Voices
                         |> List.map (fun voice ->
-                            (voice, Voice.tryGetSortOrder voiceSortOrderPatterns voice.Name)
+                            (voice, Voice.tryGetSortOrder voiceDefinitions voice.Name)
                         )
                         |> List.sortBy snd
                     let voicesWithSortOrder =

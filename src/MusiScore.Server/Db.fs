@@ -117,6 +117,15 @@ module private DbModels =
         let toDomain v : PrintConfig =
             { Key = v.key; Name = v.name; SortOrder = v.sort_order; Settings = { ReorderPagesAsBooklet = v.reorder_pages_as_booklet; CupsCommandLineArgs = v.cups_command_line_args } }
 
+    type DbVoiceDefinition = {
+        id: int
+        name: string
+        allow_public_print: bool
+    }
+    module DbVoiceDefinitons =
+        let toDomain v : VoiceDefinition =
+            { Id = string v.id; Name = v.name; AllowPublicPrint = v.allow_public_print }
+
 [<AutoOpen>]
 module private DbHelper =
     let (|ForeignKeyViolation|_|) (e: Exception) =
@@ -172,7 +181,7 @@ type Db(connectionString: string) =
     }
 
     let getVoicesLookup (connection: NpgsqlConnection) (compositionIds: int[]) = async {
-        let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT composition_id, id, name, print_config_id FROM voice WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT v.composition_id, v.id, vd.name, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
         return
             voices
             |> Seq.groupBy _.composition_id
@@ -181,7 +190,7 @@ type Db(connectionString: string) =
     }
 
     let getVoices (connection: NpgsqlConnection) (compositionId) = async {
-        let! voices = connection.QueryAsync<DbVoice>("SELECT id, name, print_config_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbVoice>("SELECT v.id, vd.name, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
             |> Seq.map DbVoice.toDomain
@@ -224,23 +233,42 @@ type Db(connectionString: string) =
             )
     }
 
-    member _.GetVoiceSortOrderPatterns() = async {
+    member _.GetVoiceDefinitions() = async {
         use connection = dataSource.CreateConnection()
-        let! voiceSettings = connection.QueryAsync<string>("SELECT voice_pattern FROM voice_settings ORDER BY sort_order") |> Async.AwaitTask
-        return voiceSettings |> Seq.map Text.RegularExpressions.Regex |> Seq.toList
+        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinition>("SELECT id, name, allow_public_print FROM voice_definition ORDER BY sort_order") |> Async.AwaitTask
+        return voiceDefinitions |> Seq.map DbVoiceDefinitons.toDomain |> Seq.toList
+    }
+
+    member _.GetVoiceDefinition (definitionId: string) = async {
+        use connection = dataSource.CreateConnection()
+        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>("SELECT id, name, allow_public_print FROM voice_definition WHERE id = @Id", {| Id = int definitionId |}) |> Async.AwaitTask
+        return DbVoiceDefinitons.toDomain voiceDefinition
+    }
+
+    member _.GetOrCreateVoiceDefinition (voiceDefinition: NewVoiceDefinition) = async {
+        use connection = dataSource.CreateConnection()
+        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>("""
+            WITH row AS (
+                INSERT INTO voice_definition(name, sort_order, allow_public_print) VALUES(@Name, (SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition), @AllowPublicPrint)
+                ON CONFLICT(name) DO UPDATE SET name = EXCLUDED.name
+                RETURNING * 
+            )
+            SELECT id, name, allow_public_print FROM row
+            """, {| Name = voiceDefinition.Name; AllowPublicPrint = voiceDefinition.AllowPublicPrint |}) |> Async.AwaitTask
+        return DbVoiceDefinitons.toDomain voiceDefinition
     }
 
     member _.UpdateVoiceSortOrderPatterns (voiceSortOrderPatterns: Text.RegularExpressions.Regex list) = async {
         use connection = dataSource.CreateConnection()
         // TODO improve
-        do! connection.ExecuteAsync("DELETE FROM voice_settings") |> Async.AwaitTask |> Async.Ignore
-        let voiceSettings =
+        do! connection.ExecuteAsync("DELETE FROM voice_definition") |> Async.AwaitTask |> Async.Ignore
+        let voiceDefinitions =
             voiceSortOrderPatterns
             |> List.mapi (fun i v -> {|
                 VoicePattern = $"%O{v}"
                 SortOrder = i + 1
             |})
-        do! connection.ExecuteAsync("INSERT INTO voice_settings (voice_pattern, sort_order) VALUES (@VoicePattern, @SortOrder)", voiceSettings) |> Async.AwaitTask |> Async.Ignore
+        do! connection.ExecuteAsync("INSERT INTO voice_definition (voice_pattern, sort_order) VALUES (@VoicePattern, @SortOrder)", voiceDefinitions) |> Async.AwaitTask |> Async.Ignore
     }
 
     member _.GetCompositionVoices(compositionId: string) = async {
@@ -359,7 +387,7 @@ type Db(connectionString: string) =
 
     member _.GetFullCompositionVoices (compositionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! voices = connection.QueryAsync<DbFullVoice>("SELECT id, name, file, print_config_id FROM voice WHERE composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbFullVoice>("SELECT v.id, vd.name, v.file, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
             |> Seq.map DbFullVoice.toDomain
@@ -369,19 +397,19 @@ type Db(connectionString: string) =
     member _.GetOtherVoiceNames (excludeCompositionIds: string list) = async {
         use connection = dataSource.CreateConnection()
         let compositionIds = excludeCompositionIds |> List.map int |> List.toArray
-        let! voiceNames = connection.QueryAsync<string>("SELECT DISTINCT name FROM voice WHERE NOT (composition_id = ANY(@CompositionIds))", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        let! voiceNames = connection.QueryAsync<string>("SELECT DISTINCT vd.name FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE NOT (v.composition_id = ANY(@CompositionIds))", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
         return Seq.toList voiceNames
     }
 
-    member _.CreateVoice (compositionId: string) (createVoice: CreateVoice) = async {
+    member _.CreateVoice (compositionId: string) (definitionId: string) (file: byte array) (printConfigId: string) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
-        let command = "INSERT INTO voice (name, file, composition_id, print_config_id) VALUES(@Name, @File, @CompositionId, @PrintConfigId) RETURNING id"
+        let command = "INSERT INTO voice (definition_id, file, composition_id, print_config_id) VALUES(@DefinitionId, @File, @CompositionId, @PrintConfigId) RETURNING id"
         let commandArgs = {|
-            Name = createVoice.Name
-            File = createVoice.File
+            DefinitionId = int definitionId
+            File = file
             CompositionId = int compositionId
-            PrintConfigId = createVoice.PrintConfig
+            PrintConfigId = printConfigId
         |}
         let! voiceId = connection.ExecuteScalarAsync<int>(command, commandArgs) |> Async.AwaitTask
         return string voiceId
@@ -393,8 +421,8 @@ type Db(connectionString: string) =
         use tx = connection.BeginTransaction()
         let updateFields =
             [
-                match updateVoice.Name with
-                | Some _ -> "name = @Name"
+                match updateVoice.DefinitionId with
+                | Some _ -> "definition_id = @DefinitionId"
                 | None -> ()
 
                 match updateVoice.File with
@@ -409,13 +437,13 @@ type Db(connectionString: string) =
         if updateFields <> "" then
             let updateArgs = {|
                 Id = int voiceId
-                Name = updateVoice.Name |> Option.defaultValue ""
+                Name = updateVoice.DefinitionId |> Option.map int |> Option.defaultValue 0
                 File = updateVoice.File |> Option.defaultValue Array.empty
                 PrintConfigId = updateVoice.PrintConfig |> Option.defaultValue ""
             |}
             let command = $"UPDATE voice SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT id, name, file, print_config_id FROM voice WHERE id = @Id", {| Id = int voiceId |}, tx) |> Async.AwaitTask
+        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT v.id, vd.name, v.file, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.id = @Id", {| Id = int voiceId |}, tx) |> Async.AwaitTask
         do! tx.CommitAsync() |> Async.AwaitTask
         return DbFullVoice.toDomain voice
     }

@@ -4,25 +4,35 @@ open FsToolkit.ErrorHandling
 open System
 open System.Text.RegularExpressions
 
+type VoiceDefinition = {
+    Id: string
+    Name: string
+    AllowPublicPrint: bool
+}
+
+type NewVoiceDefinition = {
+    Name: string
+    AllowPublicPrint: bool
+}
+
 type Voice = {
     Id: string
     Name: string
     PrintConfigId: string
 }
 module Voice =
-    let tryGetSortOrder (patterns: Regex list) voiceName =
-        patterns
+    let tryGetSortOrder (voiceDefinitions: VoiceDefinition list) voiceName =
+        voiceDefinitions
         |> List.indexed
         |> List.tryPick (fun (i, v) ->
-            let m = v.Match(voiceName)
-            if m.Success then Some (i + 1)
+            if v.Name = voiceName then Some (i + 1)
             else None
         )
-    let sortBySortOrder (patterns: Regex list) list nameFn =
+    let sortBySortOrder voiceDefinitions list nameFn =
         list
         |> List.sortBy (nameFn >> fun voiceName ->
             let patternSortOrder =
-                tryGetSortOrder patterns voiceName
+                tryGetSortOrder voiceDefinitions voiceName
                 |> Option.defaultValue Int32.MaxValue
             (patternSortOrder, voiceName.ToLowerInvariant())
         )
@@ -114,14 +124,18 @@ type CompositionUpdate = {
     IsActive: bool option
 }
 
+type VoiceDefinitionReference =
+    | CreateNewDefinition of NewVoiceDefinition
+    | UseExistingDefinition of string
+
 type CreateVoice = {
-    Name: string
+    Definition: VoiceDefinitionReference
     File: byte[]
     PrintConfig: string
 }
 
 type UpdateVoice = {
-    Name: string option
+    DefinitionId: string option
     File: byte[] option
     PrintConfig: string option
 }
@@ -207,18 +221,22 @@ module Parse =
         return { Name = name; ReorderPagesAsBooklet = v.ReorderPagesAsBooklet; CupsCommandLineArgs = v.CupsCommandLineArgs; SortOrder = v.SortOrder }
     }
 
-    let createVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) = validation {
+    let createVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) (voiceDefinitions: VoiceDefinition list) = validation {
         let! name = voiceName v.Name
         and! file = voiceFile v.File
         and! printConfig = printConfigKey v.PrintConfig
-        return { CreateVoice.Name = name; File = file; PrintConfig = printConfig }
-    }
+        let definition =
+            match voiceDefinitions |> List.tryFind (fun voiceDefinition -> voiceDefinition.Name = name) with
+            | Some voiceDefinition -> UseExistingDefinition voiceDefinition.Id
+            | None -> CreateNewDefinition { Name = name; AllowPublicPrint = true }
+        return { CreateVoice.Definition = definition; File = file; PrintConfig = printConfig }
+    } 
 
     let updateVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDto) = validation {
         let! name = v.Name |> Option.map voiceName |> Validation.accumulateOption
         and! file = v.File |> Option.map voiceFile |> Validation.accumulateOption
         and! printConfig = v.PrintConfig |> Option.map printConfigKey |> Validation.accumulateOption
-        return { Name = name; File = file; PrintConfig = printConfig }
+        return { DefinitionId = name; File = file; PrintConfig = printConfig }
     }
 
     let regex v = validation {
@@ -257,3 +275,6 @@ module Serialize =
         let printConfigDeleteError e =
             match e with
             | InvalidReplacementConfigId -> "InvalidReplacementConfigId"
+
+        let voiceDefinitions (v: VoiceDefinition) =
+            {| Name = v.Name; AllowPublicPrint = v.AllowPublicPrint |}

@@ -115,3 +115,80 @@ INSERT INTO voice_settings (voice_pattern, sort_order) VALUES
 -- fix constraint names
 ALTER TABLE voice_print_config RENAME CONSTRAINT voice_print_setting_pkey to voice_print_config_pkey;
 ALTER TABLE voice RENAME CONSTRAINT voice_print_setting_id_fkey to voice_print_config_id_fkey;
+
+-- use exact voice names
+DELETE FROM voice_settings;
+ALTER TABLE voice_settings RENAME COLUMN voice_pattern TO name;
+ALTER TABLE voice_settings ADD COLUMN allow_public_print BOOLEAN NOT NULL;
+INSERT INTO voice_settings (name, sort_order, allow_public_print) VALUES
+    ('Partitur', 1, FALSE),
+    ('Piccolo', 2, TRUE),
+    ('Flöte 1 in C', 3, TRUE),
+    ('Flöte 2 in C', 4, TRUE),
+    ('Oboe in C', 5, TRUE),
+    ('Fagott in C', 6, TRUE),
+    ('Klarinette in Es', 7, FALSE),
+    ('Klarinette 1 in B', 8, TRUE),
+    ('Klarinette 2 in B', 9, TRUE),
+    ('Klarinette 3 in B', 10, TRUE),
+    ('Alt Klarinette', 11, FALSE),
+    ('Bass Klarinette in C', 12, TRUE),
+    ('Alt Sax 1 in Es', 13, TRUE),
+    ('Alt Sax 2 in Es', 14, TRUE),
+    ('Tenor Sax 1 in B', 15, TRUE),
+    ('Tenor Sax 2 in B', 16, TRUE),
+    ('Bariton Sax in Es', 17, TRUE),
+    ('Flügelhorn 1 in B', 18, TRUE),
+    ('Flügelhorn 2 in B', 19, TRUE),
+    ('Trompete 1 in B', 20, TRUE),
+    ('Trompete 2 in B', 21, TRUE),
+    ('Trompete 3 in B', 22, TRUE),
+    ('Bariton in B', 23, TRUE),
+    ('Tenorhorn 1 in B', 24, TRUE),
+    ('Tenorhorn 2 in B', 25, TRUE),
+    ('Tenorhorn 3 in B', 26, TRUE),
+    ('Horn 1 in F', 27, TRUE),
+    ('Horn 2 in F', 28, TRUE),
+    ('Horn 3 in F', 29, TRUE),
+    ('Posaune 1 in C', 30, TRUE),
+    ('Posaune 2 in C', 31, TRUE),
+    ('Posaune 3 in C', 32, TRUE),
+    ('Posaune 1 in B', 33, TRUE),
+    ('Posaune 2 in B', 34, TRUE),
+    ('Posaune 3 in B', 35, TRUE),
+    ('Tuba 1 in C', 36, TRUE),
+    ('Tuba 2 in C', 37, TRUE),
+    ('Tuba 1 in B', 38, TRUE),
+    ('Tuba 2 in B', 39, TRUE),
+    ('Tuba in Es', 40, TRUE),
+    ('Streichbass', 41, FALSE),
+    ('E-Bass', 42, FALSE),
+    ('Pauken', 43, TRUE),
+    ('Schlagzeug', 44, TRUE),
+    ('Stabspiele', 45, TRUE),
+    ('Percussion 1', 46, TRUE),
+    ('Percussion 2', 47, TRUE),
+    ('Percussion 3', 48, TRUE),
+    ('Kleine Trommel', 49, TRUE),
+    ('Große Trommel', 50, TRUE),
+    ('Klavier', 51, FALSE),
+    ('Gesang', 52, FALSE),
+    ('Sonstige', 53, FALSE);
+ALTER TABLE voice ADD CONSTRAINT voice_name_fkey FOREIGN KEY (name) REFERENCES voice_settings(name) ON UPDATE CASCADE;
+
+-- use surrogate PK for voice_settings and rename table to voice_definition
+ALTER TABLE voice DROP CONSTRAINT voice_name_fkey;
+ALTER TABLE voice_settings DROP CONSTRAINT voice_settings_pkey;
+
+ALTER TABLE voice_settings RENAME TO voice_definition;
+ALTER TABLE voice_definition RENAME CONSTRAINT voice_settings_sort_order_key to voice_definition_sort_order_key;
+
+ALTER TABLE voice_definition ADD COLUMN id SERIAL PRIMARY KEY NOT NULL;
+ALTER TABLE voice_definition ADD CONSTRAINT voice_definition_name_key UNIQUE (name);
+
+ALTER TABLE voice ADD COLUMN definition_id INT;
+UPDATE voice v SET definition_id = (SELECT id FROM voice_definition vd WHERE vd.name = v.name);
+ALTER TABLE voice ALTER COLUMN definition_id SET NOT NULL;
+ALTER TABLE voice ADD CONSTRAINT voice_definition_id_fkey FOREIGN KEY (definition_id) REFERENCES voice_definition(id);
+
+ALTER TABLE voice DROP COLUMN name;

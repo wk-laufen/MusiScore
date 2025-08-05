@@ -52,7 +52,7 @@ module Admin =
             Composition: string
             CompositionTemplate: string
             Export: string
-            VoiceSettings: string
+            VoiceDefinitions: string
         |}
     }
 
@@ -139,6 +139,6 @@ module Admin =
         PrintConfig: string option
     }
 
-    type VoiceSettingsDto = {
+    type VoiceDefinitionsDto = {
         SortOrderPatterns: string list
     }

@@ -21,7 +21,7 @@ type CompositionData = {
     composition: string
     compositionTemplate: string
     export: string
-    voiceSettings: string
+    voiceDefinitions: string
   }
 }
 
@@ -142,10 +142,11 @@ const compositionDeleted = (composition: CompositionListItem) => {
     <ImportCompositionForm v-else-if="compositionList !== undefined && isImportingCompositions"
       :composition-url="compositionList.links.composition"
       :inferPrintConfigUrl="compositionList.links.inferPrintConfig"
+      :voiceDefinitionsUrl="compositionList.links.voiceDefinitions"
       @cancel-import="cancelImport" />
     <SettingsForm v-else-if="compositionList !== undefined && isEditingSettings"
       :printConfigsUrl="compositionList.links.printConfigs"
-      :voice-settings-url="compositionList.links.voiceSettings"
+      :voiceDefinitionsUrl="compositionList.links.voiceDefinitions"
       @cancel-edit-settings="cancelEditSettings" />
   </div>
   <div v-if="!showLogin" id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">
