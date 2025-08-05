@@ -14,8 +14,8 @@ const containerClasses = props.type === 'banner'
   : [ "inline-flex", "justify-center", "items-center", "gap-2", "rounded-sm", "text-musi-red" ]
 
 const buttonClasses = props.type === 'banner'
-  ? [ "btn", "text-white", "bg-white", "hover:bg-white", "hover:text-musi-red" ]
-  : [ "btn", "text-musi-red", "bg-white", "hover:bg-musi-red", "hover:text-white" ]
+  ? [ "btn", "text-white", "hover:bg-white", "hover:text-musi-red" ]
+  : [ "btn", "text-musi-red", "hover:bg-musi-red", "hover:text-white" ]
 </script>
 
 <template>
