@@ -319,56 +319,56 @@ const getVoiceUrl = (voice: EditableVoice) => {
 const getVoiceSaveMethod = (voice: EditableVoice) => {
   switch (voice.state.type) {
     case 'newVoice': return 'POST'
-    case 'loadedVoice':
-    case 'modifiedVoice':
-      return voice.state.isMarkedForDeletion ? 'DELETE' : 'PATCH'
+    case 'loadedVoice': return voice.state.isMarkedForDeletion ? 'DELETE' : undefined
+    case 'modifiedVoice': return voice.state.isMarkedForDeletion ? 'DELETE' : 'PATCH'
   }
 }
 const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
-  if (voice.state.type === 'loadedVoice') {
-    return voice
-  }
-
   const url = getVoiceUrl(voice) || newVoiceUrl
   const httpMethod = getVoiceSaveMethod(voice)
-  if (httpMethod === 'DELETE') {
-    const result = await uiFetchAuthorized(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, { method: httpMethod })
-    if (result.succeeded) {
-      return undefined
+  switch (httpMethod) {
+    case 'DELETE': {
+      const result = await uiFetchAuthorized(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, { method: httpMethod })
+      if (result.succeeded) {
+        return undefined
+      }
+      else {
+        return voice
+      }
     }
-    else {
-      return voice
-    }
-  }
-  else {
-    const result = await uiFetchAuthorized(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, {
-      method: httpMethod,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: voice.name,
-        file: await serializeVoiceFile(voice.originalFile, voice.fileModifications),
-        printConfig: voice.printConfig
+    case 'PATCH':
+    case 'POST': {
+      const result = await uiFetchAuthorized(toRef(voice, 'isSaving'), toRef(voice, 'hasSavingFailed'), url, {
+        method: httpMethod,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: voice.name,
+          file: await serializeVoiceFile(voice.originalFile, voice.fileModifications),
+          printConfig: voice.printConfig
+        })
       })
-    })
-    if (result.succeeded) {
-      const newVoice = await result.response.json() as Voice
-      return parseLoadedVoice(newVoice, voice.id)
+      if (result.succeeded) {
+        const newVoice = await result.response.json() as Voice
+        return parseLoadedVoice(newVoice, voice.id)
+      }
+      else if (result.response !== undefined && result.response.status === 400) {
+        const errors = await result.response.json() as SaveVoiceServerError[]
+        voice.nameValidationState = errors.includes('EmptyName') ? { type: 'error', error: 'Bitte geben Sie den Namen der Stimme ein.' } : { type: 'success' }
+        voice.fileValidationState = errors.includes('EmptyFile')
+          ? { type: 'error', error: 'Bitte wählen Sie eine PDF-Datei aus.' }
+          : errors.includes('InvalidFile')
+            ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
+            : { type: 'success' }
+        voice.printConfigValidationState = errors.includes('UnknownPrintConfig') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
+        return voice
+      }
+      else {
+        // TODO what happend here?
+        return voice
+      }
     }
-    else if (result.response !== undefined && result.response.status === 400) {
-      const errors = await result.response.json() as SaveVoiceServerError[]
-      voice.nameValidationState = errors.includes('EmptyName') ? { type: 'error', error: 'Bitte geben Sie den Namen der Stimme ein.' } : { type: 'success' }
-      voice.fileValidationState = errors.includes('EmptyFile')
-        ? { type: 'error', error: 'Bitte wählen Sie eine PDF-Datei aus.' }
-        : errors.includes('InvalidFile')
-          ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
-          : { type: 'success' }
-      voice.printConfigValidationState = errors.includes('UnknownPrintConfig') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
+    case undefined:
       return voice
-    }
-    else {
-      // TODO what happend here?
-      return voice
-    }
   }
 }
 
