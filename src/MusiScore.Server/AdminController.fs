@@ -52,14 +52,11 @@ type AdminController(db: Db, printer: Printer) =
     member _.GetCompositionTemplate() =
         async {
             let! tags = db.GetTags()
-            let! voiceDefinitions = db.GetVoiceDefinitions()
-            let! otherVoiceNames = db.GetOtherVoiceNames []
             return {
                 Title = ""
                 Tags = tags |> List.map Serialize.Admin.existingTag
                 IsActive = false
                 Voices = [||]
-                OtherVoiceNames = Voice.sortBySortOrder voiceDefinitions otherVoiceNames id |> List.toArray
             }
         }
 
@@ -239,8 +236,6 @@ type AdminController(db: Db, printer: Printer) =
     member this.GetFullComposition (compositionId: string) =
         async {
             let! composition = db.GetComposition(compositionId)
-            let! voiceDefinitions = db.GetVoiceDefinitions()
-            let! otherVoiceNames = db.GetOtherVoiceNames [compositionId]
             return
                 {
                     Title = composition.Title
@@ -262,7 +257,6 @@ type AdminController(db: Db, printer: Printer) =
                             |}
                         })
                         |> Seq.toArray
-                    OtherVoiceNames = Voice.sortBySortOrder voiceDefinitions otherVoiceNames id |> List.toArray
                 }
         }
 
@@ -273,10 +267,7 @@ type AdminController(db: Db, printer: Printer) =
             let! voiceDefinitions = db.GetVoiceDefinitions()
             match Parse.createVoiceDto voice voiceDefinitions with
             | Ok createVoice ->
-                let! voiceDefinition =
-                    match createVoice.Definition with
-                    | CreateNewDefinition voiceDefinition -> db.GetOrCreateVoiceDefinition voiceDefinition
-                    | UseExistingDefinition definitionId -> db.GetVoiceDefinition definitionId
+                let! voiceDefinition = db.GetOrCreateVoiceDefinition createVoice.Definition
                 let! voiceId = db.CreateVoice compositionId voiceDefinition.Id createVoice.File createVoice.PrintConfig
                 let result = {
                     Name = voiceDefinition.Name
@@ -294,9 +285,17 @@ type AdminController(db: Db, printer: Printer) =
     [<HttpPatch>]
     member this.UpdateVoice (compositionId: string, voiceId: string, [<FromBody>]voice: UpdateVoiceDto) =
         async {
-            match Parse.updateVoiceDto voice with
+            let! voiceDefinitions = db.GetVoiceDefinitions()
+            match Parse.updateVoiceDto voice voiceDefinitions with
             | Ok updateVoice ->
-                let! updatedVoice = db.UpdateVoice compositionId voiceId updateVoice
+                let! voiceDefinitionId = async {
+                    match updateVoice.Definition with
+                    | Some voiceDefinition ->
+                        let! result = db.GetOrCreateVoiceDefinition voiceDefinition
+                        return Some result.Id
+                    | None -> return None
+                }
+                let! updatedVoice = db.UpdateVoice compositionId voiceId voiceDefinitionId updateVoice.File updateVoice.PrintConfig
                 let result = {
                     Name = updatedVoice.Name
                     PrintConfig = updatedVoice.PrintConfig

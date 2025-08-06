@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
-import { serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate } from './AdminTypes'
+import { serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate, type VoiceDefinition } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -13,6 +13,7 @@ import VoiceSheetEditor from './VoiceSheetEditor.vue'
 import { first, last } from 'lodash-es'
 import { Pdf, type PdfModification } from './Pdf'
 import _ from 'lodash'
+import VoiceForm from './VoiceForm.vue'
 
 // see https://stackoverflow.com/a/7616484
 const getBlobHash = (data: Uint8Array) => {
@@ -44,6 +45,7 @@ const props = defineProps<{
   testPrintConfigUrl: string
   compositionUrl: string
   compositionTemplateUrl: string
+  voiceDefinitionsUrl: string
 }>()
 
 const modifyType = ref(props.type)
@@ -88,7 +90,6 @@ type EditableComposition = {
   titleValidationState: ValidationState
   tags: ExistingTag[]
   voices: EditableVoice[]
-  voiceNameSuggestions: string[]
   links: {
     self: string
     voices?: string
@@ -128,7 +129,6 @@ const loadComposition = async () => {
           titleValidationState: { type: 'success' },
           tags: template.tags,
           voices: [],
-          voiceNameSuggestions: template.otherVoiceNames,
           links: {
             self: props.compositionUrl,
             voices: undefined
@@ -147,7 +147,6 @@ const loadComposition = async () => {
           titleValidationState: { type: 'success' },
           tags: loadedComposition.tags,
           voices: loadedComposition.voices.map(parseLoadedVoice),
-          voiceNameSuggestions: loadedComposition.otherVoiceNames,
           links: loadedComposition.links
         }
         activeVoice.value = first(composition.value.voices)
@@ -157,6 +156,20 @@ const loadComposition = async () => {
   }
 }
 loadComposition()
+
+const voiceDefinitions = ref<VoiceDefinition[]>()
+const isLoadingVoiceDefinitions = ref(false)
+const hasLoadingVoiceDefinitionsFailed = ref(false)
+const loadVoiceDefinitions = async () => {
+  const result = await uiFetchAuthorized(isLoadingVoiceDefinitions, hasLoadingVoiceDefinitionsFailed, props.voiceDefinitionsUrl)
+  if (result.succeeded) {
+    voiceDefinitions.value = await result.response.json() as VoiceDefinition[]
+  }
+  else {
+    voiceDefinitions.value = undefined
+  }
+}
+loadVoiceDefinitions()
 
 const loadVoiceSheet = async () => {
   if (activeVoice.value === undefined) {
@@ -416,7 +429,6 @@ const saveComposition = async () => {
         tags: compositionListItem.tags,
         titleValidationState: { type: 'success' },
         voices: savedVoices.filter(v => v !== undefined) as EditableVoice[],
-        voiceNameSuggestions: composition.value.voiceNameSuggestions
       }
       updateActiveVoice(savedVoices, activeVoiceIndexOrFirst)
     }
@@ -483,7 +495,11 @@ const saveComposition = async () => {
         </li>
       </ul>
       <div v-if="activeVoice !== undefined">
-        <TextInput title="Name" :validation-state="activeVoice.nameValidationState" :suggestions="composition.voiceNameSuggestions" v-model="activeVoice.name" class="mt-6" />
+        <div class="flex gap-2 items-center mt-6">
+          <VoiceForm :voices="voiceDefinitions || []" v-model="activeVoice.name" label="Name" />
+          <LoadingBar v-if="isLoadingVoiceDefinitions" type="minimal" />
+          <ErrorWithRetry v-else-if="hasLoadingVoiceDefinitionsFailed" type="inline" @retry="loadVoiceDefinitions">Fehler beim Laden der Stimmen.</ErrorWithRetry>
+        </div>
         <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" class="mt-6" />
         <div class="mt-6 flex gap-2">
           <SelectInput v-if="printConfigs !== undefined" title="Druckeinstellung" :options="printConfigs.map(v => ({ key: v.key, value: v.name}))" :validation-state="activeVoice.printConfigValidationState" v-model="activeVoice.printConfig" />

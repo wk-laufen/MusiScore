@@ -258,6 +258,12 @@ type Db(connectionString: string) =
         return DbVoiceDefinitons.toDomain voiceDefinition
     }
 
+    member this.GetOrCreateVoiceDefinition (voiceDefinition: VoiceDefinitionReference) = async {
+        match voiceDefinition with
+        | CreateNewDefinition v -> return! this.GetOrCreateVoiceDefinition v
+        | UseExistingDefinition v -> return! this.GetVoiceDefinition v
+    }
+
     member _.UpdateVoiceSortOrderPatterns (voiceSortOrderPatterns: Text.RegularExpressions.Regex list) = async {
         use connection = dataSource.CreateConnection()
         // TODO improve
@@ -394,13 +400,6 @@ type Db(connectionString: string) =
             |> Seq.toList
     }
 
-    member _.GetOtherVoiceNames (excludeCompositionIds: string list) = async {
-        use connection = dataSource.CreateConnection()
-        let compositionIds = excludeCompositionIds |> List.map int |> List.toArray
-        let! voiceNames = connection.QueryAsync<string>("SELECT DISTINCT vd.name FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE NOT (v.composition_id = ANY(@CompositionIds))", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
-        return Seq.toList voiceNames
-    }
-
     member _.CreateVoice (compositionId: string) (definitionId: string) (file: byte array) (printConfigId: string) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
@@ -415,21 +414,21 @@ type Db(connectionString: string) =
         return string voiceId
     }
 
-    member _.UpdateVoice (_compositionId: string) (voiceId: string) (updateVoice: UpdateVoice) = async {
+    member _.UpdateVoice (_compositionId: string) (voiceId: string) (definitionId: string option) (file: byte array option) (printConfigId: string option) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
         use tx = connection.BeginTransaction()
         let updateFields =
             [
-                match updateVoice.DefinitionId with
+                match definitionId with
                 | Some _ -> "definition_id = @DefinitionId"
                 | None -> ()
 
-                match updateVoice.File with
+                match file with
                 | Some _ -> "file = @File"
                 | None -> ()
 
-                match updateVoice.PrintConfig with
+                match printConfigId with
                 | Some _ -> "print_config_id = @PrintConfigId"
                 | None -> ()
             ]
@@ -437,9 +436,9 @@ type Db(connectionString: string) =
         if updateFields <> "" then
             let updateArgs = {|
                 Id = int voiceId
-                Name = updateVoice.DefinitionId |> Option.map int |> Option.defaultValue 0
-                File = updateVoice.File |> Option.defaultValue Array.empty
-                PrintConfigId = updateVoice.PrintConfig |> Option.defaultValue ""
+                DefinitionId = definitionId |> Option.map int |> Option.defaultValue 0
+                File = file |> Option.defaultValue Array.empty
+                PrintConfigId = printConfigId |> Option.defaultValue ""
             |}
             let command = $"UPDATE voice SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore

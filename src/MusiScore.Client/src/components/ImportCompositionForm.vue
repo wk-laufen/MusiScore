@@ -10,7 +10,7 @@ import toml from 'toml'
 import pLimit from 'p-limit'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
-import VoiceForm, { type SelectedVoice } from './VoiceForm.vue'
+import VoiceForm from './VoiceForm.vue'
 
 const props = defineProps<{
   compositionUrl: string
@@ -36,13 +36,20 @@ const loadVoiceDefinitions = async () => {
 }
 loadVoiceDefinitions()
 
+const isExistingVoiceName = (voiceName: string) => {
+  if (voiceDefinitions.value === undefined) return false
+  return voiceDefinitions.value.some(v => v.name === voiceName)
+}
+
+const isNewVoiceName = (voiceName: string) => !isExistingVoiceName(voiceName)
+
 const isSaving = ref(false)
 
 const files = ref<File[]>()
 
 type Voice = {
   id: string
-  name: SelectedVoice
+  name: string
   nameValidationState: ValidationState
   isEditingName: boolean
   printConfig: string | undefined
@@ -132,7 +139,7 @@ watch(files, async files => {
           const voiceMetadata = compositionMetadata?.data?.composition?.voices?.find?.(v => v.name === voiceName)
           return {
             id: `${nextId++}`,
-            name: { type: voiceDefinitions.value?.some(v => v.name === voiceName) ? 'existing' : 'new', value: voiceName },
+            name: voiceName,
             nameValidationState: { type: 'notValidated' },
             isEditingName: false,
             printConfig: voiceMetadata?.print_config,
@@ -203,7 +210,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: voice.name.value,
+        name: voice.name,
         file: voice.file,
         printConfig: voice.printConfig
       })
@@ -212,7 +219,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
   if (result.succeeded) {
     const newVoice = await result.response.json() as VoiceDto
     voice.isSaved = true
-    voice.name = { type: 'existing', value: newVoice.name }
+    voice.name = newVoice.name
     voice.nameValidationState = { type: 'success' }
   }
   else if (result.response !== undefined && result.response.status === 400) {
@@ -362,12 +369,12 @@ const importInfo = computed(() : ImportInfo | undefined => {
             <div v-for="voice in composition.voices" :key="voice.id">
               <fieldset :disabled="!composition.enabled || isSaving || voice.isSaved">
                 <div v-if="voice.isEditingName" class="flex">
-                  <VoiceForm :voices="voiceDefinitions || []" v-model="voice.name" />
+                  <VoiceForm :voices="voiceDefinitions || []" v-model="voice.name" class="flex-row! items-stretch!" />
                   <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">✔</button>
                 </div>
                 <div v-else class="flex">
-                  <LoadButton :loading="voice.isSaving" class="rounded-r-none!" :class="{ 'bg-yellow-500/50': voice.enabled && voice.name.type === 'new', 'bg-green-500/50': voice.enabled && voice.name.type === 'existing' }" @click="voice.enabled = !voice.enabled">
-                    {{ voice.name.value || '<leer>' }}
+                  <LoadButton :loading="voice.isSaving" class="rounded-r-none!" :class="{ 'bg-yellow-500/50': voice.enabled && isNewVoiceName(voice.name), 'bg-green-500/50': voice.enabled && isExistingVoiceName(voice.name) }" @click="voice.enabled = !voice.enabled">
+                    {{ voice.name || '<leer>' }}
                     <template v-if="voice.isSaved">✔</template>
                     <template v-else-if="voice.hasSavingFailed">❌</template>
                   </LoadButton>

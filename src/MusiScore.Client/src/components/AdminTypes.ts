@@ -48,7 +48,6 @@ export type CompositionTemplate = {
   tags: ExistingTag[]
   isActive: boolean
   voices: Voice[]
-  otherVoiceNames: string[]
 }
 
 export type FullComposition = {
@@ -60,7 +59,6 @@ export type FullComposition = {
     voices?: string
   }
   voices: Voice[]
-  otherVoiceNames: string[]
 }
 
 export type SaveCompositionServerError = 'EmptyTitle'

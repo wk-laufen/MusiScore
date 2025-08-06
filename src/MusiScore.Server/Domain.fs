@@ -135,7 +135,7 @@ type CreateVoice = {
 }
 
 type UpdateVoice = {
-    DefinitionId: string option
+    Definition: VoiceDefinitionReference option
     File: byte[] option
     PrintConfig: string option
 }
@@ -187,9 +187,12 @@ module Parse =
         return { Title = title; TagUpdates = tagsToRemove @ tagsToAdd; IsActive = v.IsActive }
     }
 
-    let voiceName (name: string) = validation {
+    let voiceDefinition (voiceDefinitions: VoiceDefinition list) (name: string) = validation {
         if String.IsNullOrWhiteSpace name then return! Error "EmptyName"
-        else return name
+        else
+            match voiceDefinitions |> List.tryFind (fun voiceDefinition -> voiceDefinition.Name = name) with
+            | Some v -> return UseExistingDefinition v.Id
+            | None -> return CreateNewDefinition { Name = name; AllowPublicPrint = true }
     }
 
     let voiceFile (content: byte array) = validation {
@@ -222,21 +225,17 @@ module Parse =
     }
 
     let createVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) (voiceDefinitions: VoiceDefinition list) = validation {
-        let! name = voiceName v.Name
+        let! definition = voiceDefinition voiceDefinitions v.Name
         and! file = voiceFile v.File
         and! printConfig = printConfigKey v.PrintConfig
-        let definition =
-            match voiceDefinitions |> List.tryFind (fun voiceDefinition -> voiceDefinition.Name = name) with
-            | Some voiceDefinition -> UseExistingDefinition voiceDefinition.Id
-            | None -> CreateNewDefinition { Name = name; AllowPublicPrint = true }
         return { CreateVoice.Definition = definition; File = file; PrintConfig = printConfig }
     } 
 
-    let updateVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDto) = validation {
-        let! name = v.Name |> Option.map voiceName |> Validation.accumulateOption
+    let updateVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDto) (voiceDefinitions: VoiceDefinition list) = validation {
+        let! definition = v.Name |> Option.map (voiceDefinition voiceDefinitions) |> Validation.accumulateOption
         and! file = v.File |> Option.map voiceFile |> Validation.accumulateOption
         and! printConfig = v.PrintConfig |> Option.map printConfigKey |> Validation.accumulateOption
-        return { DefinitionId = name; File = file; PrintConfig = printConfig }
+        return { Definition = definition; File = file; PrintConfig = printConfig }
     }
 
     let regex v = validation {

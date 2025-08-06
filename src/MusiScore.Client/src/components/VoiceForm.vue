@@ -1,33 +1,25 @@
 <script setup lang="ts">
-import { ref, useId, watch } from 'vue'
+import { computed, useId } from 'vue'
 import type { VoiceDefinition } from './AdminTypes'
 
 const props = defineProps<{
   voices: VoiceDefinition[]
+  label?: string
 }>()
+
+const inputId = useId()
 
 const suggestionsElementId = useId()
 
-export type SelectedVoice = { type: 'existing', value: VoiceDefinition['name'] } | { type: 'new', value: string }
-const newVoiceName = ref('')
-const selectedVoice = defineModel<SelectedVoice>({ default: { type: 'existing', value: '' }})
-watch(newVoiceName, voiceName => {
-  const voiceDefinition = props.voices.find(v => v.name === voiceName)
-  if (voiceDefinition !== undefined) {
-    selectedVoice.value = { type: 'existing', value: voiceDefinition.name }
-  }
-  else {
-    selectedVoice.value = { type: 'new', value: voiceName }
-  }
-})
-watch(selectedVoice, voice => {
-  const voiceName : string = voice.type === 'new' ? voice.value : (props.voices.find(v => v.name === voice.value)?.name || '')
-  newVoiceName.value = voiceName
-}, { immediate: true })
+const voiceName = defineModel({ default: '' })
+const voiceNameType = computed(() => props.voices.some(v => v.name === voiceName.value) ? 'existing' : 'new')
 </script>
 <template>
-  <input type="text" v-model="newVoiceName" required :list="suggestionsElementId" class="input-text" :class="{ 'bg-yellow-500/50': selectedVoice.type === 'new', 'bg-green-500/50': selectedVoice.type === 'existing' }" />
-  <datalist :id="suggestionsElementId">
-    <option v-for="voice in voices" :key="voice.name" :value="voice.name">{{ voice.name }}</option>
-  </datalist>
+  <div class="input">
+    <label v-if="label !== undefined" :for="inputId" class="input-label">{{ label }}</label>
+    <input :id="inputId" type="text" v-model="voiceName" required :list="suggestionsElementId" class="input-text" :class="{ 'bg-yellow-500/50': voiceNameType === 'new', 'bg-green-500/50': voiceNameType === 'existing' }" />
+    <datalist :id="suggestionsElementId">
+      <option v-for="voice in voices" :key="voice.name" :value="voice.name">{{ voice.name }}</option>
+    </datalist>
+  </div>
 </template>
