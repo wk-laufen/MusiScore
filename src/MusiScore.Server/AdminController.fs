@@ -323,7 +323,7 @@ type AdminController(db: Db, printer: Printer) =
             return this.File(voice.File, MediaTypeNames.Application.Pdf)
         }
 
-    [<Route("voice-settings")>]
+    [<Route("voice-definitions")>]
     [<HttpGet>]
     member _.GetVoiceDefinitions () =
         async {
@@ -331,7 +331,7 @@ type AdminController(db: Db, printer: Printer) =
             return voiceDefinitions |> List.map Serialize.Admin.voiceDefinitions
         }
 
-    [<Route("voice-settings")>]
+    [<Route("voice-definitions")>]
     [<HttpPut>]
     member this.SaveVoiceDefinitions ([<FromBody>]voiceDefinitions: VoiceDefinitionsDto) =
         async {

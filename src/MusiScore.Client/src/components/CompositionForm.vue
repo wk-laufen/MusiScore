@@ -444,6 +444,8 @@ const saveComposition = async () => {
   finally {
     isSaving.value = false
   }
+
+  await loadVoiceDefinitions()
 }
 </script>
 
