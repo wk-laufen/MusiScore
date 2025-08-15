@@ -235,6 +235,7 @@ type AdminController(db: Db, printer: Printer) =
     [<HttpGet>]
     member this.GetFullComposition (compositionId: string) =
         async {
+            let! voiceDefinitions = db.GetVoiceDefinitions()
             let! composition = db.GetComposition(compositionId)
             return
                 {
@@ -247,7 +248,7 @@ type AdminController(db: Db, printer: Printer) =
                     |}
                     Voices =
                         composition.Voices
-                        |> Seq.sortBy (fun v -> v.Name)
+                        |> Seq.sortBy (_.Name >> Voice.getSortOrder voiceDefinitions)
                         |> Seq.map (fun v -> {
                             Name = v.Name
                             PrintConfig = v.PrintConfigId

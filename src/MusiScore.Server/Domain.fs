@@ -36,14 +36,11 @@ module Voice =
             if v.Name = voiceName then Some (i + 1)
             else None
         )
-    let sortBySortOrder voiceDefinitions list nameFn =
-        list
-        |> List.sortBy (nameFn >> fun voiceName ->
-            let patternSortOrder =
-                tryGetSortOrder voiceDefinitions voiceName
-                |> Option.defaultValue Int32.MaxValue
-            (patternSortOrder, voiceName.ToLowerInvariant())
-        )
+    let getSortOrder voiceDefinitions voiceName =
+        let patternSortOrder =
+            tryGetSortOrder voiceDefinitions voiceName
+            |> Option.defaultValue Int32.MaxValue
+        (patternSortOrder, voiceName.ToLowerInvariant())
 
 type TagValueType = TagValueTypeText | TagValueTypeMultiLineText
 
