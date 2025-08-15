@@ -39,7 +39,7 @@ const saveSettings = async () => {
   <div class="p-4">
     <h2 class="text-2xl small-caps">Einstellungen</h2>
     <PrintSettingsForm ref="printSettingsFormRef" :printConfigsUrl="printConfigsUrl" />
-    <VoiceDefinitionForm ref="voiceDefinitionFormRef" :voice-settings-url="voiceDefinitionsUrl" />
+    <VoiceDefinitionForm ref="voiceDefinitionFormRef" :voiceDefinitionsUrl="voiceDefinitionsUrl" />
   </div>
 
   <Teleport to="#command-bar">

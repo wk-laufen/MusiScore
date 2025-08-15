@@ -137,6 +137,14 @@ module Admin =
         PrintConfig: string option
     }
 
-    type VoiceDefinitionsDto = {
-        SortOrderPatterns: string list
+    type CreateVoiceDefinitionDto = {
+        Name: string
+        SortOrder: int
+        AllowPublicPrint: bool
+    }
+
+    type UpdateVoiceDefinitionDto = {
+        Name: string option
+        SortOrder: int option
+        AllowPublicPrint: bool option
     }

@@ -34,6 +34,15 @@ export type VoiceDefinition = {
   allowPublicPrint: boolean
 }
 
+export type VoiceDefinitionWithStats = {
+  name: string
+  allowPublicPrint: boolean
+  compositions: string[]
+  links: {
+    self: string
+  }
+}
+
 export type Voice = {
   name: string
   printConfig: string

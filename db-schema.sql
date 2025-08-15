@@ -192,3 +192,6 @@ ALTER TABLE voice ALTER COLUMN definition_id SET NOT NULL;
 ALTER TABLE voice ADD CONSTRAINT voice_definition_id_fkey FOREIGN KEY (definition_id) REFERENCES voice_definition(id);
 
 ALTER TABLE voice DROP COLUMN name;
+
+-- drop unique constraint of voice_definition(sort_order)
+ALTER TABLE voice_definition DROP CONSTRAINT voice_definition_sort_order_key;

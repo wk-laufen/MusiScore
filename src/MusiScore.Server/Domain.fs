@@ -10,8 +10,16 @@ type VoiceDefinition = {
     AllowPublicPrint: bool
 }
 
+type VoiceDefinitionWithStats = {
+    Id: string
+    Name: string
+    AllowPublicPrint: bool
+    Compositions: string list
+}
+
 type NewVoiceDefinition = {
     Name: string
+    SortOrder: int option
     AllowPublicPrint: bool
 }
 
@@ -140,6 +148,14 @@ type UpdateVoice = {
     PrintConfig: string option
 }
 
+type VoiceDefinitionUpdate = {
+    Name: string option
+    SortOrder: int option
+    AllowPublicPrint: bool option
+}
+
+type SaveVoiceError = DuplicateVoiceDefinitionName
+
 type FullVoice = {
     Id: string
     Name: string
@@ -176,10 +192,6 @@ module Parse =
         return { NewComposition.Title = title; Tags = tags; IsActive = v.IsActive |> Option.defaultValue false }
     }
 
-    let private noneIfEmpty v =
-        if String.IsNullOrWhiteSpace v then None
-        else Some v
-
     let compositionUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.CompositionUpdateDto) = validation {
         let! title = v.Title |> Option.map compositionTitle |> Validation.accumulateOption
         let! tagsToAdd = v.TagsToAdd |> Option.defaultValue [] |> List.map newTag |> List.sequenceValidationA |> Validation.map (List.map AddTag)
@@ -187,12 +199,12 @@ module Parse =
         return { Title = title; TagUpdates = tagsToRemove @ tagsToAdd; IsActive = v.IsActive }
     }
 
-    let voiceDefinition (voiceDefinitions: VoiceDefinition list) (name: string) = validation {
+    let voiceDefinitionReference (voiceDefinitions: VoiceDefinition list) (name: string) = validation {
         if String.IsNullOrWhiteSpace name then return! Error "EmptyName"
         else
             match voiceDefinitions |> List.tryFind (fun voiceDefinition -> voiceDefinition.Name = name) with
             | Some v -> return UseExistingDefinition v.Id
-            | None -> return CreateNewDefinition { Name = name; AllowPublicPrint = true }
+            | None -> return CreateNewDefinition { Name = name; SortOrder = None; AllowPublicPrint = true }
     }
 
     let voiceFile (content: byte array) = validation {
@@ -225,14 +237,14 @@ module Parse =
     }
 
     let createVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) (voiceDefinitions: VoiceDefinition list) = validation {
-        let! definition = voiceDefinition voiceDefinitions v.Name
+        let! definition = voiceDefinitionReference voiceDefinitions v.Name
         and! file = voiceFile v.File
         and! printConfig = printConfigKey v.PrintConfig
         return { CreateVoice.Definition = definition; File = file; PrintConfig = printConfig }
     } 
 
     let updateVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDto) (voiceDefinitions: VoiceDefinition list) = validation {
-        let! definition = v.Name |> Option.map (voiceDefinition voiceDefinitions) |> Validation.accumulateOption
+        let! definition = v.Name |> Option.map (voiceDefinitionReference voiceDefinitions) |> Validation.accumulateOption
         and! file = v.File |> Option.map voiceFile |> Validation.accumulateOption
         and! printConfig = v.PrintConfig |> Option.map printConfigKey |> Validation.accumulateOption
         return { Definition = definition; File = file; PrintConfig = printConfig }
@@ -244,13 +256,19 @@ module Parse =
         with _ -> return! Error ()
     }
 
-    let voiceSortOrderPatterns (v: string list) = validation {
-        return! v
-            |> List.mapi (fun i v -> 
-                if v = "" then Error [ {| Type = "EmptyPattern"; LineIndex = i |} ]
-                else regex v |> Validation.mapError (fun () -> {| Type = "InvalidPattern"; LineIndex = i |})
-            )
-            |> List.traverseValidationA id
+    let voiceName (name: string) = validation {
+        if String.IsNullOrWhiteSpace name then return! Error "EmptyName"
+        else return name
+    }
+
+    let createVoiceDefinition (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDefinitionDto) : Validation<NewVoiceDefinition, _> = validation {
+        let! name = voiceName v.Name
+        return { Name = name; SortOrder = Some v.SortOrder; AllowPublicPrint = v.AllowPublicPrint }
+    }
+
+    let updateVoiceDefinition (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDefinitionDto) = validation {
+        let! name = v.Name |> Option.map voiceName |> Validation.accumulateOption
+        return { Name = name; SortOrder = v.SortOrder; AllowPublicPrint = v.AllowPublicPrint }
     }
 
 module Serialize =
@@ -275,5 +293,16 @@ module Serialize =
             match e with
             | InvalidReplacementConfigId -> "InvalidReplacementConfigId"
 
-        let voiceDefinitions (v: VoiceDefinition) =
-            {| Name = v.Name; AllowPublicPrint = v.AllowPublicPrint |}
+        let voiceDefinition (url: string) (v: VoiceDefinitionWithStats) =
+            {|
+                Name = v.Name
+                AllowPublicPrint = v.AllowPublicPrint
+                Compositions = v.Compositions
+                Links = {|
+                    Self = url
+                |}
+            |}
+
+        let saveVoiceError e =
+            match e with
+            | DuplicateVoiceDefinitionName -> "DuplicateName"

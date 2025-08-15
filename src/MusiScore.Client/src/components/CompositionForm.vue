@@ -484,7 +484,7 @@ const saveComposition = async () => {
             <LoadingBar v-if="voice.isSaving" type="minimal" class="m-2 mr-0 w-5 h-5" />
             <template v-else>
               <button class="p-2 hover:text-musi-red" title="Löschen" @click.stop="deleteVoice(voice)">
-                <font-awesome-icon :icon="['fas', 'trash']" />
+                <font-awesome-icon :icon="['fas', 'trash-can']" />
               </button>
               <span v-if="voice.hasSavingFailed" class="p-2 text-musi-red" title="Fehler beim Speichern">
                 <font-awesome-icon :icon="['fas', 'info-circle']" />

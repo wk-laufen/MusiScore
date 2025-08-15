@@ -51,16 +51,16 @@ const deleteComposition = async () => {
         class="p-4 grow bg-blue-500"
         title="Löschen erneut versuchen"
         @click="deleteComposition">
-        <font-awesome-icon :icon="['fas', 'trash']" class="text-musi-red" />
+        <font-awesome-icon :icon="['fas', 'trash-can']" class="text-musi-red" />
       </button>
       <button v-else-if="isMarkedForDeletion"
         class="p-4 grow bg-blue-500"
         title="Wirklich löschen"
         @click="deleteComposition">
-        <font-awesome-icon :icon="['fas', 'trash']" class="text-white" />
+        <font-awesome-icon :icon="['fas', 'trash-can']" class="text-white" />
       </button>
       <button v-else class="p-4 grow" title="Löschen" @click="isMarkedForDeletion = true">
-        <font-awesome-icon :icon="['fas', 'trash']" />
+        <font-awesome-icon :icon="['fas', 'trash-can']" />
       </button>
     </div>
   </div>

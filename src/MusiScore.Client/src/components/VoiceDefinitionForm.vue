@@ -1,111 +1,257 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, toRef } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import LoadingBar from './LoadingBar.vue'
 import _ from 'lodash'
+import type { VoiceDefinitionWithStats } from './AdminTypes'
+import draggable from 'vuedraggable'
+import { joinStrings } from './UI'
 
 const props = defineProps<{
-  voiceSettingsUrl: string
+  voiceDefinitionsUrl: string
 }>()
 
-type VoiceSettingsSaveError =
-  { type: 'InvalidPattern', lineIndex: number } |
-  { type: 'EmptyPattern', lineIndex: number }
-type UIVoiceSettingsSaveError =
-  { type: 'InvalidPattern', lineIndex: number, pattern: string } |
-  { type: 'EmptyPattern', lineIndex: number, pattern: string }
-type EditableVoiceSettings = {
-  loadedData: VoiceSettingsDto
-  sortOrderPatterns: string
-  sortOrderPatternsSaveErrors: UIVoiceSettingsSaveError[]
+type VoiceDefinitionSaveError = 'EmptyName' | 'DuplicateName'
+type EditableVoiceDefinition = {
+  loadedData: Pick<VoiceDefinitionWithStats, 'name' | 'allowPublicPrint'> & { sortOrder: number, delete: boolean }
+  links: VoiceDefinitionWithStats['links']
+  id: number
+  isNew: boolean
+  name: string
+  allowPublicPrint: boolean
+  sortOrder: number
+  compositions: string[]
+  delete: boolean
+  isSaving: boolean
+  hasSavingFailed: boolean
+  saveErrors: string[]
 }
 
-const voiceSettings = ref<EditableVoiceSettings>()
-const isLoadingVoiceSettings = ref(false)
-const hasLoadingVoiceSettingsFailed = ref(false)
-const loadVoiceSettings = async () => {
-  const result = await uiFetchAuthorized(isLoadingVoiceSettings, hasLoadingVoiceSettingsFailed, props.voiceSettingsUrl)
+let nextVoiceDefinitionId = 1
+const voiceDefinitions = ref<EditableVoiceDefinition[]>()
+const isLoadingVoiceDefinitions = ref(false)
+const hasLoadingVoiceDefinitionsFailed = ref(false)
+const loadVoiceDefinitions = async () => {
+  const result = await uiFetchAuthorized(isLoadingVoiceDefinitions, hasLoadingVoiceDefinitionsFailed, props.voiceDefinitionsUrl)
   if (result.succeeded) {
-    const loadedVoiceSettings = await result.response.json() as VoiceSettingsDto
-    voiceSettings.value = {
-      loadedData: loadedVoiceSettings,
-      sortOrderPatterns: loadedVoiceSettings.sortOrderPatterns.join('\n'),
-      sortOrderPatternsSaveErrors: []
-    }
+    const loadedVoiceDefinitions = await result.response.json() as VoiceDefinitionWithStats[]
+    voiceDefinitions.value = loadedVoiceDefinitions.map((v, i) => ({
+      loadedData: { name: v.name, allowPublicPrint: v.allowPublicPrint, sortOrder: i + 1, delete: false },
+      links: { ...v.links },
+      id: nextVoiceDefinitionId++,
+      isNew: false,
+      name: v.name,
+      allowPublicPrint: v.allowPublicPrint,
+      sortOrder: i + 1,
+      compositions: v.compositions,
+      delete: false,
+      isSaving: false,
+      hasSavingFailed: false,
+      saveErrors: [],
+    }))
   }
 }
-loadVoiceSettings()
+loadVoiceDefinitions()
 
-const addMatchAllSortOrderPattern = () => {
-  if (voiceSettings.value === undefined) return
+const toggleDeleteVoiceDefinition = (voiceDefinition: EditableVoiceDefinition) => {
+  if (voiceDefinitions.value === undefined) return
 
-  if (voiceSettings.value.sortOrderPatterns.trimEnd().endsWith('\n.*')) return
-
-  voiceSettings.value.sortOrderPatterns += '\n.*'
+  if (voiceDefinition.isNew) {
+    voiceDefinitions.value.splice(voiceDefinitions.value.indexOf(voiceDefinition), 1)
+    updateSortOrder()
+  }
+  else {
+    voiceDefinition.delete = !voiceDefinition.delete
+    updateSortOrder()
+  }
 }
 
-const canSave = computed(() => {
-  if (voiceSettings.value === undefined) return false
+const updateSortOrder = () => {
+  if (voiceDefinitions.value === undefined) return
 
-  return !_.isEqual({ sortOrderPatterns: voiceSettings.value.loadedData.sortOrderPatterns }, { sortOrderPatterns: voiceSettings.value.sortOrderPatterns.split('\n') })
-})
+  let sortOrder = 1
+  for (const voiceDefinition of voiceDefinitions.value) {
+    if (voiceDefinition.delete) continue
+    voiceDefinition.sortOrder = sortOrder
+    sortOrder++
+  }
+}
 
-const isSaving = ref(false)
-const hasSavingFailed = ref(false)
-const save = async () => {
-  if (voiceSettings.value === undefined) return
-  if (!canSave.value) return
+const addVoiceDefinition = () => {
+  if (voiceDefinitions.value === undefined) return
 
-  const voiceSettingsToSave = voiceSettings.value
-  voiceSettingsToSave.sortOrderPatternsSaveErrors = []
-  const result = await uiFetchAuthorized(isSaving, hasSavingFailed, props.voiceSettingsUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sortOrderPatterns: voiceSettingsToSave.sortOrderPatterns.split('\n')
-    })
+  const sortOrder = (_.maxBy(voiceDefinitions.value, v => v.sortOrder)?.sortOrder || 0) + 1
+  voiceDefinitions.value.push({
+    loadedData: { name: '', allowPublicPrint: false, sortOrder: sortOrder, delete: false },
+    links: { self: props.voiceDefinitionsUrl },
+    id: nextVoiceDefinitionId++,
+    isNew: true,
+    name: '',
+    allowPublicPrint: false,
+    sortOrder: sortOrder,
+    compositions: [],
+    delete: false,
+    isSaving: false,
+    hasSavingFailed: false,
+    saveErrors: [],
   })
+}
+
+const handleSaveErrors = (voiceDefinition: EditableVoiceDefinition, errors: VoiceDefinitionSaveError[]) => {
+  voiceDefinition.saveErrors = [
+    ...(errors.includes('EmptyName') ? ['Bitte geben Sie einen Namen ein.'] : []),
+    ...(errors.includes('DuplicateName') ? ['Stimme existiert bereits.'] : []),
+  ]
+}
+
+const createVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
+  const data = {
+    name: voiceDefinition.name,
+    sortOrder: voiceDefinition.sortOrder,
+    allowPublicPrint: voiceDefinition.allowPublicPrint,
+  }
+  const result = await uiFetchAuthorized(
+    toRef(voiceDefinition, 'isSaving'),
+    toRef(voiceDefinition, 'hasSavingFailed'),
+    voiceDefinition.links.self,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }
+  )
   if (result.succeeded) {
-    const loadedVoiceSettings = await result.response.json() as VoiceSettingsDto
-    voiceSettings.value = {
-      loadedData: loadedVoiceSettings,
-      sortOrderPatterns: loadedVoiceSettings.sortOrderPatterns.join('\n'),
-      sortOrderPatternsSaveErrors: []
+    const response = await result.response.json() as VoiceDefinitionWithStats
+    voiceDefinition.isNew = false
+    voiceDefinition.name = response.name
+    voiceDefinition.links = { ...response.links }
+    voiceDefinition.loadedData = {
+      name: response.name,
+      allowPublicPrint: response.allowPublicPrint,
+      sortOrder: voiceDefinition.sortOrder,
+      delete: false
     }
   }
   else if (result.response !== undefined) {
-    const errors = await result.response.json() as VoiceSettingsSaveError[]
-    voiceSettings.value.sortOrderPatternsSaveErrors = errors.map(v => {
-      switch (v.type) {
-        case 'InvalidPattern':
-          return { ...v, pattern: voiceSettingsToSave.sortOrderPatterns.split('\n')[v.lineIndex] }
-        case 'EmptyPattern':
-          return { ...v, pattern: voiceSettingsToSave.sortOrderPatterns.split('\n')[v.lineIndex] }
-      }
-    })
+    const errors = await result.response.json() as VoiceDefinitionSaveError[]
+    handleSaveErrors(voiceDefinition, errors)
   }
+}
+
+const deleteVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
+  if (voiceDefinitions.value === undefined) return
+
+  const result = await uiFetchAuthorized(
+    toRef(voiceDefinition, 'isSaving'),
+    toRef(voiceDefinition, 'hasSavingFailed'),
+    voiceDefinition.links.self,
+    {
+      method: 'DELETE',
+    }
+  )
+  if (result.succeeded) {
+    voiceDefinitions.value.splice(voiceDefinitions.value.indexOf(voiceDefinition), 1)
+  }
+}
+
+const updateVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
+  const data = {
+    name: voiceDefinition.name,
+    sortOrder: voiceDefinition.sortOrder,
+    allowPublicPrint: voiceDefinition.allowPublicPrint,
+  }
+  const result = await uiFetchAuthorized(
+    toRef(voiceDefinition, 'isSaving'),
+    toRef(voiceDefinition, 'hasSavingFailed'),
+    voiceDefinition.links.self,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }
+  )
+  if (result.succeeded) {
+    voiceDefinition.loadedData = {
+      name: voiceDefinition.name,
+      allowPublicPrint: voiceDefinition.allowPublicPrint,
+      sortOrder: voiceDefinition.sortOrder,
+      delete: false
+    }
+  }
+  else if (result.response !== undefined) {
+    const errors = await result.response.json() as VoiceDefinitionSaveError[]
+    handleSaveErrors(voiceDefinition, errors)
+  }
+}
+
+const saveVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
+  voiceDefinition.saveErrors = []
+  if (voiceDefinition.isNew) {
+    await createVoiceDefinition(voiceDefinition)
+  }
+  else if (voiceDefinition.delete) {
+    await deleteVoiceDefinition(voiceDefinition)
+  }
+  else {
+    await updateVoiceDefinition(voiceDefinition)
+  }
+}
+
+const hasChanged = (voiceDefinition: EditableVoiceDefinition) => {
+  let data : EditableVoiceDefinition['loadedData'] = {
+      name: voiceDefinition.name,
+      allowPublicPrint: voiceDefinition.allowPublicPrint,
+      sortOrder: voiceDefinition.sortOrder,
+      delete: voiceDefinition.delete
+    }
+    return !_.isEqual(voiceDefinition.loadedData, data)
+}
+
+const canSave = computed(() => {
+  if (voiceDefinitions.value === undefined) return false
+  return voiceDefinitions.value.some(hasChanged)
+})
+
+const save = async () => {
+  if (voiceDefinitions.value === undefined) return
+  if (!canSave.value) return
+
+  await Promise.all(voiceDefinitions.value.filter(hasChanged).map(v => saveVoiceDefinition(v)))
 }
 
 defineExpose({ canSave, save })
 </script>
 
 <template>
-  <h3 class="mt-2 text-xl small-caps">Stimmeneinstellungen</h3>
-  <LoadingBar v-if="isLoadingVoiceSettings" />
-  <ErrorWithRetry v-else-if="hasLoadingVoiceSettingsFailed" type="inline" @retry="loadVoiceSettings">Fehler beim Laden der Stimmeneinstellungen.</ErrorWithRetry>
-  <div v-else-if="voiceSettings !== undefined" class="flex flex-col gap-2 mt-2">
-    <span v-if="hasSavingFailed" class="text-sm text-musi-red">Fehler beim Speichern der Stimmeneinstellungen.</span>
-    <label class="input">
-      <span class="input-label">Sortierreihenfolge</span>
-      <textarea class="input-textarea min-h-96" :disabled="isSaving" v-model="voiceSettings.sortOrderPatterns"></textarea>
-    </label>
-    <span class="text-sm text-slate-700">Tipp: Um alle Stimmen beim Druck anzuzeigen, füge <a class="px-3 py-2 border rounded-sm font-bold text-musi-blue cursor-pointer" @click="addMatchAllSortOrderPattern">.*</a> am Ende ein.</span>
-    <ul v-if="voiceSettings.sortOrderPatternsSaveErrors.length > 0">
-      <li v-for="error in voiceSettings.sortOrderPatternsSaveErrors" :key="JSON.stringify(error)">
-        <span v-if="error.type === 'InvalidPattern'" class="text-sm text-musi-red">Zeile {{error.lineIndex + 1}}: Ungültiges Muster <span class="px-2 py-1 border rounded-sm text-slate-700">{{ error.pattern }}</span></span>
-        <span v-else-if="error.type === 'EmptyPattern'" class="text-sm text-musi-red">Zeile {{error.lineIndex + 1}}: Muster darf nicht leer sein</span>
-      </li>
-    </ul>
+  <h3 class="mt-2 text-xl small-caps">Stimmen</h3>
+  <LoadingBar v-if="isLoadingVoiceDefinitions" />
+  <ErrorWithRetry v-else-if="hasLoadingVoiceDefinitionsFailed" type="inline" @retry="loadVoiceDefinitions">Fehler beim Laden der Stimmen.</ErrorWithRetry>
+  <div v-else-if="voiceDefinitions !== undefined" class="flex flex-col gap-2 mt-2">
+    <draggable v-model="voiceDefinitions" item-key="id" animation="150" filter="input[type=text]" :preventOnFilter="false" tag="ul" handle=".handle" class="flex flex-col gap-2" @end="updateSortOrder">
+      <template #item="{element: voiceDefinition}">
+        <li>
+          <div class="flex items-center gap-4">
+            <button class="btn" :class="{ 'btn-solid btn-red': voiceDefinition.delete }"
+              :disabled="voiceDefinition.compositions.length > 0"
+              :title="voiceDefinition.compositions.length > 0 ? `Verwendet in ${joinStrings(voiceDefinition.compositions.map((v: string) => `\x22${v}\x22`))}` : 'Nicht verwendet'"
+              @click="toggleDeleteVoiceDefinition(voiceDefinition)">
+              <font-awesome-icon :icon="['fas', 'trash-can']" />
+            </button>
+            <div class="handle cursor-grab">
+              <font-awesome-icon :icon="['fas', 'up-down']" />
+            </div>
+            <input type="text" v-model="voiceDefinition.name" required placeholder="Name" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" class="input-text" />
+            <label class="flex items-center gap-2">
+              <input type="checkbox" v-model="voiceDefinition.allowPublicPrint" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" />
+              <span>Anzeigen</span>
+            </label>
+            <span v-if="voiceDefinition.saveErrors.length > 0" class="text-sm text-musi-red">{{ voiceDefinition.saveErrors.join(" ") }}</span>
+            <span v-else-if="voiceDefinition.hasSavingFailed" class="text-sm text-musi-red">Fehler beim Speichern.</span>
+          </div>
+        </li>
+      </template>
+    </draggable>
+    <button class="btn btn-green btn-solid self-start px-8! py-4!" @click="addVoiceDefinition">Neue Stimme</button>
   </div>
 </template>

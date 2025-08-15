@@ -325,21 +325,46 @@ type AdminController(db: Db, printer: Printer) =
 
     [<Route("voice-definitions")>]
     [<HttpGet>]
-    member _.GetVoiceDefinitions () =
+    member this.GetVoiceDefinitions () =
         async {
-            let! voiceDefinitions =  db.GetVoiceDefinitions()
-            return voiceDefinitions |> List.map Serialize.Admin.voiceDefinitions
+            let! voiceDefinitions =  db.GetVoiceDefinitionsWithStats()
+            return voiceDefinitions |> List.map (fun v ->
+                let url = this.Url.Action(nameof(this.UpdateVoiceDefinition), {| voiceDefinitionId = v.Id |})
+                Serialize.Admin.voiceDefinition url v
+            )
         }
 
     [<Route("voice-definitions")>]
-    [<HttpPut>]
-    member this.SaveVoiceDefinitions ([<FromBody>]voiceDefinitions: VoiceDefinitionsDto) =
+    [<HttpPost>]
+    member this.CreateVoiceDefinition ([<FromBody>]voiceDefinition: CreateVoiceDefinitionDto) =
         async {
-            match Parse.voiceSortOrderPatterns voiceDefinitions.SortOrderPatterns with
-            | Ok voiceSortOrderPatterns ->
-                do! db.UpdateVoiceSortOrderPatterns voiceSortOrderPatterns
-                return this.Ok({
-                    SortOrderPatterns = voiceSortOrderPatterns |> List.map (fun v -> $"%O{v}")
-                }) :> IActionResult
+            match Parse.createVoiceDefinition voiceDefinition with
+            | Ok newVoiceDefinition ->
+                match! db.CreateVoiceDefinition newVoiceDefinition with
+                | Ok voiceDefinition ->
+                    let url = this.Url.Action(nameof(this.UpdateVoiceDefinition), {| voiceDefinitionId = voiceDefinition.Id |})
+                    return this.Ok(Serialize.Admin.voiceDefinition url voiceDefinition) :> IActionResult
+                | Error error -> return this.BadRequest([ Serialize.Admin.saveVoiceError error ])
+            | Error errors -> return this.BadRequest(errors)
+        }
+
+    [<Route("voice-definitions/{voiceDefinitionId}")>]
+    [<HttpDelete>]
+    member _.DeleteVoiceDefinition (voiceDefinitionId: string) =
+        async {
+            do! db.DeleteVoiceDefinition voiceDefinitionId
+        }
+
+    [<Route("voice-definitions/{voiceDefinitionId}")>]
+    [<HttpPatch>]
+    member this.UpdateVoiceDefinition (voiceDefinitionId: string, [<FromBody>]voiceDefinition: UpdateVoiceDefinitionDto) =
+        async {
+            match Parse.updateVoiceDefinition voiceDefinition with
+            | Ok voiceDefinitionUpdate ->
+                match! db.UpdateVoiceDefinition voiceDefinitionId voiceDefinitionUpdate with
+                | Ok updatedVoiceDefinition ->
+                    let url = this.Url.Action(nameof(this.UpdateVoiceDefinition), {| voiceDefinitionId = updatedVoiceDefinition.Id |})
+                    return this.Ok(Serialize.Admin.voiceDefinition url updatedVoiceDefinition) :> IActionResult
+                | Error e -> return this.BadRequest([ Serialize.Admin.saveVoiceError e ])
             | Error errors -> return this.BadRequest(errors)
         }
