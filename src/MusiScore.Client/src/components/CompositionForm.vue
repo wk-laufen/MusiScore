@@ -176,22 +176,24 @@ const loadVoiceSheet = async () => {
     return
   }
 
-  if (activeVoice.value.originalFile.type !== 'notLoaded' && activeVoice.value.originalFile.type != 'loadingFailed') {
+  const voice = activeVoice.value
+
+  if (voice.originalFile.type !== 'notLoaded' && voice.originalFile.type != 'loadingFailed') {
     return
   }
 
-  activeVoice.value.originalFile = { type: 'loading', url: activeVoice.value.originalFile.url }
+  voice.originalFile = { type: 'loading', url: voice.originalFile.url }
 
-  const result = await uiFetchAuthorized(ref(false), ref(false), activeVoice.value.originalFile.url)
+  const result = await uiFetchAuthorized(ref(false), ref(false), voice.originalFile.url)
   if (result.succeeded) {
     const fileContent = await result.response.bytes()
-    if (activeVoice.value.loadedData !== undefined) {
-      activeVoice.value.loadedData.fileHash = getBlobHash(fileContent)
+    if (voice.loadedData !== undefined) {
+      voice.loadedData.fileHash = getBlobHash(fileContent)
     }
-    activeVoice.value.originalFile = { 'type': 'loaded', data: fileContent }
+    voice.originalFile = { 'type': 'loaded', data: fileContent }
   }
   else {
-    activeVoice.value.originalFile = { 'type': 'loadingFailed', url: activeVoice.value.originalFile.url }
+    voice.originalFile = { 'type': 'loadingFailed', url: voice.originalFile.url }
   }
 }
 watch(activeVoice, loadVoiceSheet)
