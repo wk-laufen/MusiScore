@@ -31,16 +31,17 @@ type Voice = {
 module Voice =
     let tryGetSortOrder (voiceDefinitions: VoiceDefinition list) voiceName =
         voiceDefinitions
-        |> List.indexed
-        |> List.tryPick (fun (i, v) ->
-            if v.Name = voiceName then Some (i + 1)
-            else None
-        )
-    let getSortOrder voiceDefinitions voiceName =
+        |> List.tryFindIndex (fun v -> v.AllowPublicPrint && v.Name = voiceName)
+        |> Option.map (fun v -> v + 1)
+
+    let getSortOrder (voiceDefinitions: VoiceDefinition list) voiceName =
         let patternSortOrder =
-            tryGetSortOrder voiceDefinitions voiceName
+            voiceDefinitions
+            |> List.tryFindIndex (fun v -> v.Name = voiceName)
+            |> Option.map ((+) 1)
             |> Option.defaultValue Int32.MaxValue
         (patternSortOrder, voiceName.ToLowerInvariant())
+
 
 type TagValueType = TagValueTypeText | TagValueTypeMultiLineText
 
