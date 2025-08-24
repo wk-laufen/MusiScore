@@ -14,6 +14,7 @@ import { first, last } from 'lodash-es'
 import { Pdf, type PdfModification } from './Pdf'
 import _ from 'lodash'
 import VoiceForm from './VoiceForm.vue'
+import { downloadFile } from './UI'
 
 // see https://stackoverflow.com/a/7616484
 const getBlobHash = (data: Uint8Array) => {
@@ -225,10 +226,10 @@ const printWithPrintConfig = async (voice: EditableVoice) => {
 }
 
 const printWithPrintDialog = async (voice: EditableVoice) => {
-  const file = await serializeVoiceFile(voice.originalFile, voice.fileModifications)
-  if (file === undefined) return
+  if (voice.originalFile.type !== 'loaded') return
 
-  const pdfBlob = new Blob([file], { type: 'application/pdf' })
+  const voicePdf = await Pdf.applyModifications(voice.originalFile.data, voice.fileModifications)
+  const pdfBlob = new Blob([voicePdf.data], { type: 'application/pdf' })
   const pdfUrl = URL.createObjectURL(pdfBlob)
 
   var iframe = document.createElement('iframe')
@@ -242,6 +243,15 @@ const printWithPrintDialog = async (voice: EditableVoice) => {
   }
   iframe.contentWindow.focus()
   iframe.contentWindow.print()
+}
+
+const download = async (voice: EditableVoice) => {
+  if (voice.originalFile.type !== 'loaded') return
+
+  const voicePdf = await Pdf.applyModifications(voice.originalFile.data, voice.fileModifications)
+  const pdfBlob = new Blob([voicePdf.data], { type: 'application/pdf' })
+  const fileName = [composition.value?.title, voice.name].filter(v => v?.trim()).join(" - ") || 'MusiScore'
+  downloadFile(pdfBlob, `${fileName}.pdf`)
 }
 
 watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
@@ -510,7 +520,7 @@ const saveComposition = async () => {
           <ErrorWithRetry v-else-if="hasLoadingPrintConfigsFailed" type="inline" @retry="loadPrintConfigs" class="self-end">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
         </div>
         <div class="mt-6">
-          <span class="input-label">PDF drucken</span>
+          <span class="input-label">PDF exportieren</span>
           <div class="flex flex-row flex-wrap gap-2">
             <LoadButton v-if="activeVoice.originalFile.type === 'loaded' && activeVoice.printConfig !== ''"
               :loading="isPrinting"
@@ -525,6 +535,8 @@ const saveComposition = async () => {
             
             <button v-if="activeVoice.originalFile.type === 'loaded'" class="btn btn-blue" @click="printWithPrintDialog(activeVoice)">Mit Druckdialog drucken</button>
             <button v-else class="btn btn-blue" disabled="true">Mit Druckdialog drucken</button>
+
+            <button class="btn btn-blue" @click="download(activeVoice)">Herunterladen</button>
           </div>
         </div>
         <div class="mt-6">

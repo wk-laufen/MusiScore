@@ -11,6 +11,7 @@ import SettingsForm from './SettingsForm.vue'
 import { uiFetchAuthorized } from './UIFetch'
 import type { CompositionListItem } from './AdminTypes'
 import { useAPIKeyStore } from '@/stores/api-key'
+import { downloadFile } from './UI'
 
 type CompositionData = {
   compositions: CompositionListItem[]
@@ -61,11 +62,7 @@ const exportCompositions = async () => {
   const result = await uiFetchAuthorized(isExportingCompositions, hasExportingCompositionsFailed, compositionList.value.links.export)
   if (result.succeeded) {
     const blob = await result.response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'Notenarchiv.zip'
-    a.click()
+    downloadFile(blob, 'Notenarchiv.zip')
   }
 }
 

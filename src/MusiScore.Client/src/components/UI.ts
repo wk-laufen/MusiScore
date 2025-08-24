@@ -12,3 +12,11 @@ export const joinStrings = (items: string[]) => {
   ]
   return result.join(' und ')
 }
+
+export const downloadFile = (blob: Blob, name: string) => {
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+}
