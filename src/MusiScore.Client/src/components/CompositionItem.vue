@@ -36,30 +36,30 @@ const deleteComposition = async () => {
         {{ tag.settings.overviewDisplayFormat?.format.replace('%s', tag.value!) }}
       </span>
     </div>
-    <button class="p-4"
+    <button class="p-4 cursor-pointer"
       :title="composition.isActive ? 'Markierung entfernen' : 'Als aktuelles Stück markieren'"
       @click="$emit('toggleActivate')">
       <font-awesome-icon v-if="composition.isActive" :icon="['fas', 'star']" />
       <font-awesome-icon v-else :icon="['far', 'star']" />
     </button>
     <div class="flex flex-col justify-items-stretch divide-y divide-blue-500">
-      <button class="p-4 grow" title="Bearbeiten" @click="$emit('edit')">
+      <button class="p-4 grow cursor-pointer" title="Bearbeiten" @click="$emit('edit')">
         <font-awesome-icon :icon="['fas', 'pen']" />
       </button>
       <LoadingBar v-if="isDeleting" type="minimal" class="p-4 grow" />
       <button v-else-if="hasDeletingFailed"
-        class="p-4 grow bg-blue-500"
+        class="p-4 grow bg-blue-500 cursor-pointer"
         title="Löschen erneut versuchen"
         @click="deleteComposition">
         <font-awesome-icon :icon="['fas', 'trash-can']" class="text-musi-red" />
       </button>
       <button v-else-if="isMarkedForDeletion"
-        class="p-4 grow bg-blue-500"
+        class="p-4 grow bg-blue-500 cursor-pointer"
         title="Wirklich löschen"
         @click="deleteComposition">
         <font-awesome-icon :icon="['fas', 'trash-can']" class="text-white" />
       </button>
-      <button v-else class="p-4 grow" title="Löschen" @click="isMarkedForDeletion = true">
+      <button v-else class="p-4 grow cursor-pointer" title="Löschen" @click="isMarkedForDeletion = true">
         <font-awesome-icon :icon="['fas', 'trash-can']" />
       </button>
     </div>
