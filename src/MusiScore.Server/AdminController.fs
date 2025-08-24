@@ -244,7 +244,7 @@ type AdminController(db: Db, printer: Printer) =
                     IsActive = composition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
-                        Voice = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                        Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
                     |}
                     Voices =
                         composition.Voices
