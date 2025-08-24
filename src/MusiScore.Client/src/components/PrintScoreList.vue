@@ -79,7 +79,7 @@ const tryPrint = async () => {
   <div class="grow overflow-y-auto m-4">
     <LoadingBar v-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
-    <div v-else-if="compositionList !== undefined" class="flex flex-col items-stretch m-4">
+    <div v-else-if="compositionList !== undefined" class="flex flex-col items-stretch md:m-4">
       <InfoNotification v-if="compositionList.length === 0">Keine Stücke vorhanden.</InfoNotification>
       <template v-else>
         <HorizontalDivider>Stimme</HorizontalDivider>
@@ -88,7 +88,7 @@ const tryPrint = async () => {
             @click="() => trySelectVoiceName(voiceName)"
             :class="{ 'bg-blue-500 text-white': selectedVoiceName === voiceName, 'opacity-50 cursor-not-allowed!': !isVoiceNameSelectable(voiceName) }"
             class="flex items-stretch border rounded-sm font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
-            <span class="grow flex items-center justify-center text-center p-8! w-60">{{ voiceName }}</span>
+            <span class="grow flex items-center justify-center text-center p-4 md:p-8 md:w-60">{{ voiceName }}</span>
           </div>
         </div>
         <HorizontalDivider>Stück</HorizontalDivider>
@@ -97,16 +97,16 @@ const tryPrint = async () => {
             @click="() => trySelectComposition(composition)"
             :class="{ 'bg-blue-500 text-white': selectedComposition === composition, 'opacity-50 cursor-not-allowed!': !isCompositionSelectable(composition) }"
             class="flex items-stretch border rounded-sm font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
-            <span class="grow flex items-center justify-center text-center p-8! w-60">{{ composition.title }}</span>
+            <span class="grow flex items-center justify-center text-center p-4 md:p-8 md:w-60">{{ composition.title }}</span>
           </div>
         </div>
         <div class="flex justify-center my-8">
           <LoadButton v-if="isPrinting"
             :loading="true"
-            class="btn-solid btn-gold w-60 h-24">&nbsp;</LoadButton>
+            class="btn-solid btn-gold w-60 h-20 md:h-24">&nbsp;</LoadButton>
           <button v-else @click="() => tryPrint()"
             :class="{ 'opacity-50 cursor-not-allowed!': !canPrint(), 'animate-wiggle': hasPrintingFailed }"
-            class="btn btn-solid btn-gold w-60 h-24">
+            class="btn btn-solid btn-gold w-full sm:w-60 h-20 md:h-24">
             <span v-if="hasPrintingFailed">Fehler beim Drucken.<br />Nochmal versuchen</span>
             <span v-else>Drucken</span>
           </button>
