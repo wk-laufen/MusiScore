@@ -229,7 +229,7 @@ defineExpose({ canSave, save })
   <ErrorWithRetry v-else-if="hasLoadingVoiceDefinitionsFailed" type="inline" @retry="loadVoiceDefinitions">Fehler beim Laden der Stimmen.</ErrorWithRetry>
   <div v-else-if="voiceDefinitions !== undefined" class="flex flex-col gap-2 mt-2">
     <draggable v-model="voiceDefinitions" item-key="id" animation="150" filter="input[type=text]" :preventOnFilter="false" tag="ul" handle=".handle" class="flex flex-col gap-2" @end="updateSortOrder">
-      <template #item="{element: voiceDefinition}">
+      <template #item="{ element: voiceDefinition } : { element: EditableVoiceDefinition }">
         <li>
           <div class="flex items-center gap-4">
             <button class="btn" :class="{ 'btn-solid btn-red': voiceDefinition.delete }"

@@ -236,7 +236,7 @@ defineExpose({ canSave, save })
   <ErrorWithRetry v-else-if="hasLoadingPrintConfigsFailed" type="inline" @retry="loadPrintConfigs">Fehler beim Laden der Druckeinstellungen.</ErrorWithRetry>
   <div v-else-if="printConfigs !== undefined">
     <draggable v-model="printConfigs" item-key="id" animation="150" filter="input[type=text]" :preventOnFilter="false" class="mt-4 flex flex-wrap items-start gap-4" @end="updateSortOrder">
-      <template #item="{element: printConfig}">
+      <template #item="{ element: printConfig } : { element: EditablePrintConfig }">
         <PrintConfigItem
           :printConfig="printConfig"
           :replacement-configs="printConfigs.filter(v => v !== printConfig && !v.delete)"
