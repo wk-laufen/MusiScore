@@ -7,41 +7,47 @@ open System.Text.RegularExpressions
 type VoiceDefinition = {
     Id: string
     Name: string
-    AllowPublicPrint: bool
+    MemberCount: int
 }
 
 type VoiceDefinitionWithStats = {
     Id: string
     Name: string
-    AllowPublicPrint: bool
+    MemberCount: int
     Compositions: string list
 }
 
 type NewVoiceDefinition = {
     Name: string
     SortOrder: int option
-    AllowPublicPrint: bool
+    MemberCount: int
 }
 
-type Voice = {
-    Id: string
-    Name: string
-    PrintConfigId: string
-}
+type IVoice =
+    abstract member Name : string
+
 module Voice =
-    let tryGetSortOrder (voiceDefinitions: VoiceDefinition list) voiceName =
-        voiceDefinitions
-        |> List.tryFindIndex (fun v -> v.AllowPublicPrint && v.Name = voiceName)
-        |> Option.map (fun v -> v + 1)
+    let getSortedWithDefinition (voiceDefinitions: VoiceDefinition list) (voices: #IVoice list) =
+        voices
+        |> List.choose (fun voice ->
+            match voiceDefinitions |> List.tryFindIndex (fun v -> v.Name = voice.Name) with
+            | Some voiceDefinitionIndex ->
+                Some (voice, (voiceDefinitionIndex + 1, voiceDefinitions |> List.item voiceDefinitionIndex))
+            | None -> None
+        )
+        |> List.sortBy (fun (_, (idx, voice)) -> (idx, voice.Name.ToLowerInvariant()))
 
-    let getSortOrder (voiceDefinitions: VoiceDefinition list) voiceName =
-        let patternSortOrder =
-            voiceDefinitions
-            |> List.tryFindIndex (fun v -> v.Name = voiceName)
-            |> Option.map ((+) 1)
-            |> Option.defaultValue Int32.MaxValue
-        (patternSortOrder, voiceName.ToLowerInvariant())
+    let filterWithMembers voiceDefinitions voices =
+        getSortedWithDefinition voiceDefinitions voices
+        |> List.filter (fun (voice, (sortOrder, definition)) -> definition.MemberCount > 0)
 
+type Voice =
+    {
+        Id: string
+        Name: string
+        PrintConfigId: string
+    }
+    interface IVoice with member this.Name = this.Name
 
 type TagValueType = TagValueTypeText | TagValueTypeMultiLineText
 
@@ -149,17 +155,19 @@ type UpdateVoice = {
 type VoiceDefinitionUpdate = {
     Name: string option
     SortOrder: int option
-    AllowPublicPrint: bool option
+    MemberCount: int option
 }
 
 type SaveVoiceError = DuplicateVoiceDefinitionName
 
-type FullVoice = {
-    Id: string
-    Name: string
-    File: byte[]
-    PrintConfig: string
-}
+type FullVoice =
+    {
+        Id: string
+        Name: string
+        File: byte[]
+        PrintConfig: string
+    }
+    interface IVoice with member this.Name = this.Name
 
 module Validation =
     // see https://hoogle.haskell.org/?hoogle=Maybe%20(Result%20a%20b)%20-%3E%20Result%20a%20(Maybe%20b)
@@ -202,7 +210,7 @@ module Parse =
         else
             match voiceDefinitions |> List.tryFind (fun voiceDefinition -> voiceDefinition.Name = name) with
             | Some v -> return UseExistingDefinition v.Id
-            | None -> return CreateNewDefinition { Name = name; SortOrder = None; AllowPublicPrint = true }
+            | None -> return CreateNewDefinition { Name = name; SortOrder = None; MemberCount = 1 }
     }
 
     let voiceFile (content: byte array) = validation {
@@ -259,14 +267,21 @@ module Parse =
         else return name
     }
 
+    let voiceMemberCount (v: int) = validation {
+        if v < 0 then return! Error "InvalidMemberCount"
+        else return v
+    }
+
     let createVoiceDefinition (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDefinitionDto) : Validation<NewVoiceDefinition, _> = validation {
         let! name = voiceName v.Name
-        return { Name = name; SortOrder = Some v.SortOrder; AllowPublicPrint = v.AllowPublicPrint }
+        let! memberCount = voiceMemberCount v.MemberCount
+        return { Name = name; SortOrder = Some v.SortOrder; MemberCount = v.MemberCount }
     }
 
     let updateVoiceDefinition (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDefinitionDto) = validation {
         let! name = v.Name |> Option.map voiceName |> Validation.accumulateOption
-        return { Name = name; SortOrder = v.SortOrder; AllowPublicPrint = v.AllowPublicPrint }
+        let! memberCount = v.MemberCount |> Option.map voiceMemberCount |> Validation.accumulateOption
+        return { Name = name; SortOrder = v.SortOrder; MemberCount = memberCount }
     }
 
 module Serialize =
@@ -294,7 +309,7 @@ module Serialize =
         let voiceDefinition (url: string) (v: VoiceDefinitionWithStats) =
             {|
                 Name = v.Name
-                AllowPublicPrint = v.AllowPublicPrint
+                MemberCount = v.MemberCount
                 Compositions = v.Compositions
                 Links = {|
                     Self = url

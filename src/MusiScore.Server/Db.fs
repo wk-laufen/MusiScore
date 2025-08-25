@@ -120,21 +120,21 @@ module private DbModels =
     type DbVoiceDefinition = {
         id: int
         name: string
-        allow_public_print: bool
+        member_count: int
     }
     module DbVoiceDefinition =
         let toDomain v : VoiceDefinition =
-            { Id = string v.id; Name = v.name; AllowPublicPrint = v.allow_public_print }
+            { Id = string v.id; Name = v.name; MemberCount = v.member_count }
 
     type DbVoiceDefinitionWithStats = {
         id: int
         name: string
-        allow_public_print: bool
+        member_count: int
         compositions: string
     }
     module DbVoiceDefinitionWithStats =
         let toDomain v : VoiceDefinitionWithStats =
-            { Id = string v.id; Name = v.name; AllowPublicPrint = v.allow_public_print; Compositions = JsonSerializer.Deserialize<string list> v.compositions }
+            { Id = string v.id; Name = v.name; MemberCount = v.member_count; Compositions = JsonSerializer.Deserialize<string list> v.compositions }
 
 [<AutoOpen>]
 module private DbHelper =
@@ -215,12 +215,12 @@ type Db(connectionString: string) =
     }
     
     let getVoiceDefinitions (connection: NpgsqlConnection) = async {
-        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinitionWithStats>("SELECT vd.id, vd.name, vd.allow_public_print, COALESCE(JSON_AGG(c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions FROM voice_definition vd LEFT JOIN voice v ON v.definition_id = vd.id LEFT JOIN composition c ON c.id = v.composition_id GROUP BY vd.id ORDER BY sort_order") |> Async.AwaitTask
+        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinitionWithStats>("SELECT vd.id, vd.name, vd.member_count, COALESCE(JSON_AGG(c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions FROM voice_definition vd LEFT JOIN voice v ON v.definition_id = vd.id LEFT JOIN composition c ON c.id = v.composition_id GROUP BY vd.id ORDER BY sort_order") |> Async.AwaitTask
         return voiceDefinitions |> Seq.map DbVoiceDefinitionWithStats.toDomain |> Seq.toList
     }
 
     let getVoiceDefinition (connection: NpgsqlConnection) (voiceDefinitionId: int) = async {
-        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinitionWithStats>("SELECT vd.id, vd.name, vd.allow_public_print, COALESCE(JSON_AGG(c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions FROM voice_definition vd LEFT JOIN voice v ON v.definition_id = vd.id LEFT JOIN composition c ON c.id = v.composition_id WHERE vd.id = @Id GROUP BY vd.id", {| Id = voiceDefinitionId |}) |> Async.AwaitTask
+        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinitionWithStats>("SELECT vd.id, vd.name, vd.member_count, COALESCE(JSON_AGG(c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions FROM voice_definition vd LEFT JOIN voice v ON v.definition_id = vd.id LEFT JOIN composition c ON c.id = v.composition_id WHERE vd.id = @Id GROUP BY vd.id", {| Id = voiceDefinitionId |}) |> Async.AwaitTask
         return DbVoiceDefinitionWithStats.toDomain voiceDefinition
     }
 
@@ -262,7 +262,7 @@ type Db(connectionString: string) =
 
     member _.GetVoiceDefinitions() = async {
         use connection = dataSource.CreateConnection()
-        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinition>("SELECT id, name, allow_public_print FROM voice_definition ORDER BY sort_order") |> Async.AwaitTask
+        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinition>("SELECT id, name, member_count FROM voice_definition ORDER BY sort_order") |> Async.AwaitTask
         return voiceDefinitions |> Seq.map DbVoiceDefinition.toDomain |> Seq.toList
     }
 
@@ -273,7 +273,7 @@ type Db(connectionString: string) =
 
     member _.GetVoiceDefinition (definitionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>("SELECT id, name, allow_public_print FROM voice_definition WHERE id = @Id", {| Id = int definitionId |}) |> Async.AwaitTask
+        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>("SELECT id, name, member_count FROM voice_definition WHERE id = @Id", {| Id = int definitionId |}) |> Async.AwaitTask
         return DbVoiceDefinition.toDomain voiceDefinition
     }
 
@@ -285,12 +285,12 @@ type Db(connectionString: string) =
             | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition)", 0)
         let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>($"""
             WITH row AS (
-                INSERT INTO voice_definition(name, sort_order, allow_public_print) VALUES(@Name, {sortOrderSql}, @AllowPublicPrint)
+                INSERT INTO voice_definition(name, sort_order, member_count) VALUES(@Name, {sortOrderSql}, @MemberCount)
                 ON CONFLICT(name) DO UPDATE SET name = EXCLUDED.name
                 RETURNING * 
             )
-            SELECT id, name, allow_public_print FROM row
-            """, {| Name = voiceDefinition.Name; SortOrder = sortOrderValue; AllowPublicPrint = voiceDefinition.AllowPublicPrint |}) |> Async.AwaitTask
+            SELECT id, name, member_count FROM row
+            """, {| Name = voiceDefinition.Name; SortOrder = sortOrderValue; MemberCount = voiceDefinition.MemberCount |}) |> Async.AwaitTask
         return DbVoiceDefinition.toDomain voiceDefinition
     }
 
@@ -307,7 +307,7 @@ type Db(connectionString: string) =
             | Some sortOrder -> ("@SortOrder", sortOrder)
             | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition)", 0)
         try
-            let! voiceDefinitionId = connection.ExecuteScalarAsync<int>($"INSERT INTO voice_definition(name, sort_order, allow_public_print) VALUES(@Name, {sortOrderSql}, @AllowPublicPrint) RETURNING id", {| Name = voiceDefinition.Name; SortOrder = sortOrderValue; AllowPublicPrint = voiceDefinition.AllowPublicPrint |}) |> Async.AwaitTask
+            let! voiceDefinitionId = connection.ExecuteScalarAsync<int>($"INSERT INTO voice_definition(name, sort_order, member_count) VALUES(@Name, {sortOrderSql}, @MemberCount) RETURNING id", {| Name = voiceDefinition.Name; SortOrder = sortOrderValue; MemberCount = voiceDefinition.MemberCount |}) |> Async.AwaitTask
             let! voiceDefinition = getVoiceDefinition connection voiceDefinitionId
             return Ok voiceDefinition
         with
@@ -331,8 +331,8 @@ type Db(connectionString: string) =
                 | Some _ -> "sort_order = @SortOrder"
                 | None -> ()
 
-                match voiceDefinitionUpdate.AllowPublicPrint with
-                | Some _ -> "allow_public_print = @AllowPublicPrint"
+                match voiceDefinitionUpdate.MemberCount with
+                | Some _ -> "member_count = @MemberCount"
                 | None -> ()
             ]
             |> String.concat ", "
@@ -342,7 +342,7 @@ type Db(connectionString: string) =
                     Id = int voiceDefinitionId
                     Name = voiceDefinitionUpdate.Name |> Option.defaultValue ""
                     SortOrder = voiceDefinitionUpdate.SortOrder |> Option.defaultValue 0
-                    AllowPublicPrint = voiceDefinitionUpdate.AllowPublicPrint |> Option.defaultValue false
+                    MemberCount = voiceDefinitionUpdate.MemberCount |> Option.defaultValue 0
                 |}
                 let command = $"UPDATE voice_definition SET %s{updateFields} WHERE id = @Id"
                 do! connection.ExecuteAsync(command, updateArgs) |> Async.AwaitTask |> Async.Ignore

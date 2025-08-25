@@ -14,12 +14,12 @@ const props = defineProps<{
 
 type VoiceDefinitionSaveError = 'EmptyName' | 'DuplicateName'
 type EditableVoiceDefinition = {
-  loadedData: Pick<VoiceDefinitionWithStats, 'name' | 'allowPublicPrint'> & { sortOrder: number, delete: boolean }
+  loadedData: Pick<VoiceDefinitionWithStats, 'name' | 'memberCount'> & { sortOrder: number, delete: boolean }
   links: VoiceDefinitionWithStats['links']
   id: number
   isNew: boolean
   name: string
-  allowPublicPrint: boolean
+  memberCount: number
   sortOrder: number
   compositions: string[]
   delete: boolean
@@ -37,12 +37,12 @@ const loadVoiceDefinitions = async () => {
   if (result.succeeded) {
     const loadedVoiceDefinitions = await result.response.json() as VoiceDefinitionWithStats[]
     voiceDefinitions.value = loadedVoiceDefinitions.map((v, i) => ({
-      loadedData: { name: v.name, allowPublicPrint: v.allowPublicPrint, sortOrder: i + 1, delete: false },
+      loadedData: { name: v.name, memberCount: v.memberCount, sortOrder: i + 1, delete: false },
       links: { ...v.links },
       id: nextVoiceDefinitionId++,
       isNew: false,
       name: v.name,
-      allowPublicPrint: v.allowPublicPrint,
+      memberCount: v.memberCount,
       sortOrder: i + 1,
       compositions: v.compositions,
       delete: false,
@@ -83,12 +83,12 @@ const addVoiceDefinition = () => {
 
   const sortOrder = (_.maxBy(voiceDefinitions.value, v => v.sortOrder)?.sortOrder || 0) + 1
   voiceDefinitions.value.push({
-    loadedData: { name: '', allowPublicPrint: false, sortOrder: sortOrder, delete: false },
+    loadedData: { name: '', memberCount: 1, sortOrder: sortOrder, delete: false },
     links: { self: props.voiceDefinitionsUrl },
     id: nextVoiceDefinitionId++,
     isNew: true,
     name: '',
-    allowPublicPrint: false,
+    memberCount: 1,
     sortOrder: sortOrder,
     compositions: [],
     delete: false,
@@ -109,7 +109,7 @@ const createVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) =
   const data = {
     name: voiceDefinition.name,
     sortOrder: voiceDefinition.sortOrder,
-    allowPublicPrint: voiceDefinition.allowPublicPrint,
+    memberCount: voiceDefinition.memberCount,
   }
   const result = await uiFetchAuthorized(
     toRef(voiceDefinition, 'isSaving'),
@@ -128,7 +128,7 @@ const createVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) =
     voiceDefinition.links = { ...response.links }
     voiceDefinition.loadedData = {
       name: response.name,
-      allowPublicPrint: response.allowPublicPrint,
+      memberCount: response.memberCount,
       sortOrder: voiceDefinition.sortOrder,
       delete: false
     }
@@ -159,7 +159,7 @@ const updateVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) =
   const data = {
     name: voiceDefinition.name,
     sortOrder: voiceDefinition.sortOrder,
-    allowPublicPrint: voiceDefinition.allowPublicPrint,
+    memberCount: voiceDefinition.memberCount,
   }
   const result = await uiFetchAuthorized(
     toRef(voiceDefinition, 'isSaving'),
@@ -174,7 +174,7 @@ const updateVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) =
   if (result.succeeded) {
     voiceDefinition.loadedData = {
       name: voiceDefinition.name,
-      allowPublicPrint: voiceDefinition.allowPublicPrint,
+      memberCount: voiceDefinition.memberCount,
       sortOrder: voiceDefinition.sortOrder,
       delete: false
     }
@@ -201,7 +201,7 @@ const saveVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => 
 const hasChanged = (voiceDefinition: EditableVoiceDefinition) => {
   let data : EditableVoiceDefinition['loadedData'] = {
       name: voiceDefinition.name,
-      allowPublicPrint: voiceDefinition.allowPublicPrint,
+      memberCount: voiceDefinition.memberCount,
       sortOrder: voiceDefinition.sortOrder,
       delete: voiceDefinition.delete
     }
@@ -241,11 +241,11 @@ defineExpose({ canSave, save })
             <div class="handle cursor-grab">
               <font-awesome-icon :icon="['fas', 'up-down']" />
             </div>
-            <input type="text" v-model="voiceDefinition.name" required placeholder="Name" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" class="input-text" />
-            <label class="flex items-center gap-2">
-              <input type="checkbox" v-model="voiceDefinition.allowPublicPrint" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" />
-              <span>Anzeigen</span>
-            </label>
+            <div class="flex items-center gap-2">
+              <input type="number" min="0" v-model="voiceDefinition.memberCount" class="input-text min-w-20! w-20" />
+              <font-awesome-icon :icon="['fas', 'xmark']" />
+              <input type="text" v-model="voiceDefinition.name" required placeholder="Name" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" class="input-text" />
+            </div>
             <span v-if="voiceDefinition.saveErrors.length > 0" class="text-sm text-musi-red">{{ voiceDefinition.saveErrors.join(" ") }}</span>
             <span v-else-if="voiceDefinition.hasSavingFailed" class="text-sm text-musi-red">Fehler beim Speichern.</span>
           </div>

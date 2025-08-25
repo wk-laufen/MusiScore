@@ -195,3 +195,9 @@ ALTER TABLE voice DROP COLUMN name;
 
 -- drop unique constraint of voice_definition(sort_order)
 ALTER TABLE voice_definition DROP CONSTRAINT voice_definition_sort_order_key;
+
+-- replace allow_public_print with member_count
+ALTER TABLE voice_definition ADD COLUMN member_count INT;
+UPDATE voice_definition SET member_count = CASE WHEN allow_public_print THEN 1 ELSE 0 END;
+ALTER TABLE voice_definition ALTER COLUMN member_count SET NOT NULL;
+ALTER TABLE voice_definition DROP COLUMN allow_public_print;

@@ -20,14 +20,9 @@ type PrintController(db: Db, printer: Printer) =
                 compositions
                 |> Seq.sortBy (fun v -> v.Title)
                 |> Seq.map (fun composition ->
-                    let allVoices =
-                        composition.Voices
-                        |> List.map (fun voice ->
-                            (voice, Voice.tryGetSortOrder voiceDefinitions voice.Name)
-                        )
-                        |> List.sortBy snd
                     let voicesWithSortOrder =
-                        allVoices |> List.choose (fun (voice, sortOrder) -> match sortOrder with | Some v -> Some (voice, v) | None -> None)
+                        Voice.filterWithMembers voiceDefinitions composition.Voices
+                        |> List.map (fun (voice, (sortOrder, _)) -> (voice, sortOrder))
                     {
                         Title = composition.Title
                         Tags = composition.Tags |> List.map Serialize.Print.existingTag

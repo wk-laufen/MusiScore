@@ -40,6 +40,7 @@ module Admin =
         Links: {|
             Self: string
             Voices: string
+            Print: string
         |}
     }
 
@@ -127,7 +128,7 @@ module Admin =
         Title: string
         Tags: ExistingTag list
         IsActive: bool
-        Links: {| Self: string; Voice: string |}
+        Links: {| Self: string; Voices: string; Print: string |}
         Voices: ExistingVoiceDto array
     }
 
@@ -140,11 +141,11 @@ module Admin =
     type CreateVoiceDefinitionDto = {
         Name: string
         SortOrder: int
-        AllowPublicPrint: bool
+        MemberCount: int
     }
 
     type UpdateVoiceDefinitionDto = {
         Name: string option
         SortOrder: int option
-        AllowPublicPrint: bool option
+        MemberCount: int option
     }

@@ -32,6 +32,7 @@ type AdminController(db: Db, printer: Printer) =
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
                             Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
+                            Print = this.Url.Action(nameof(this.PrintComposition), {| compositionId = v.Id |})
                         |}
                     })
                     |> Seq.toArray
@@ -162,6 +163,7 @@ type AdminController(db: Db, printer: Printer) =
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = composition.Id |})
                         Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = composition.Id |})
+                        Print = this.Url.Action(nameof(this.PrintComposition), {| compositionId = composition.Id |})
                     |}
                 }
                 return this.Ok(result) :> IActionResult
@@ -218,6 +220,7 @@ type AdminController(db: Db, printer: Printer) =
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition))
                         Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                        Print = this.Url.Action(nameof(this.PrintComposition), {| compositionId = compositionId |})
                     |}
                 }
                 return this.Ok(result) :> IActionResult
@@ -245,20 +248,43 @@ type AdminController(db: Db, printer: Printer) =
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
                         Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
+                        Print = this.Url.Action(nameof(this.PrintComposition), {| compositionId = compositionId |})
                     |}
                     Voices =
-                        composition.Voices
-                        |> Seq.sortBy (_.Name >> Voice.getSortOrder voiceDefinitions)
-                        |> Seq.map (fun v -> {
-                            Name = v.Name
-                            PrintConfig = v.PrintConfigId
+                        Voice.getSortedWithDefinition voiceDefinitions composition.Voices
+                        |> Seq.map (fun (voice, _) -> {
+                            Name = voice.Name
+                            PrintConfig = voice.PrintConfigId
                             Links = {|
-                                Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = v.Id |})
-                                Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = v.Id |})
+                                Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voice.Id |})
+                                Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = voice.Id |})
                             |}
                         })
                         |> Seq.toArray
                 }
+        }
+
+    [<Route("compositions/{compositionId}/print")>]
+    [<HttpPost>]
+    member this.PrintComposition (compositionId: string) =
+        async {
+            let! voiceDefinitions = db.GetVoiceDefinitions()
+            let! voices = db.GetFullCompositionVoices compositionId
+            let! printConfigs = db.GetPrintConfigs()
+            let! printErrors =
+                Voice.filterWithMembers voiceDefinitions voices
+                |> List.map (fun (voice, (_, voiceDefinition)) -> async {
+                    match printConfigs |> List.tryFind (fun v -> v.Key = voice.PrintConfig) with
+                    | Some printConfig ->
+                        try
+                            do! printer.PrintPdf voice.File printConfig.Settings voiceDefinition.MemberCount
+                            return true
+                        with e -> return false
+                    | None -> return true
+                })
+                |> Async.Sequential
+            if printErrors |> Seq.reduce (&&) = true then return this.NoContent() :> IActionResult
+            else return this.StatusCode(StatusCodes.Status500InternalServerError, {| Message = "Some voices failed to print" |})
         }
 
     [<Route("compositions/{compositionId}/voices")>]

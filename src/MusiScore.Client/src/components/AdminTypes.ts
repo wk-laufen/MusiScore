@@ -21,6 +21,7 @@ export type CompositionListItem = {
   links: {
     self: string
     voices: string
+    print: string
   }
 }
 
@@ -31,12 +32,12 @@ export type PrintConfig = {
 
 export type VoiceDefinition = {
   name: string
-  allowPublicPrint: boolean
+  memberCount: number
 }
 
 export type VoiceDefinitionWithStats = {
   name: string
-  allowPublicPrint: boolean
+  memberCount: number
   compositions: string[]
   links: {
     self: string
@@ -65,7 +66,8 @@ export type FullComposition = {
   isActive: boolean
   links: {
     self: string
-    voices?: string
+    voices: string
+    print: string
   }
   voices: Voice[]
 }
