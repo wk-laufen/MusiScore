@@ -140,7 +140,7 @@ const pagesToString = (pages: readonly number[]) => {
       </template>
       <template v-else-if="modification.type === 'rotateContent'">
         <span>{{ pagesToString(modification.pages) }} um
-          <input v-if="modification.isDraft" class="input-text w-20!" type="number" step="0.1" v-model="modification.degrees">
+          <input v-if="modification.isDraft" class="input-text min-w-20! w-20" type="number" step="0.1" v-model="modification.degrees">
           <template v-else>{{ modification.degrees }}</template>
           Grad drehen</span>
       </template>
