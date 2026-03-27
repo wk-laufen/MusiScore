@@ -12,6 +12,7 @@ import SelectInput from './SelectInput.vue'
 import VoiceSheetEditor from './VoiceSheetEditor.vue'
 import { first, last } from 'lodash-es'
 import { Pdf, type PdfModification } from './Pdf'
+import { PDFDocument } from 'pdf-lib'
 import _ from 'lodash'
 import VoiceForm from './VoiceForm.vue'
 import { downloadFile } from './UI'
@@ -211,7 +212,15 @@ watch(activeVoiceFile, async v => {
   if (!activeVoice.value.name) {
     activeVoice.value.name = v.name.substring(0, v.name.lastIndexOf('.'))
   }
-  activeVoice.value.originalFile = { type: 'loaded', data: new Uint8Array(await v.arrayBuffer()) }
+  const data = new Uint8Array(await v.arrayBuffer())
+  try {
+    await PDFDocument.load(data)
+    activeVoice.value.fileValidationState = { type: 'success' }
+    activeVoice.value.originalFile = { type: 'loaded', data }
+  } catch (e) {
+    console.warn('Error while loading PDF document: ', e instanceof Error ? e.message : e)
+    activeVoice.value.fileValidationState = { type: 'error', error: 'Fehler beim Laden des Dokuments. Möglicherweise ist es passwortgeschützt.' }
+  }
 })
 
 const isPrinting = ref(false)
