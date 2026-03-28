@@ -7,9 +7,10 @@ module PDF =
     let isValid (content: byte array) =
         try
             use docStream = new MemoryStream(content)
-            use doc = new PdfDocument(new PdfReader(docStream))
+            let reader = new PdfReader(docStream)
+            use doc = new PdfDocument(reader)
             let _ = doc.GetNumberOfPages()
-            true
+            not <| reader.IsEncrypted()
         with _ -> false
 
     let getPageSizes (content: byte[]) =
