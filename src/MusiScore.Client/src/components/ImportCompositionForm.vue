@@ -2,7 +2,7 @@
 import { computed, ref, toRef, watch } from 'vue'
 import FolderInput from './FolderInput.vue'
 import LoadButton from './LoadButton.vue'
-import _ from 'lodash'
+import { groupBy, map } from 'lodash-es'
 import type { ValidationState } from './Validation'
 import { uiFetchAuthorized } from './UIFetch'
 import { serializeFile, type CompositionListItem, type SaveCompositionServerError, type SaveVoiceServerError, type Voice as VoiceDto, type VoiceFileServerError, type VoiceDefinition } from './AdminTypes'
@@ -110,17 +110,19 @@ const tryReadMetadata = async (file: File) : Promise<Metadata | undefined> => {
 const compositions = ref<Composition[]>()
 watch(files, async files => {
   const metadata =
-    (await Promise.all(_(files)
+    (await Promise.all(files
       .filter(v => v.name === '.metadata.toml')
       .map(tryReadMetadata)
-      .value()
     ))
     .filter(v => v !== undefined)
-  compositions.value = _(files)
+
+  const pdfFiles = files
     .filter(v => v.type === 'application/pdf')
     .map(v => ({ directoryName: v.webkitRelativePath.split('/').at(-2) || '<unbekannt>', fileName: v.name, content: v.stream() }))
-    .groupBy(v => v.directoryName)
-    .map((value, key) : Composition => {
+
+  compositions.value = map(
+    groupBy(pdfFiles, v => v.directoryName),
+    (value, key) : Composition => {
       const compositionMetadata = metadata.find(v => v.compositionName === key)
       return {
         id: `${nextId++}`,
@@ -153,8 +155,8 @@ watch(files, async files => {
           }
         })
       }
-    })
-    .value()
+    }
+  )
 })
 
 const inferPrintConfig = async (voice: Voice) => {
