@@ -374,13 +374,16 @@ const importInfo = computed(() : ImportInfo | undefined => {
                   <VoiceForm :voices="voiceDefinitions || []" v-model="voice.name" class="flex-row! items-stretch!" />
                   <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">✔</button>
                 </div>
-                <div v-else class="flex">
+                <div v-else class="flex flex-col">
+                  <div class="flex">
                   <LoadButton :loading="voice.isSaving" class="rounded-r-none!" :class="{ 'bg-yellow-500/50': voice.enabled && isNewVoiceName(voice.name), 'bg-green-500/50': voice.enabled && isExistingVoiceName(voice.name) }" @click="voice.enabled = !voice.enabled">
                     {{ voice.name || '<leer>' }}
                     <template v-if="voice.isSaved">✔</template>
                     <template v-else-if="voice.hasSavingFailed">❌</template>
                   </LoadButton>
                   <button class="btn rounded-l-none! border-l-0!" @click="voice.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
+                  </div>
+                  <span v-if="voice.fileValidationState.type === 'error'" class="text-sm text-musi-red">{{ voice.fileValidationState.error }}</span>
                 </div>
               </fieldset>
             </div>
