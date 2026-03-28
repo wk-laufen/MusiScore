@@ -322,16 +322,16 @@ const importInfo = computed(() : ImportInfo | undefined => {
   const saveFailedVoices = compositions.value.flatMap(v => v.voices).filter(v => v.enabled && v.hasSavingFailed).length
 
   if (saveFailedCompositions > 0 && saveFailedVoices > 0) {
-    return { type: 'error', message: `${pluralize(saveFailedCompositions, 'Stück', 'Stücke')} und ${pluralize(saveFailedVoices, 'Stimme', 'Stimmen')} konnten nicht importiert werden.` }
+    return { type: 'error', message: `${pluralize(saveFailedCompositions, 'Stück', 'Stücke')} und ${pluralize(saveFailedVoices, 'Stimme', 'Stimmen')} ${pluralize(saveFailedCompositions + saveFailedVoices, 'konnte', 'konnten')} nicht importiert werden.` }
   }
   else if (saveFailedCompositions > 0) {
-    return { type: 'error', message: `${pluralize(saveFailedCompositions, 'Stück', 'Stücke')} konnten nicht importiert werden.` }
+    return { type: 'error', message: `${pluralize(saveFailedCompositions, 'Stück konnte', 'Stücke konnten')} nicht importiert werden.` }
   }
   else if (saveFailedVoices > 0) {
-    return { type: 'error', message: `${pluralize(saveFailedVoices, 'Stimme', 'Stimmen')} konnten nicht importiert werden.` }
+    return { type: 'error', message: `${pluralize(saveFailedVoices, 'Stimme konnte', 'Stimmen konnten')} nicht importiert werden.` }
   }
   else if (savedCompositions > 0) {
-    return { type: 'success', message: `${pluralize(savedCompositions, 'Stück', 'Stücke')} mit ${pluralize(savedVoices, 'Stimme', 'Stimmen')} wurden erfolgreich importiert.` }
+    return { type: 'success', message: `${pluralize(savedCompositions, 'Stück', 'Stücke')} mit ${pluralize(savedVoices, 'Stimme', 'Stimmen')} ${pluralize(savedCompositions, 'wurde', 'wurden')} erfolgreich importiert.` }
   }
   return undefined
 })
