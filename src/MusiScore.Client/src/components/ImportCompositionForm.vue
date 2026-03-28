@@ -6,7 +6,7 @@ import _ from 'lodash'
 import type { ValidationState } from './Validation'
 import { uiFetchAuthorized } from './UIFetch'
 import { serializeFile, type CompositionListItem, type SaveCompositionServerError, type SaveVoiceServerError, type Voice as VoiceDto, type VoiceFileServerError, type VoiceDefinition } from './AdminTypes'
-import toml from 'toml'
+import { parse as parseToml } from 'toml'
 import pLimit from 'p-limit'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -99,7 +99,7 @@ const tryReadMetadata = async (file: File) : Promise<Metadata | undefined> => {
   try {
     return {
       compositionName,
-      data: toml.parse(await file.text())
+      data: parseToml(await file.text())
     }
   }
   catch (e) {
