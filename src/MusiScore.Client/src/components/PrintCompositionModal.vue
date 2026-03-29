@@ -90,6 +90,7 @@ const print = async () => {
     <div class="p-4">
       <LoadingBar v-if="isLoading" />
       <ErrorWithRetry v-else-if="hasLoadingFailed" type="inline" @retry="loadVoices">Stimmen konnten nicht geladen werden.</ErrorWithRetry>
+      <p v-else-if="voices.length === 0" class="text-sm text-slate-500">Keine Stimmen vorhanden.</p>
       <div v-else class="flex flex-col text-sm divide-y">
         <div v-for="voice in voices" :key="voice.name" class="flex justify-between items-center gap-4 py-2">
           <div class="flex flex-col">
@@ -108,7 +109,7 @@ const print = async () => {
       <button class="btn btn-blue" @click="close">Abbrechen</button>
       <LoadButton class="btn btn-blue btn-solid"
         :loading="isPrinting"
-        :disabled="isLoading || hasLoadingFailed"
+        :disabled="isLoading || hasLoadingFailed || voices.length === 0"
         @click="print">
         <div class="flex items-center gap-2">
           <span>Drucken</span>
