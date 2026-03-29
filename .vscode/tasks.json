@@ -2,7 +2,7 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "Run DB",
+			"label": "Run external systems (DB, CUPS)",
 			"type": "process",
 			"command": "docker",
 			"args": [
