@@ -39,8 +39,8 @@ const showPrintDialog = ref(false)
         {{ tag.settings.overviewDisplayFormat?.format.replace('%s', tag.value!) }}
       </span>
     </div>
-    <div class="flex flex-col justify-items-stretch divide-y divide-blue-500">
-      <button class="p-4 cursor-pointer"
+    <div class="flex flex-col divide-y divide-blue-500">
+      <button class="p-4 grow cursor-pointer"
         :title="composition.isActive ? 'Markierung entfernen' : 'Als aktuelles Stück markieren'"
         @click="$emit('toggleActivate')">
         <font-awesome-icon v-if="composition.isActive" :icon="['fas', 'star']" />
@@ -52,7 +52,7 @@ const showPrintDialog = ref(false)
         <font-awesome-icon :icon="['fas', 'print']" />
       </button>
     </div>
-    <div class="flex flex-col justify-items-stretch divide-y divide-blue-500">
+    <div class="flex flex-col divide-y divide-blue-500">
       <button class="p-4 grow cursor-pointer" title="Bearbeiten" @click="$emit('edit')">
         <font-awesome-icon :icon="['fas', 'pen']" />
       </button>
