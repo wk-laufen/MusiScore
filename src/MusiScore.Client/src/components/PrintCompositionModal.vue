@@ -79,7 +79,7 @@ const print = async () => {
 </script>
 
 <template>
-  <div ref="popover" popover class="m-auto rounded-md border shadow-lg min-w-96 max-w-full backdrop:bg-black/30 backdrop:backdrop-blur-[2px] divide-y">
+  <div ref="popover" popover class="m-auto rounded-md border shadow-lg min-w-96 max-w-full max-h-[90vh] backdrop:bg-black/30 backdrop:backdrop-blur-[2px] divide-y flex flex-col">
     <div class="flex items-center justify-between">
       <span class="font-semibold ml-4">{{ composition.title }}</span>
       <button class="cursor-pointer ml-4 p-4" title="Schließen" @click="close">
@@ -87,7 +87,7 @@ const print = async () => {
       </button>
     </div>
 
-    <div class="p-4">
+    <div class="p-4 overflow-auto">
       <LoadingBar v-if="isLoading" />
       <ErrorWithRetry v-else-if="hasLoadingFailed" type="inline" @retry="loadVoices">Stimmen konnten nicht geladen werden.</ErrorWithRetry>
       <p v-else-if="voices.length === 0" class="text-sm text-slate-500">Keine Stimmen vorhanden.</p>
