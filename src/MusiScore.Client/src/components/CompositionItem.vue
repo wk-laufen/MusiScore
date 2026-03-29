@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import LoadingBar from './LoadingBar.vue'
-import LoadButton from './LoadButton.vue'
+import PrintCompositionModal from './PrintCompositionModal.vue'
 import { type CompositionListItem } from './AdminTypes'
 import { uiFetchAuthorized } from './UIFetch'
 import { sortBy } from 'lodash-es';
@@ -26,11 +26,7 @@ const deleteComposition = async () => {
   }
 }
 
-const isPrinting = ref(false)
-const hasPrintingFailed = ref(false)
-const printFullComposition = async () => {
-  await uiFetchAuthorized(isPrinting, hasPrintingFailed, props.composition.links.print, { method: 'POST' })
-}
+const showPrintDialog = ref(false)
 </script>
 
 <template>
@@ -50,12 +46,11 @@ const printFullComposition = async () => {
         <font-awesome-icon v-if="composition.isActive" :icon="['fas', 'star']" />
         <font-awesome-icon v-else :icon="['far', 'star']" />
       </button>
-      <LoadButton class="p-4 grow cursor-pointer"
-        :loading="isPrinting"
-        :title="hasPrintingFailed ? 'In Orchesterstärke drucken fehlgeschlagen - nochmal versuchen' : 'In Orchesterstärke drucken'"
-        @click="printFullComposition">
-        <font-awesome-icon :icon="['fas', 'print']" :class="{ 'text-musi-red': hasPrintingFailed }" />
-      </LoadButton>
+      <button class="p-4 grow cursor-pointer"
+        title="In Orchesterstärke drucken"
+        @click="showPrintDialog = true">
+        <font-awesome-icon :icon="['fas', 'print']" />
+      </button>
     </div>
     <div class="flex flex-col justify-items-stretch divide-y divide-blue-500">
       <button class="p-4 grow cursor-pointer" title="Bearbeiten" @click="$emit('edit')">
@@ -79,4 +74,7 @@ const printFullComposition = async () => {
       </button>
     </div>
   </div>
+  <PrintCompositionModal v-if="showPrintDialog"
+    :composition="composition"
+    @close="showPrintDialog = false" />
 </template>

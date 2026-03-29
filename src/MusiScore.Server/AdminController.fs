@@ -265,26 +265,44 @@ type AdminController(db: Db, printer: Printer) =
         }
 
     [<Route("compositions/{compositionId}/print")>]
-    [<HttpPost>]
-    member this.PrintComposition (compositionId: string) =
+    [<HttpGet>]
+    member this.GetCompositionPrintSettings (compositionId: string) =
         async {
             let! voiceDefinitions = db.GetVoiceDefinitions()
             let! voices = db.GetFullCompositionVoices compositionId
+            return
+                Voice.getSortedWithDefinition voiceDefinitions voices
+                |> List.map (fun (voice, (_, voiceDefinition)) -> {
+                    Name = voice.Name
+                    Count = voiceDefinition.MemberCount
+                })
+        }
+
+    [<Route("compositions/{compositionId}/print")>]
+    [<HttpPost>]
+    member this.PrintComposition (compositionId: string, [<FromBody>]settings: VoicePrintSettingsDto list) =
+        async {
+            let! voices = db.GetFullCompositionVoices compositionId
+            let! voiceDefinitions = db.GetVoiceDefinitions()
             let! printConfigs = db.GetPrintConfigs()
-            let! printErrors =
-                Voice.filterWithMembers voiceDefinitions voices
-                |> List.map (fun (voice, (_, voiceDefinition)) -> async {
+            let countByName = settings |> List.map (fun v -> (v.Name, v.Count)) |> Map.ofList
+            return!
+                Voice.getSortedWithDefinition voiceDefinitions voices
+                |> List.choose (fun (voice, _) ->
+                    countByName
+                    |> Map.tryFind voice.Name
+                    |> Option.bind (fun count -> if count > 0 then Some (voice, count) else None)
+                )
+                |> List.map (fun (voice, count) -> async {
                     match printConfigs |> List.tryFind (fun v -> v.Key = voice.PrintConfig) with
                     | Some printConfig ->
                         try
-                            do! printer.PrintPdf voice.File printConfig.Settings voiceDefinition.MemberCount
-                            return true
-                        with e -> return false
-                    | None -> return true
+                            do! printer.PrintPdf voice.File printConfig.Settings count
+                            return { VoiceName = voice.Name; Result = "Success" }
+                        with _ -> return { VoiceName = voice.Name; Result = "PrintingFailed" }
+                    | None -> return { VoiceName = voice.Name; Result = "PrintConfigNotFound" }
                 })
                 |> Async.Sequential
-            if printErrors |> Seq.reduce (&&) = true then return this.NoContent() :> IActionResult
-            else return this.StatusCode(StatusCodes.Status500InternalServerError, {| Message = "Some voices failed to print" |})
         }
 
     [<Route("compositions/{compositionId}/voices")>]

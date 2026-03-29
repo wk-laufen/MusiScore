@@ -149,3 +149,13 @@ module Admin =
         SortOrder: int option
         MemberCount: int option
     }
+
+    type VoicePrintSettingsDto = {
+        Name: string
+        Count: int
+    }
+
+    type VoicePrintResultDto = {
+        VoiceName: string
+        Result: string
+    }

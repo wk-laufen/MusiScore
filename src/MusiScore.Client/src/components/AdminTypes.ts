@@ -30,6 +30,16 @@ export type PrintConfig = {
   name: string
 }
 
+export type VoicePrintSettings = {
+  name: string
+  count: number
+}
+
+export type VoicePrintResult = {
+  voiceName: string
+  result: 'Success' | 'PrintingFailed' | 'PrintConfigNotFound'
+}
+
 export type VoiceDefinition = {
   name: string
   memberCount: number
