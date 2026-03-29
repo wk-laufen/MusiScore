@@ -471,25 +471,6 @@ const saveComposition = async () => {
   await loadVoiceDefinitions()
 }
 
-const isSavingAndPrinting = ref(false)
-const isPrintingComposition = ref(false)
-const hasPrintingCompositionFailed = ref(false)
-
-const saveAndPrintFullComposition = async () => {
-  if (composition.value === undefined) return
-
-  isSavingAndPrinting.value = true
-  try {
-    await saveComposition()
-    if (!composition.value.links.print) {
-      return
-    }
-    await uiFetchAuthorized(isPrintingComposition, hasPrintingCompositionFailed, composition.value.links.print, { method: 'POST' })
-  }
-  finally {
-    isSavingAndPrinting.value = false
-  }
-}
 </script>
 
 <template>
@@ -586,11 +567,5 @@ const saveAndPrintFullComposition = async () => {
   <Teleport to="#command-bar">
     <button class="btn btn-solid btn-gold px-8! py-4!" :disabled="isSaving" @click="$emit('cancelEdit')">Zurück zur Übersicht</button>
     <LoadButton :loading="isSaving" class="btn-solid btn-blue px-8! py-4!" @click="saveComposition">Speichern</LoadButton>
-    <LoadButton :loading="isSavingAndPrinting" class="btn-solid btn-green px-8! py-4!" @click="saveAndPrintFullComposition">
-      <div class="flex flex-col gap-2">
-        <span>Speichern und in Orchesterstärke drucken</span>
-        <span v-if="hasPrintingCompositionFailed" class="text-sm text-musi-red">Fehler beim Drucken - Nochmal versuchen</span>
-      </div>
-    </LoadButton>
   </Teleport>
 </template>

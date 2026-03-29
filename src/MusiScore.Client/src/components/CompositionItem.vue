@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import LoadingBar from './LoadingBar.vue'
+import LoadButton from './LoadButton.vue'
 import { type CompositionListItem } from './AdminTypes'
 import { uiFetchAuthorized } from './UIFetch'
 import { sortBy } from 'lodash-es';
@@ -24,6 +25,12 @@ const deleteComposition = async () => {
     emit('deleted')
   }
 }
+
+const isPrinting = ref(false)
+const hasPrintingFailed = ref(false)
+const printFullComposition = async () => {
+  await uiFetchAuthorized(isPrinting, hasPrintingFailed, props.composition.links.print, { method: 'POST' })
+}
 </script>
 
 <template>
@@ -36,12 +43,20 @@ const deleteComposition = async () => {
         {{ tag.settings.overviewDisplayFormat?.format.replace('%s', tag.value!) }}
       </span>
     </div>
-    <button class="p-4 cursor-pointer"
-      :title="composition.isActive ? 'Markierung entfernen' : 'Als aktuelles Stück markieren'"
-      @click="$emit('toggleActivate')">
-      <font-awesome-icon v-if="composition.isActive" :icon="['fas', 'star']" />
-      <font-awesome-icon v-else :icon="['far', 'star']" />
-    </button>
+    <div class="flex flex-col justify-items-stretch divide-y divide-blue-500">
+      <button class="p-4 cursor-pointer"
+        :title="composition.isActive ? 'Markierung entfernen' : 'Als aktuelles Stück markieren'"
+        @click="$emit('toggleActivate')">
+        <font-awesome-icon v-if="composition.isActive" :icon="['fas', 'star']" />
+        <font-awesome-icon v-else :icon="['far', 'star']" />
+      </button>
+      <LoadButton class="p-4 grow cursor-pointer"
+        :loading="isPrinting"
+        :title="hasPrintingFailed ? 'In Orchesterstärke drucken fehlgeschlagen - nochmal versuchen' : 'In Orchesterstärke drucken'"
+        @click="printFullComposition">
+        <font-awesome-icon :icon="['fas', 'print']" :class="{ 'text-musi-red': hasPrintingFailed }" />
+      </LoadButton>
+    </div>
     <div class="flex flex-col justify-items-stretch divide-y divide-blue-500">
       <button class="p-4 grow cursor-pointer" title="Bearbeiten" @click="$emit('edit')">
         <font-awesome-icon :icon="['fas', 'pen']" />
