@@ -159,6 +159,10 @@ module Admin =
         MemberCount: int option
     }
 
+    type VoiceDefinitionDeleteDto = {
+        ReplacementVoiceDefinitionId: string option
+    }
+
     type CreateVoiceDefinitionGroupDto = {
         Name: string
         SortOrder: int

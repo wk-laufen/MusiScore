@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
 import type { EditableVoiceDefinition, EditableVoiceDefinitionGroup } from './VoiceDefinitionTypes'
-import { joinStrings } from './UI'
+import VoiceDefinitionItem from './VoiceDefinitionItem.vue'
 import { computed } from 'vue';
 
 const props = defineProps<{
   group: EditableVoiceDefinitionGroup
+  /** every voice definition across all groups, so a deleted one can hand its voices to any other */
+  allVoiceDefinitions: EditableVoiceDefinition[]
 }>()
 
 const name = defineModel<string>('name')
@@ -18,11 +20,6 @@ defineEmits<{
 }>()
 
 const deleteGroup = computed(() => props.group.type === 'UserGroup' && props.group.delete)
-
-const usageTitle = (voiceDefinition: EditableVoiceDefinition) =>
-  voiceDefinition.compositions.length > 0
-    ? `Verwendet in ${joinStrings(voiceDefinition.compositions.map(v => `"${v}"`))}`
-    : 'Nicht verwendet'
 
 const deleteGroupTitle = () =>
   props.group.voiceDefinitions.length > 0
@@ -55,24 +52,13 @@ const deleteGroupTitle = () =>
       @change="$emit('reorder')">
       <template #item="{ element: voiceDefinition } : { element: EditableVoiceDefinition }">
         <li>
-          <div class="flex items-center gap-2 rounded p-1" :class="{ 'opacity-50': voiceDefinition.delete }">
-            <button class="btn" :class="{ 'btn-solid btn-red': voiceDefinition.delete }"
-              :disabled="voiceDefinition.compositions.length > 0"
-              :title="usageTitle(voiceDefinition)"
-              @click="$emit('deleteVoiceDefinition', voiceDefinition)">
-              <font-awesome-icon :icon="['fas', 'trash-can']" />
-            </button>
-            <div class="w-6 text-center" :class="{ 'voice-handle cursor-grab': !voiceDefinition.delete }">
-              <font-awesome-icon :icon="['fas', 'up-down-left-right']" />
-            </div>
-            <div class="flex items-center gap-2">
-              <input type="number" min="0" v-model="voiceDefinition.memberCount" class="input-text min-w-20! w-20" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" />
-              <font-awesome-icon :icon="['fas', 'xmark']" />
-              <input type="text" v-model="voiceDefinition.name" required placeholder="Name" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" class="input-text" />
-            </div>
-            <span v-if="voiceDefinition.saveErrors.length > 0" class="text-sm text-musi-red">{{ voiceDefinition.saveErrors.join(" ") }}</span>
-            <span v-else-if="voiceDefinition.hasSavingFailed" class="text-sm text-musi-red">Fehler beim Speichern.</span>
-          </div>
+          <VoiceDefinitionItem
+            :voice-definition="voiceDefinition"
+            :all-voice-definitions="allVoiceDefinitions"
+            v-model:name="voiceDefinition.name"
+            v-model:member-count="voiceDefinition.memberCount"
+            v-model:replacement-id="voiceDefinition.replacementId"
+            @delete="$emit('deleteVoiceDefinition', voiceDefinition)" />
         </li>
       </template>
       <template #footer>

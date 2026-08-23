@@ -187,6 +187,8 @@ type SaveVoiceError =
     | DuplicateVoiceDefinitionName
     | UnknownVoiceDefinitionGroup
 
+type VoiceDefinitionDeleteError = InvalidReplacementVoiceDefinitionId
+
 type FullVoice =
     {
         Id: string
@@ -350,6 +352,7 @@ module Serialize =
 
         let voiceDefinition (url: string) (v: VoiceDefinition) =
             {|
+                Id = v.Id
                 Name = v.Name
                 MemberCount = v.MemberCount
                 Links = {|
@@ -359,6 +362,7 @@ module Serialize =
 
         let voiceDefinitionWithStats (url: string) (v: VoiceDefinitionWithStats) =
             {|
+                Id = v.Id
                 Name = v.Name
                 MemberCount = v.MemberCount
                 Compositions = v.Compositions
@@ -384,3 +388,7 @@ module Serialize =
         let saveVoiceDefinitionGroupError e =
             match e with
             | DuplicateVoiceDefinitionGroupName -> "DuplicateName"
+
+        let voiceDefinitionDeleteError e =
+            match e with
+            | InvalidReplacementVoiceDefinitionId -> "InvalidReplacementVoiceDefinitionId"

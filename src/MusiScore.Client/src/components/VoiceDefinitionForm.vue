@@ -11,6 +11,7 @@ import type {
   UserGroupedVoiceDefinitions,
   VoiceDefinition,
   VoiceDefinitionGroup,
+  VoiceDefinitionDeleteError,
   VoiceDefinitionGroupSaveError,
   VoiceDefinitionInputs,
   VoiceDefinitionSaveError,
@@ -37,6 +38,9 @@ const groups = computed(() =>
     : undefined
 )
 
+/** every voice definition across all groups, so a deleted one can hand its voices to any other */
+const allVoiceDefinitions = computed(() => groups.value?.flatMap(v => v.voiceDefinitions) ?? [])
+
 const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
 
@@ -45,12 +49,15 @@ const loadVoiceDefinition = (v: VoiceDefinitionWithStats, groupId: string | null
   loadedData: undefined,
   links: { ...v.links },
   id: newId('v'),
+  serverId: v.id,
   isNew: false,
   name: v.name,
   memberCount: v.memberCount,
   sortOrder: 0,
   groupId,
   compositions: v.compositions,
+  replacementId: '',
+  replacementIdValidationState: { type: 'notValidated' },
   delete: false,
   isSaving: false,
   hasSavingFailed: false,
@@ -164,12 +171,15 @@ const addVoiceDefinition = (group: EditableVoiceDefinitionGroup) => {
     loadedData: undefined,
     links: { self: props.voiceDefinitionsUrl },
     id: newId('v'),
+    serverId: null,
     isNew: true,
     name: '',
     memberCount: 1,
     sortOrder: 0,
     groupId: EditableVoiceDefinitionGroup.getClientId(group),
     compositions: [],
+    replacementId: '',
+    replacementIdValidationState: { type: 'notValidated' },
     delete: false,
     isSaving: false,
     hasSavingFailed: false,
@@ -314,6 +324,7 @@ const saveNewVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition, 
   if (result.succeeded) {
     const response = await result.response.json() as VoiceDefinition
     voiceDefinition.isNew = false
+    voiceDefinition.serverId = response.id
     voiceDefinition.name = response.name
     voiceDefinition.links = { ...response.links }
     voiceDefinition.loadedData = getVoiceDefinitionInputs(voiceDefinition)
@@ -353,15 +364,28 @@ const deleteVoiceDefinition = async (group: EditableVoiceDefinitionGroup, voiceD
     toRef(voiceDefinition, 'isSaving'),
     toRef(voiceDefinition, 'hasSavingFailed'),
     voiceDefinition.links.self,
-    { method: 'DELETE' }
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        replacementVoiceDefinitionId: voiceDefinition.replacementId || null
+      })
+    }
   )
   if (result.succeeded) {
     group.voiceDefinitions.splice(group.voiceDefinitions.indexOf(voiceDefinition), 1)
+  }
+  else if (result.response !== undefined && result.response.status === 400) {
+    const errors = await result.response.json() as VoiceDefinitionDeleteError[]
+    voiceDefinition.replacementIdValidationState = errors.includes('InvalidReplacementVoiceDefinitionId')
+      ? { type: 'error', error: 'Bitte wählen Sie eine Stimme, die stattdessen verwendet werden soll.' }
+      : { type: 'success' }
   }
 }
 
 const saveVoiceDefinition = async (group: EditableVoiceDefinitionGroup, voiceDefinition: EditableVoiceDefinition) => {
   voiceDefinition.saveErrors = []
+  voiceDefinition.replacementIdValidationState = { type: 'notValidated' }
   if (voiceDefinition.isNew) {
     await saveNewVoiceDefinition(voiceDefinition, EditableVoiceDefinitionGroup.getServerId(group))
   }
@@ -412,6 +436,7 @@ defineExpose({ canSave, save })
         <li>
           <VoiceDefinitionGroupItem
             :group="group"
+            :all-voice-definitions="allVoiceDefinitions"
             v-model:name="group.name"
             @delete="toggleDeleteGroup(group)"
             @add-voice-definition="addVoiceDefinition(group)"
@@ -422,6 +447,7 @@ defineExpose({ canSave, save })
     </draggable>
     <VoiceDefinitionGroupItem v-for="group in noGroups" :key="group.type"
       :group="group"
+      :all-voice-definitions="allVoiceDefinitions"
       is-ungrouped
       @add-voice-definition="addVoiceDefinition(group)"
       @delete-voice-definition="toggleDeleteVoiceDefinition(group, $event)"

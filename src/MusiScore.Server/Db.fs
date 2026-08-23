@@ -415,9 +415,24 @@ type Db(connectionString: string) =
         | ForeignKeyViolation "voice_definition_group_id_fkey" -> return Error UnknownVoiceDefinitionGroup
     }
 
-    member _.DeleteVoiceDefinition (voiceDefinitionId: string) = async {
+    /// Voices of the deleted voice definition are moved to `replacementVoiceDefinitionId`. Deleting a voice
+    /// definition that is still in use without a valid replacement is rejected by `voice_definition_id_fkey`.
+    member _.DeleteVoiceDefinition (voiceDefinitionId: string) (replacementVoiceDefinitionId: string option) = async {
         use connection = dataSource.CreateConnection()
-        do! connection.ExecuteAsync("DELETE FROM voice_definition WHERE id = @Id", {| Id = int voiceDefinitionId |}) |> Async.AwaitTask |> Async.Ignore
+        connection.Open()
+        use tx = connection.BeginTransaction()
+        try
+            match replacementVoiceDefinitionId |> Option.bind (fun v -> match Int32.TryParse v with | (true, id) -> Some id | _ -> None) with
+            | Some replacementId ->
+                do! connection.ExecuteAsync("UPDATE voice SET definition_id = @NewDefinitionId WHERE definition_id = @OldDefinitionId", {| OldDefinitionId = int voiceDefinitionId; NewDefinitionId = replacementId |}, tx) |> Async.AwaitTask |> Async.Ignore
+            | None -> ()
+            do! connection.ExecuteAsync("DELETE FROM voice_definition WHERE id = @Id", {| Id = int voiceDefinitionId |}, tx) |> Async.AwaitTask |> Async.Ignore
+            do! tx.CommitAsync() |> Async.AwaitTask
+            return Ok ()
+        with
+        | ForeignKeyViolation "voice_definition_id_fkey" ->
+            do! tx.RollbackAsync() |> Async.AwaitTask
+            return Error InvalidReplacementVoiceDefinitionId
     }
 
     member _.UpdateVoiceDefinition (voiceDefinitionId: string) (voiceDefinitionUpdate: VoiceDefinitionUpdate) = async {

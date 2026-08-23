@@ -41,6 +41,7 @@ export type VoicePrintResult = {
 }
 
 export type VoiceDefinition = {
+  id: string
   name: string
   memberCount: number
   links: {
@@ -80,6 +81,7 @@ export type UngroupedVoiceDefinitions =
 export type GroupedVoiceDefinition = UserGroupedVoiceDefinitions | UngroupedVoiceDefinitions
 
 export type VoiceDefinitionSaveError = 'EmptyName' | 'DuplicateName' | 'UnknownGroup'
+export type VoiceDefinitionDeleteError = 'InvalidReplacementVoiceDefinitionId'
 export type VoiceDefinitionGroupSaveError = 'EmptyName' | 'DuplicateName'
 
 export type VoiceDefinitionInputs = {

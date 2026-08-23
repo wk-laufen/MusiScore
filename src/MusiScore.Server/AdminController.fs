@@ -396,9 +396,11 @@ type AdminController(db: Db, printer: Printer) =
 
     [<Route("voice-definitions/{voiceDefinitionId}")>]
     [<HttpDelete>]
-    member _.DeleteVoiceDefinition (voiceDefinitionId: string) =
+    member this.DeleteVoiceDefinition (voiceDefinitionId: string, [<FromBody>]options: VoiceDefinitionDeleteDto) =
         async {
-            do! db.DeleteVoiceDefinition voiceDefinitionId
+            match! db.DeleteVoiceDefinition voiceDefinitionId options.ReplacementVoiceDefinitionId with
+            | Ok () -> return this.NoContent() :> IActionResult
+            | Error e -> return this.BadRequest([ Serialize.Admin.voiceDefinitionDeleteError e ])
         }
 
     [<Route("voice-definitions/{voiceDefinitionId}")>]
