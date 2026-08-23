@@ -1,11 +1,19 @@
 import type { ValidationState } from './Validation'
 
+export type CompositionVoices = {
+  title: string
+  /** voice names in voice definition order */
+  voices: string[]
+}
+
 export type PrintConfigDto = {
   key: string
   name: string
   sortOrder: number
   cupsCommandLineArgs: string
   reorderPagesAsBooklet: boolean
+  /** compositions using this print config, most voices first */
+  compositions: CompositionVoices[]
   links: {
     self: string
   }

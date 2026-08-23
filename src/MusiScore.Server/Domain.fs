@@ -121,6 +121,21 @@ type PrintConfig = {
     Settings: PrintSettings
 }
 
+type CompositionVoices = {
+    Title: string
+    /// voice names in voice definition order
+    Voices: string list
+}
+
+type PrintConfigWithStats = {
+    Key: string
+    Name: string
+    SortOrder: int
+    Settings: PrintSettings
+    /// compositions using this print config, most voices first
+    Compositions: CompositionVoices list
+}
+
 type PrintConfigUpdate = {
     Name: string option
     ReorderPagesAsBooklet: bool option

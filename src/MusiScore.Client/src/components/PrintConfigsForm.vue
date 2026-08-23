@@ -77,6 +77,7 @@ const addPrintConfig = () => {
     nameValidationState: { type: 'notValidated' },
     sortOrder: printConfigs.value.length === 0 ? 1 : Math.max(...printConfigs.value.map(v => v.sortOrder)) + 1,
     cupsCommandLineArgs: '',
+    compositions: [],
     cupsCommandLineArgsValidationState: { type: 'notValidated' },
     reorderPagesAsBooklet: false,
     delete: false,

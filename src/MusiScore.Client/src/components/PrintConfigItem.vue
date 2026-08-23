@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import TextInput from './TextInput.vue'
 import ActivatableTextInput from './ActivatableTextInput.vue'
 import LoadingBar from './LoadingBar.vue'
 import type { EditablePrintConfig } from './PrintConfigTypes'
 import type { PrintConfig } from './AdminTypes'
 import SelectInput from './SelectInput.vue'
+import { joinStrings } from './UI'
 
 const props = defineProps<{
   printConfig: EditablePrintConfig
@@ -31,6 +32,11 @@ watch([name, idIsReadOnly], ([newName, newIdIsReadOnly]) => {
 const cupsCommandLineArgs = defineModel<string>('cupsCommandLineArgs', { required: true })
 const reorderPagesAsBooklet = defineModel<boolean>('reorderPagesAsBooklet', { required: true })
 const replacementConfigId = defineModel<string>('replacementConfigId', { required: true })
+
+const isUsed = computed(() => props.printConfig.compositions.length > 0)
+
+const usageTitle = computed(() =>
+  `Verwendet in ${joinStrings(props.printConfig.compositions.map(composition => `"${composition.title}" (${joinStrings(composition.voices.map(v => `"${v}"`))})`))}`)
 </script>
 
 <template>
@@ -61,8 +67,11 @@ const replacementConfigId = defineModel<string>('replacementConfigId', { require
         </label>
       </fieldset>
       <fieldset :disabled="printConfig.isSaving" class="flex flex-col gap-4">
-        <button class="self-stretch btn btn-red" :class="{ 'btn-solid': printConfig.delete }" @click="emit('delete')">Druckeinstellung löschen</button>
-        <SelectInput v-if="printConfig.delete" title="Ersetzen durch" :options="replacementConfigs.map(v => ({ key: v.key, value: v.name}))" :validation-state="printConfig.replacementConfigIdValidationState" v-model="replacementConfigId" />
+        <button class="self-stretch btn btn-red !flex items-center justify-center gap-2" :class="{ 'btn-solid': printConfig.delete }" @click="emit('delete')">
+          <span>Druckeinstellung löschen</span>
+          <font-awesome-icon v-if="isUsed" :icon="['fas', 'info-circle']" :title="usageTitle" />
+        </button>
+        <SelectInput v-if="printConfig.delete && isUsed" title="Ersetzen durch" :options="replacementConfigs.map(v => ({ key: v.key, value: v.name}))" :validation-state="printConfig.replacementConfigIdValidationState" v-model="replacementConfigId" />
       </fieldset>
     </div>
     <LoadingBar v-if="printConfig.isSaving" type="minimal" class="col-span-full row-span-full" />

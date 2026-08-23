@@ -58,12 +58,19 @@ module Admin =
         |}
     }
 
+    type CompositionVoicesDto = {
+        Title: string
+        Voices: string list
+    }
+
     type PrintConfigDto = {
         Key: string
         Name: string
         SortOrder: int
         ReorderPagesAsBooklet: bool
         CupsCommandLineArgs: string
+        /// compositions using this print config, most voices first
+        Compositions: CompositionVoicesDto list
         Links: {|
             Self: string
         |}

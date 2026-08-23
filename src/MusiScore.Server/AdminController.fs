@@ -66,7 +66,7 @@ type AdminController(db: Db, printer: Printer) =
     [<HttpGet>]
     member this.GetPrintConfigs () =
         async {
-            let! printConfigs = db.GetPrintConfigs()
+            let! printConfigs = db.GetPrintConfigsWithStats()
             return
                 printConfigs
                 |> List.map (fun v -> {
@@ -75,6 +75,7 @@ type AdminController(db: Db, printer: Printer) =
                     SortOrder = v.SortOrder
                     CupsCommandLineArgs = v.Settings.CupsCommandLineArgs
                     ReorderPagesAsBooklet = v.Settings.ReorderPagesAsBooklet
+                    Compositions = v.Compositions |> List.map (fun v -> { Title = v.Title; Voices = v.Voices })
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdatePrintConfig), {| key = v.Key |})
                     |}
@@ -95,6 +96,7 @@ type AdminController(db: Db, printer: Printer) =
                         SortOrder = newPrintConfig.SortOrder
                         CupsCommandLineArgs = newPrintConfig.Settings.CupsCommandLineArgs
                         ReorderPagesAsBooklet = newPrintConfig.Settings.ReorderPagesAsBooklet
+                        Compositions = []
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdatePrintConfig), {| key = newPrintConfig.Key |})
                         |}

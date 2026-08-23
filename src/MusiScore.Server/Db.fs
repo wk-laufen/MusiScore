@@ -116,6 +116,21 @@ module private DbModels =
     module DbPrintConfig =
         let toDomain v : PrintConfig =
             { Key = v.key; Name = v.name; SortOrder = v.sort_order; Settings = { ReorderPagesAsBooklet = v.reorder_pages_as_booklet; CupsCommandLineArgs = v.cups_command_line_args } }
+        let toDomainWithStats v compositions : PrintConfigWithStats =
+            {
+                Key = v.key
+                Name = v.name
+                SortOrder = v.sort_order
+                Settings = { ReorderPagesAsBooklet = v.reorder_pages_as_booklet; CupsCommandLineArgs = v.cups_command_line_args }
+                Compositions = compositions
+            }
+
+    type DbPrintConfigUsage = {
+        print_config_id: string
+        composition_id: int
+        title: string
+        voice_name: string
+    }
 
     type DbVoiceDefinition = {
         id: int
@@ -656,6 +671,39 @@ type Db(connectionString: string) =
             printConfigs
             |> Seq.map DbPrintConfig.toDomain
             |> Seq.toList
+    }
+
+    /// Loads all print configs together with the compositions using them, most voices first.
+    member _.GetPrintConfigsWithStats() = async {
+        use connection = dataSource.CreateConnection()
+        let! printConfigs = connection.QueryAsync<DbPrintConfig>("SELECT \"key\", name, sort_order, reorder_pages_as_booklet, cups_command_line_args FROM voice_print_config ORDER BY sort_order") |> Async.AwaitTask
+        let! usages =
+            connection.QueryAsync<DbPrintConfigUsage>($"""
+                SELECT v.print_config_id, c.id composition_id, c.title, vd.name voice_name
+                FROM voice v
+                JOIN composition c ON c.id = v.composition_id
+                JOIN voice_definition vd ON vd.id = v.definition_id
+                LEFT JOIN voice_definition_group vdg ON vd.group_id = vdg.id
+                %s{voiceDefinitionOrder}
+                """) |> Async.AwaitTask
+        let usagesByPrintConfig =
+            usages
+            |> Seq.groupBy _.print_config_id
+            |> Seq.map (fun (printConfigId, usages) ->
+                let compositions =
+                    usages
+                    // the query is ordered by voice definition, so the voices of a composition stay in that order
+                    |> Seq.groupBy (fun v -> (v.composition_id, v.title))
+                    |> Seq.map (fun ((_, title), voices) -> { Title = title; Voices = [ for v in voices -> v.voice_name ] })
+                    |> Seq.sortBy (fun v -> (-v.Voices.Length, v.Title))
+                    |> Seq.toList
+                (printConfigId, compositions)
+            )
+            |> Map.ofSeq
+        return [
+            for printConfig in printConfigs ->
+                DbPrintConfig.toDomainWithStats printConfig (usagesByPrintConfig |> Map.tryFind printConfig.key |> Option.defaultValue [])
+        ]
     }
 
     member _.GetPrintConfig (key: string) = async {
