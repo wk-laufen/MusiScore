@@ -3,112 +3,302 @@ import { computed, ref, toRef } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import LoadingBar from './LoadingBar.vue'
+import VoiceDefinitionGroupItem from './VoiceDefinitionGroupItem.vue'
 import _ from 'lodash'
-import type { VoiceDefinitionWithStats } from './AdminTypes'
+import type {
+  GroupedVoiceDefinition,
+  UngroupedVoiceDefinitions,
+  UserGroupedVoiceDefinitions,
+  VoiceDefinition,
+  VoiceDefinitionGroup,
+  VoiceDefinitionGroupSaveError,
+  VoiceDefinitionInputs,
+  VoiceDefinitionSaveError,
+  VoiceDefinitionWithStats
+} from './AdminTypes'
 import draggable from 'vuedraggable'
-import { joinStrings } from './UI'
+import { EditableVoiceDefinitionGroup, type EditableVoiceDefinition, type EditableVoiceDefinitionNoGroup, type EditableVoiceDefinitionUserGroup, type VoiceDefinitionGroupInputs } from './VoiceDefinitionTypes'
 
 const props = defineProps<{
   voiceDefinitionsUrl: string
+  voiceDefinitionGroupsUrl: string
 }>()
 
-type VoiceDefinitionSaveError = 'EmptyName' | 'DuplicateName'
-type EditableVoiceDefinition = {
-  loadedData: Pick<VoiceDefinitionWithStats, 'name' | 'memberCount'> & { sortOrder: number, delete: boolean }
-  links: VoiceDefinitionWithStats['links']
-  id: number
-  isNew: boolean
-  name: string
-  memberCount: number
-  sortOrder: number
-  compositions: string[]
-  delete: boolean
-  isSaving: boolean
-  hasSavingFailed: boolean
-  saveErrors: string[]
-}
+let nextId = 1
+const newId = (prefix: string) => `${prefix}${nextId++}`
 
-let nextVoiceDefinitionId = 1
-const voiceDefinitions = ref<EditableVoiceDefinition[]>()
-const isLoadingVoiceDefinitions = ref(false)
-const hasLoadingVoiceDefinitionsFailed = ref(false)
-const loadVoiceDefinitions = async () => {
-  const result = await uiFetchAuthorized(isLoadingVoiceDefinitions, hasLoadingVoiceDefinitionsFailed, props.voiceDefinitionsUrl)
-  if (result.succeeded) {
-    const loadedVoiceDefinitions = await result.response.json() as VoiceDefinitionWithStats[]
-    voiceDefinitions.value = loadedVoiceDefinitions.map((v, i) => ({
-      loadedData: { name: v.name, memberCount: v.memberCount, sortOrder: i + 1, delete: false },
-      links: { ...v.links },
-      id: nextVoiceDefinitionId++,
-      isNew: false,
-      name: v.name,
-      memberCount: v.memberCount,
-      sortOrder: i + 1,
-      compositions: v.compositions,
-      delete: false,
-      isSaving: false,
-      hasSavingFailed: false,
-      saveErrors: [],
-    }))
+const userGroups = ref<EditableVoiceDefinitionUserGroup[]>()
+const noGroups = ref<EditableVoiceDefinitionNoGroup[]>()
+
+/** all groups in display order, the ungrouped voice definitions last */
+const groups = computed(() =>
+  userGroups.value !== undefined && noGroups.value !== undefined
+    ? [...userGroups.value, ...noGroups.value] as EditableVoiceDefinitionGroup[]
+    : undefined
+)
+
+const isLoading = ref(false)
+const hasLoadingFailed = ref(false)
+
+// the sort order of a loaded item is derived from its position, see `updateSortOrder`
+const loadVoiceDefinition = (v: VoiceDefinitionWithStats, groupId: string | null) : EditableVoiceDefinition => ({
+  loadedData: undefined,
+  links: { ...v.links },
+  id: newId('v'),
+  isNew: false,
+  name: v.name,
+  memberCount: v.memberCount,
+  sortOrder: 0,
+  groupId,
+  compositions: v.compositions,
+  delete: false,
+  isSaving: false,
+  hasSavingFailed: false,
+  saveErrors: [],
+})
+
+const loadUserGroup = (group: UserGroupedVoiceDefinitions) : EditableVoiceDefinitionUserGroup => {
+  const id = newId('g')
+  return {
+    type: 'UserGroup',
+    loadedData: undefined,
+    links: { ...group.links },
+    id,
+    serverId: group.id,
+    isNew: false,
+    name: group.name,
+    sortOrder: 0,
+    delete: false,
+    isSaving: false,
+    hasSavingFailed: false,
+    saveErrors: [],
+    voiceDefinitions: group.voiceDefinitions.map(v => loadVoiceDefinition(v, id))
   }
 }
-loadVoiceDefinitions()
 
-const toggleDeleteVoiceDefinition = (voiceDefinition: EditableVoiceDefinition) => {
-  if (voiceDefinitions.value === undefined) return
+const loadNoGroup = (group: UngroupedVoiceDefinitions) : EditableVoiceDefinitionNoGroup => ({
+  type: 'NoGroup',
+  voiceDefinitions: group.voiceDefinitions.map(v => loadVoiceDefinition(v, null))
+})
 
-  if (voiceDefinition.isNew) {
-    voiceDefinitions.value.splice(voiceDefinitions.value.indexOf(voiceDefinition), 1)
-    updateSortOrder()
+const load = async () => {
+  const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, props.voiceDefinitionGroupsUrl)
+  if (!result.succeeded) return
+
+  const loaded = await result.response.json() as GroupedVoiceDefinition[]
+  userGroups.value = loaded.filter(v => v.type === 'UserGroup').map(loadUserGroup)
+  noGroups.value = loaded.filter(v => v.type === 'NoGroup').map(loadNoGroup)
+  updateSortOrder()
+  // whatever we ended up with is the state as it was loaded, so nothing counts as changed yet
+  for (const group of userGroups.value) {
+    group.loadedData = getGroupInputs(group)
+  }
+  for (const group of groups.value ?? []) {
+    for (const voiceDefinition of group.voiceDefinitions) {
+      voiceDefinition.loadedData = getVoiceDefinitionInputs(voiceDefinition)
+    }
+  }
+}
+load()
+
+/**
+ * Voice definitions are sorted by group first, so their sort order as well as the group they belong to
+ * are derived from where they are placed in the UI.
+ */
+const updateSortOrder = () => {
+  if (userGroups.value === undefined || groups.value === undefined) return
+
+  let groupSortOrder = 1
+  for (const group of userGroups.value) {
+    if (group.delete) continue
+    group.sortOrder = groupSortOrder
+    groupSortOrder++
+  }
+
+  let voiceDefinitionSortOrder = 1
+  for (const group of groups.value) {
+    for (const voiceDefinition of group.voiceDefinitions) {
+      voiceDefinition.groupId = EditableVoiceDefinitionGroup.getClientId(group)
+      if (voiceDefinition.delete) continue
+      voiceDefinition.sortOrder = voiceDefinitionSortOrder
+      voiceDefinitionSortOrder++
+    }
+  }
+}
+
+const addGroup = () => {
+  if (userGroups.value === undefined) return
+
+  userGroups.value.push({
+    type: 'UserGroup',
+    loadedData: undefined,
+    links: { self: props.voiceDefinitionGroupsUrl },
+    id: newId('g'),
+    serverId: null,
+    isNew: true,
+    name: '',
+    sortOrder: (_.maxBy(userGroups.value, v => v.sortOrder)?.sortOrder || 0) + 1,
+    delete: false,
+    isSaving: false,
+    hasSavingFailed: false,
+    saveErrors: [],
+    voiceDefinitions: []
+  })
+}
+
+const toggleDeleteGroup = (group: EditableVoiceDefinitionUserGroup) => {
+  if (userGroups.value === undefined) return
+
+  if (group.isNew) {
+    const index = userGroups.value.indexOf(group)
+    userGroups.value.splice(index, 1)
   }
   else {
-    voiceDefinition.delete = !voiceDefinition.delete
-    updateSortOrder()
+    group.delete = !group.delete
   }
+  updateSortOrder()
 }
 
-const updateSortOrder = () => {
-  if (voiceDefinitions.value === undefined) return
-
-  let sortOrder = 1
-  for (const voiceDefinition of voiceDefinitions.value) {
-    if (voiceDefinition.delete) continue
-    voiceDefinition.sortOrder = sortOrder
-    sortOrder++
-  }
-}
-
-const addVoiceDefinition = () => {
-  if (voiceDefinitions.value === undefined) return
-
-  const sortOrder = (_.maxBy(voiceDefinitions.value, v => v.sortOrder)?.sortOrder || 0) + 1
-  voiceDefinitions.value.push({
-    loadedData: { name: '', memberCount: 1, sortOrder: sortOrder, delete: false },
+const addVoiceDefinition = (group: EditableVoiceDefinitionGroup) => {
+  group.voiceDefinitions.push({
+    loadedData: undefined,
     links: { self: props.voiceDefinitionsUrl },
-    id: nextVoiceDefinitionId++,
+    id: newId('v'),
     isNew: true,
     name: '',
     memberCount: 1,
-    sortOrder: sortOrder,
+    sortOrder: 0,
+    groupId: EditableVoiceDefinitionGroup.getClientId(group),
     compositions: [],
     delete: false,
     isSaving: false,
     hasSavingFailed: false,
     saveErrors: [],
   })
+  updateSortOrder()
 }
 
-const handleSaveErrors = (voiceDefinition: EditableVoiceDefinition, errors: VoiceDefinitionSaveError[]) => {
-  voiceDefinition.saveErrors = [
+const toggleDeleteVoiceDefinition = (group: EditableVoiceDefinitionGroup, voiceDefinition: EditableVoiceDefinition) => {
+  if (voiceDefinition.isNew) {
+    const index = group.voiceDefinitions.indexOf(voiceDefinition)
+    group.voiceDefinitions.splice(index, 1)
+  }
+  else {
+    voiceDefinition.delete = !voiceDefinition.delete
+  }
+  updateSortOrder()
+}
+
+const getGroupInputs = (group: EditableVoiceDefinitionUserGroup) : VoiceDefinitionGroupInputs =>
+  ({ name: group.name, sortOrder: group.sortOrder, delete: group.delete })
+
+const hasGroupChanged = (group: EditableVoiceDefinitionUserGroup) =>
+  !_.isEqual(group.loadedData, getGroupInputs(group))
+
+const getVoiceDefinitionInputs = (voiceDefinition: EditableVoiceDefinition) : VoiceDefinitionInputs =>
+  ({
+    name: voiceDefinition.name,
+    memberCount: voiceDefinition.memberCount,
+    sortOrder: voiceDefinition.sortOrder,
+    groupId: voiceDefinition.groupId,
+    delete: voiceDefinition.delete
+  })
+
+const hasVoiceDefinitionChanged = (voiceDefinition: EditableVoiceDefinition) =>
+  !_.isEqual(voiceDefinition.loadedData, getVoiceDefinitionInputs(voiceDefinition))
+
+const handleGroupSaveErrors = (group: EditableVoiceDefinitionUserGroup, errors: VoiceDefinitionGroupSaveError[]) => {
+  group.saveErrors = [
     ...(errors.includes('EmptyName') ? ['Bitte geben Sie einen Namen ein.'] : []),
-    ...(errors.includes('DuplicateName') ? ['Stimme existiert bereits.'] : []),
+    ...(errors.includes('DuplicateName') ? ['Gruppe existiert bereits.'] : []),
   ]
 }
 
-const createVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
+const saveNewGroup = async (group: EditableVoiceDefinitionUserGroup) => {
+  const data = { name: group.name, sortOrder: group.sortOrder }
+  const result = await uiFetchAuthorized(
+    toRef(group, 'isSaving'),
+    toRef(group, 'hasSavingFailed'),
+    group.links.self,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }
+  )
+  if (result.succeeded) {
+    const response = await result.response.json() as VoiceDefinitionGroup
+    group.isNew = false
+    group.serverId = response.id
+    group.name = response.name
+    group.links = { ...response.links }
+    group.loadedData = { name: response.name, sortOrder: group.sortOrder, delete: false }
+  }
+  else if (result.response !== undefined) {
+    handleGroupSaveErrors(group, await result.response.json() as VoiceDefinitionGroupSaveError[])
+  }
+}
+
+const updateGroup = async (group: EditableVoiceDefinitionUserGroup) => {
+  const data = { name: group.name, sortOrder: group.sortOrder }
+  const result = await uiFetchAuthorized(
+    toRef(group, 'isSaving'),
+    toRef(group, 'hasSavingFailed'),
+    group.links.self,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }
+  )
+  if (result.succeeded) {
+    group.loadedData = getGroupInputs(group)
+  }
+  else if (result.response !== undefined) {
+    handleGroupSaveErrors(group, await result.response.json() as VoiceDefinitionGroupSaveError[])
+  }
+}
+
+const deleteGroup = async (group: EditableVoiceDefinitionUserGroup) => {
+  if (userGroups.value === undefined) return
+
+  const result = await uiFetchAuthorized(
+    toRef(group, 'isSaving'),
+    toRef(group, 'hasSavingFailed'),
+    group.links.self,
+    { method: 'DELETE' }
+  )
+  if (result.succeeded) {
+    userGroups.value.splice(userGroups.value.indexOf(group), 1)
+  }
+}
+
+const saveGroup = async (group: EditableVoiceDefinitionUserGroup) => {
+  group.saveErrors = []
+  if (group.isNew) {
+    await saveNewGroup(group)
+  }
+  else if (group.delete) {
+    await deleteGroup(group)
+  }
+  else {
+    await updateGroup(group)
+  }
+}
+
+const handleVoiceDefinitionSaveErrors = (voiceDefinition: EditableVoiceDefinition, errors: VoiceDefinitionSaveError[]) => {
+  voiceDefinition.saveErrors = [
+    ...(errors.includes('EmptyName') ? ['Bitte geben Sie einen Namen ein.'] : []),
+    ...(errors.includes('DuplicateName') ? ['Stimme existiert bereits.'] : []),
+    ...(errors.includes('UnknownGroup') ? ['Gruppe existiert nicht.'] : []),
+  ]
+}
+
+const saveNewVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition, groupServerId: string | null) => {
   const data = {
     name: voiceDefinition.name,
     sortOrder: voiceDefinition.sortOrder,
+    groupId: groupServerId,
     memberCount: voiceDefinition.memberCount,
   }
   const result = await uiFetchAuthorized(
@@ -122,43 +312,22 @@ const createVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) =
     }
   )
   if (result.succeeded) {
-    const response = await result.response.json() as VoiceDefinitionWithStats
+    const response = await result.response.json() as VoiceDefinition
     voiceDefinition.isNew = false
     voiceDefinition.name = response.name
     voiceDefinition.links = { ...response.links }
-    voiceDefinition.loadedData = {
-      name: response.name,
-      memberCount: response.memberCount,
-      sortOrder: voiceDefinition.sortOrder,
-      delete: false
-    }
+    voiceDefinition.loadedData = getVoiceDefinitionInputs(voiceDefinition)
   }
-  else if (result.response !== undefined) {
-    const errors = await result.response.json() as VoiceDefinitionSaveError[]
-    handleSaveErrors(voiceDefinition, errors)
+  else if (result.response !== undefined && result.response.status === 400) {
+    handleVoiceDefinitionSaveErrors(voiceDefinition, await result.response.json() as VoiceDefinitionSaveError[])
   }
 }
 
-const deleteVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
-  if (voiceDefinitions.value === undefined) return
-
-  const result = await uiFetchAuthorized(
-    toRef(voiceDefinition, 'isSaving'),
-    toRef(voiceDefinition, 'hasSavingFailed'),
-    voiceDefinition.links.self,
-    {
-      method: 'DELETE',
-    }
-  )
-  if (result.succeeded) {
-    voiceDefinitions.value.splice(voiceDefinitions.value.indexOf(voiceDefinition), 1)
-  }
-}
-
-const updateVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
+const updateVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition, groupServerId: string | null) => {
   const data = {
     name: voiceDefinition.name,
     sortOrder: voiceDefinition.sortOrder,
+    group: { id: groupServerId },
     memberCount: voiceDefinition.memberCount,
   }
   const result = await uiFetchAuthorized(
@@ -172,52 +341,62 @@ const updateVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) =
     }
   )
   if (result.succeeded) {
-    voiceDefinition.loadedData = {
-      name: voiceDefinition.name,
-      memberCount: voiceDefinition.memberCount,
-      sortOrder: voiceDefinition.sortOrder,
-      delete: false
-    }
+    voiceDefinition.loadedData = getVoiceDefinitionInputs(voiceDefinition)
   }
-  else if (result.response !== undefined) {
-    const errors = await result.response.json() as VoiceDefinitionSaveError[]
-    handleSaveErrors(voiceDefinition, errors)
+  else if (result.response !== undefined && result.response.status === 400) {
+    handleVoiceDefinitionSaveErrors(voiceDefinition, await result.response.json() as VoiceDefinitionSaveError[])
   }
 }
 
-const saveVoiceDefinition = async (voiceDefinition: EditableVoiceDefinition) => {
+const deleteVoiceDefinition = async (group: EditableVoiceDefinitionGroup, voiceDefinition: EditableVoiceDefinition) => {
+  const result = await uiFetchAuthorized(
+    toRef(voiceDefinition, 'isSaving'),
+    toRef(voiceDefinition, 'hasSavingFailed'),
+    voiceDefinition.links.self,
+    { method: 'DELETE' }
+  )
+  if (result.succeeded) {
+    group.voiceDefinitions.splice(group.voiceDefinitions.indexOf(voiceDefinition), 1)
+  }
+}
+
+const saveVoiceDefinition = async (group: EditableVoiceDefinitionGroup, voiceDefinition: EditableVoiceDefinition) => {
   voiceDefinition.saveErrors = []
   if (voiceDefinition.isNew) {
-    await createVoiceDefinition(voiceDefinition)
+    await saveNewVoiceDefinition(voiceDefinition, EditableVoiceDefinitionGroup.getServerId(group))
   }
   else if (voiceDefinition.delete) {
-    await deleteVoiceDefinition(voiceDefinition)
+    await deleteVoiceDefinition(group, voiceDefinition)
   }
   else {
-    await updateVoiceDefinition(voiceDefinition)
+    await updateVoiceDefinition(voiceDefinition, EditableVoiceDefinitionGroup.getServerId(group))
   }
-}
-
-const hasChanged = (voiceDefinition: EditableVoiceDefinition) => {
-  let data : EditableVoiceDefinition['loadedData'] = {
-      name: voiceDefinition.name,
-      memberCount: voiceDefinition.memberCount,
-      sortOrder: voiceDefinition.sortOrder,
-      delete: voiceDefinition.delete
-    }
-    return !_.isEqual(voiceDefinition.loadedData, data)
 }
 
 const canSave = computed(() => {
-  if (voiceDefinitions.value === undefined) return false
-  return voiceDefinitions.value.some(hasChanged)
+  if (userGroups.value === undefined || groups.value === undefined) return false
+
+  return userGroups.value.some(hasGroupChanged) ||
+    groups.value.some(group => group.voiceDefinitions.some(hasVoiceDefinitionChanged))
 })
 
 const save = async () => {
-  if (voiceDefinitions.value === undefined) return
+  if (userGroups.value === undefined || groups.value === undefined) return
   if (!canSave.value) return
 
-  await Promise.all(voiceDefinitions.value.filter(hasChanged).map(v => saveVoiceDefinition(v)))
+  // groups are saved first so that voice definitions can reference the id of a newly created group
+  await Promise.all(userGroups.value.filter(hasGroupChanged).map(saveGroup))
+
+  await Promise.all(
+    groups.value
+      // voice definitions of a group that couldn't be saved would end up in the wrong group
+      .filter(group => group.type === 'NoGroup' || (group.saveErrors.length === 0 && !group.hasSavingFailed))
+      .flatMap(group =>
+        group.voiceDefinitions
+          .filter(hasVoiceDefinitionChanged)
+          .map(voiceDefinition => saveVoiceDefinition(group, voiceDefinition))
+      )
+  )
 }
 
 defineExpose({ canSave, save })
@@ -225,33 +404,31 @@ defineExpose({ canSave, save })
 
 <template>
   <h3 class="mt-2 text-xl small-caps">Stimmen</h3>
-  <LoadingBar v-if="isLoadingVoiceDefinitions" />
-  <ErrorWithRetry v-else-if="hasLoadingVoiceDefinitionsFailed" type="inline" @retry="loadVoiceDefinitions">Fehler beim Laden der Stimmen.</ErrorWithRetry>
-  <div v-else-if="voiceDefinitions !== undefined" class="flex flex-col gap-2 mt-2">
-    <draggable v-model="voiceDefinitions" item-key="id" animation="150" filter="input[type=text]" :preventOnFilter="false" tag="ul" handle=".handle" class="flex flex-wrap gap-2" @end="updateSortOrder">
-      <template #item="{ element: voiceDefinition } : { element: EditableVoiceDefinition }">
+  <LoadingBar v-if="isLoading" />
+  <ErrorWithRetry v-else-if="hasLoadingFailed" type="inline" @retry="load">Fehler beim Laden der Stimmen.</ErrorWithRetry>
+  <div v-else-if="groups !== undefined" class="flex flex-col gap-2 mt-2">
+    <draggable v-model="userGroups" item-key="id" animation="150" filter="input" :preventOnFilter="false" tag="ul" handle=".group-handle" class="flex flex-col gap-2" @change="updateSortOrder">
+      <template #item="{ element: group } : { element: EditableVoiceDefinitionUserGroup }">
         <li>
-          <div class="flex items-center gap-4 border rounded p-1">
-            <button class="btn" :class="{ 'btn-solid btn-red': voiceDefinition.delete }"
-              :disabled="voiceDefinition.compositions.length > 0"
-              :title="voiceDefinition.compositions.length > 0 ? `Verwendet in ${joinStrings(voiceDefinition.compositions.map((v: string) => `\x22${v}\x22`))}` : 'Nicht verwendet'"
-              @click="toggleDeleteVoiceDefinition(voiceDefinition)">
-              <font-awesome-icon :icon="['fas', 'trash-can']" />
-            </button>
-            <div class="handle cursor-grab">
-              <font-awesome-icon :icon="['fas', 'up-down']" />
-            </div>
-            <div class="flex items-center gap-2">
-              <input type="number" min="0" v-model="voiceDefinition.memberCount" class="input-text min-w-20! w-20" />
-              <font-awesome-icon :icon="['fas', 'xmark']" />
-              <input type="text" v-model="voiceDefinition.name" required placeholder="Name" :disabled="voiceDefinition.delete || voiceDefinition.isSaving" class="input-text" />
-            </div>
-            <span v-if="voiceDefinition.saveErrors.length > 0" class="text-sm text-musi-red">{{ voiceDefinition.saveErrors.join(" ") }}</span>
-            <span v-else-if="voiceDefinition.hasSavingFailed" class="text-sm text-musi-red">Fehler beim Speichern.</span>
-          </div>
+          <VoiceDefinitionGroupItem
+            :group="group"
+            v-model:name="group.name"
+            @delete="toggleDeleteGroup(group)"
+            @add-voice-definition="addVoiceDefinition(group)"
+            @delete-voice-definition="toggleDeleteVoiceDefinition(group, $event)"
+            @reorder="updateSortOrder" />
         </li>
       </template>
     </draggable>
-    <button class="btn btn-green btn-solid self-start px-8! py-4!" @click="addVoiceDefinition">Neue Stimme</button>
+    <VoiceDefinitionGroupItem v-for="group in noGroups" :key="group.type"
+      :group="group"
+      is-ungrouped
+      @add-voice-definition="addVoiceDefinition(group)"
+      @delete-voice-definition="toggleDeleteVoiceDefinition(group, $event)"
+      @reorder="updateSortOrder" />
+    <button class="!flex items-center gap-2 btn btn-green btn-solid self-start px-8! py-4!" @click="addGroup">
+      <font-awesome-icon :icon="['fas', 'plus']" />
+      <span>Neue Stimmgruppe</span>
+    </button>
   </div>
 </template>

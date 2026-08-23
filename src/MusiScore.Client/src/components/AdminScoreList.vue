@@ -23,6 +23,7 @@ type CompositionData = {
     compositionTemplate: string
     export: string
     voiceDefinitions: string
+    voiceDefinitionGroups: string
   }
 }
 
@@ -145,6 +146,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
     <SettingsForm v-else-if="compositionList !== undefined && isEditingSettings"
       :printConfigsUrl="compositionList.links.printConfigs"
       :voiceDefinitionsUrl="compositionList.links.voiceDefinitions"
+      :voiceDefinitionGroupsUrl="compositionList.links.voiceDefinitionGroups"
       @cancel-edit-settings="cancelEditSettings" />
   </div>
   <div v-if="!showLogin" id="command-bar" class="basis-auto grow-0 shrink-0 border-t flex items-center p-4 gap-4">

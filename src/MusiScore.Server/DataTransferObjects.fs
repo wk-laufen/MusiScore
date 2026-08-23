@@ -54,6 +54,7 @@ module Admin =
             CompositionTemplate: string
             Export: string
             VoiceDefinitions: string
+            VoiceDefinitionGroups: string
         |}
     }
 
@@ -141,13 +142,31 @@ module Admin =
     type CreateVoiceDefinitionDto = {
         Name: string
         SortOrder: int
+        GroupId: string option
         MemberCount: int
+    }
+
+    /// Wrapper that distinguishes "don't touch the group" (the whole field is missing)
+    /// from "remove the voice definition from its group" (`Id` is `null`).
+    type VoiceDefinitionGroupReferenceDto = {
+        Id: string option
     }
 
     type UpdateVoiceDefinitionDto = {
         Name: string option
         SortOrder: int option
+        Group: VoiceDefinitionGroupReferenceDto option
         MemberCount: int option
+    }
+
+    type CreateVoiceDefinitionGroupDto = {
+        Name: string
+        SortOrder: int
+    }
+
+    type UpdateVoiceDefinitionGroupDto = {
+        Name: string option
+        SortOrder: int option
     }
 
     type VoicePrintSettingsDto = {

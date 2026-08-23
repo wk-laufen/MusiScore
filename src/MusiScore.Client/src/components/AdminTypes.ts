@@ -43,15 +43,52 @@ export type VoicePrintResult = {
 export type VoiceDefinition = {
   name: string
   memberCount: number
-}
-
-export type VoiceDefinitionWithStats = {
-  name: string
-  memberCount: number
-  compositions: string[]
   links: {
     self: string
   }
+}
+
+export type VoiceDefinitionWithStats = VoiceDefinition & {
+  compositions: string[]
+}
+
+export type VoiceDefinitionGroup = {
+  id: string
+  name: string
+  links: {
+    self: string
+  }
+}
+
+export type UserGroupedVoiceDefinitions =
+  {
+    type: 'UserGroup'
+    id: string
+    name: string
+    voiceDefinitions: VoiceDefinitionWithStats[]
+    links: {
+      self: string
+    }
+  }
+
+export type UngroupedVoiceDefinitions =
+  {
+    type: 'NoGroup'
+    voiceDefinitions: VoiceDefinitionWithStats[]
+  }
+
+export type GroupedVoiceDefinition = UserGroupedVoiceDefinitions | UngroupedVoiceDefinitions
+
+export type VoiceDefinitionSaveError = 'EmptyName' | 'DuplicateName' | 'UnknownGroup'
+export type VoiceDefinitionGroupSaveError = 'EmptyName' | 'DuplicateName'
+
+export type VoiceDefinitionInputs = {
+  name: string
+  memberCount: number
+  sortOrder: number
+  /** client-side id of the containing group, `null` for ungrouped voice definitions */
+  groupId: string | null
+  delete: boolean
 }
 
 export type Voice = {

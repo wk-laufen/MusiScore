@@ -6,12 +6,12 @@ import router from './router'
 import { createPinia } from 'pinia'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { library } from '@fortawesome/fontawesome-svg-core'
-import { faMusic, faStar, faPen, faTrashCan, faInfoCircle, faArrowUp, faArrowDown, faArrowLeft, faArrowRight, faMagnifyingGlassPlus, faMagnifyingGlassMinus, faUpDown, faXmark, faPrint, faCheck } from '@fortawesome/free-solid-svg-icons'
+import { faMusic, faStar, faPen, faTrashCan, faInfoCircle, faArrowUp, faArrowDown, faArrowLeft, faArrowRight, faMagnifyingGlassPlus, faMagnifyingGlassMinus, faUpDown, faUpDownLeftRight, faXmark, faPrint, faCheck, faPlus } from '@fortawesome/free-solid-svg-icons'
 import { faStar as farStar } from '@fortawesome/free-regular-svg-icons'
 
 const pinia = createPinia()
 
-library.add(faMusic, faStar, farStar, faPen, faTrashCan, faInfoCircle, faArrowUp, faArrowDown, faArrowLeft, faArrowRight, faMagnifyingGlassPlus, faMagnifyingGlassMinus, faUpDown, faXmark, faPrint, faCheck)
+library.add(faMusic, faStar, farStar, faPen, faTrashCan, faInfoCircle, faArrowUp, faArrowDown, faArrowLeft, faArrowRight, faMagnifyingGlassPlus, faMagnifyingGlassMinus, faUpDown, faUpDownLeftRight, faXmark, faPrint, faCheck, faPlus)
 
 createApp(App)
     .use(router)

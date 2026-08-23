@@ -4,6 +4,18 @@ open FsToolkit.ErrorHandling
 open System
 open System.Text.RegularExpressions
 
+type NewVoiceDefinitionGroup = {
+    Name: string
+    SortOrder: int option
+}
+
+type VoiceDefinitionGroupUpdate = {
+    Name: string option
+    SortOrder: int option
+}
+
+type SaveVoiceDefinitionGroupError = DuplicateVoiceDefinitionGroupName
+
 type VoiceDefinition = {
     Id: string
     Name: string
@@ -17,9 +29,20 @@ type VoiceDefinitionWithStats = {
     Compositions: string list
 }
 
+type VoiceDefinitionGroup = {
+    Id: string
+    Name: string
+}
+
+type VoiceDefinitionGroupWithVoices = {
+    Group: VoiceDefinitionGroup option
+    VoiceDefinitions: VoiceDefinitionWithStats list
+}
+
 type NewVoiceDefinition = {
     Name: string
     SortOrder: int option
+    GroupId: string option
     MemberCount: int
 }
 
@@ -155,10 +178,14 @@ type UpdateVoice = {
 type VoiceDefinitionUpdate = {
     Name: string option
     SortOrder: int option
+    /// `None` leaves the group untouched, `Some None` removes the voice definition from its group.
+    GroupId: string option option
     MemberCount: int option
 }
 
-type SaveVoiceError = DuplicateVoiceDefinitionName
+type SaveVoiceError =
+    | DuplicateVoiceDefinitionName
+    | UnknownVoiceDefinitionGroup
 
 type FullVoice =
     {
@@ -210,7 +237,7 @@ module Parse =
         else
             match voiceDefinitions |> List.tryFind (fun voiceDefinition -> voiceDefinition.Name = name) with
             | Some v -> return UseExistingDefinition v.Id
-            | None -> return CreateNewDefinition { Name = name; SortOrder = None; MemberCount = 1 }
+            | None -> return CreateNewDefinition { Name = name; SortOrder = None; GroupId = None; MemberCount = 1 }
     }
 
     let voiceFile (content: byte array) = validation {
@@ -275,13 +302,28 @@ module Parse =
     let createVoiceDefinition (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDefinitionDto) : Validation<NewVoiceDefinition, _> = validation {
         let! name = voiceName v.Name
         let! memberCount = voiceMemberCount v.MemberCount
-        return { Name = name; SortOrder = Some v.SortOrder; MemberCount = v.MemberCount }
+        return { Name = name; SortOrder = Some v.SortOrder; GroupId = v.GroupId; MemberCount = memberCount }
     }
 
     let updateVoiceDefinition (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDefinitionDto) = validation {
         let! name = v.Name |> Option.map voiceName |> Validation.accumulateOption
         let! memberCount = v.MemberCount |> Option.map voiceMemberCount |> Validation.accumulateOption
-        return { Name = name; SortOrder = v.SortOrder; MemberCount = memberCount }
+        return { Name = name; SortOrder = v.SortOrder; GroupId = v.Group |> Option.map _.Id; MemberCount = memberCount }
+    }
+
+    let voiceDefinitionGroupName (name: string) = validation {
+        if String.IsNullOrWhiteSpace name then return! Error "EmptyName"
+        else return name
+    }
+
+    let createVoiceDefinitionGroup (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDefinitionGroupDto) : Validation<NewVoiceDefinitionGroup, _> = validation {
+        let! name = voiceDefinitionGroupName v.Name
+        return { Name = name; SortOrder = Some v.SortOrder }
+    }
+
+    let updateVoiceDefinitionGroup (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDefinitionGroupDto) = validation {
+        let! name = v.Name |> Option.map voiceDefinitionGroupName |> Validation.accumulateOption
+        return { VoiceDefinitionGroupUpdate.Name = name; SortOrder = v.SortOrder }
     }
 
 module Serialize =
@@ -306,7 +348,16 @@ module Serialize =
             match e with
             | InvalidReplacementConfigId -> "InvalidReplacementConfigId"
 
-        let voiceDefinition (url: string) (v: VoiceDefinitionWithStats) =
+        let voiceDefinition (url: string) (v: VoiceDefinition) =
+            {|
+                Name = v.Name
+                MemberCount = v.MemberCount
+                Links = {|
+                    Self = url
+                |}
+            |}
+
+        let voiceDefinitionWithStats (url: string) (v: VoiceDefinitionWithStats) =
             {|
                 Name = v.Name
                 MemberCount = v.MemberCount
@@ -316,6 +367,20 @@ module Serialize =
                 |}
             |}
 
+        let voiceDefinitionGroup (url: string) (v: VoiceDefinitionGroup) =
+            {|
+                Id = v.Id
+                Name = v.Name
+                Links = {|
+                    Self = url
+                |}
+            |}
+
         let saveVoiceError e =
             match e with
             | DuplicateVoiceDefinitionName -> "DuplicateName"
+            | UnknownVoiceDefinitionGroup -> "UnknownGroup"
+
+        let saveVoiceDefinitionGroupError e =
+            match e with
+            | DuplicateVoiceDefinitionGroupName -> "DuplicateName"

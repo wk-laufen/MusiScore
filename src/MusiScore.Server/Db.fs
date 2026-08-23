@@ -126,15 +126,29 @@ module private DbModels =
         let toDomain v : VoiceDefinition =
             { Id = string v.id; Name = v.name; MemberCount = v.member_count }
 
+    type DbVoiceDefinitionGroup = {
+        id: int
+        name: string
+    }
+    module DbVoiceDefinitionGroup =
+        let toDomain v : VoiceDefinitionGroup =
+            { Id = string v.id; Name = v.name }
+
     type DbVoiceDefinitionWithStats = {
         id: int
         name: string
+        group_id: Nullable<int>
         member_count: int
         compositions: string
     }
     module DbVoiceDefinitionWithStats =
         let toDomain v : VoiceDefinitionWithStats =
-            { Id = string v.id; Name = v.name; MemberCount = v.member_count; Compositions = JsonSerializer.Deserialize<string list> v.compositions }
+            {
+                Id = string v.id
+                Name = v.name
+                MemberCount = v.member_count
+                Compositions = JsonSerializer.Deserialize<string list> v.compositions
+            }
 
 [<AutoOpen>]
 module private DbHelper =
@@ -214,14 +228,16 @@ type Db(connectionString: string) =
             |> Seq.toList
     }
     
-    let getVoiceDefinitions (connection: NpgsqlConnection) = async {
-        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinitionWithStats>("SELECT vd.id, vd.name, vd.member_count, COALESCE(JSON_AGG(c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions FROM voice_definition vd LEFT JOIN voice v ON v.definition_id = vd.id LEFT JOIN composition c ON c.id = v.composition_id GROUP BY vd.id ORDER BY sort_order") |> Async.AwaitTask
-        return voiceDefinitions |> Seq.map DbVoiceDefinitionWithStats.toDomain |> Seq.toList
-    }
+    let voiceDefinitionOrder = "ORDER BY vdg.sort_order NULLS LAST, vd.sort_order"
 
     let getVoiceDefinition (connection: NpgsqlConnection) (voiceDefinitionId: int) = async {
-        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinitionWithStats>("SELECT vd.id, vd.name, vd.member_count, COALESCE(JSON_AGG(c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions FROM voice_definition vd LEFT JOIN voice v ON v.definition_id = vd.id LEFT JOIN composition c ON c.id = v.composition_id WHERE vd.id = @Id GROUP BY vd.id", {| Id = voiceDefinitionId |}) |> Async.AwaitTask
-        return DbVoiceDefinitionWithStats.toDomain voiceDefinition
+        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>("SELECT id, name, member_count FROM voice_definition WHERE id = @Id", {| Id = voiceDefinitionId |}) |> Async.AwaitTask
+        return DbVoiceDefinition.toDomain voiceDefinition
+    }
+
+    let getVoiceDefinitionGroup (connection: NpgsqlConnection) (groupId: int) = async {
+        let! group = connection.QuerySingleAsync<DbVoiceDefinitionGroup>("SELECT id, name FROM voice_definition_group WHERE id = @Id", {| Id = groupId |}) |> Async.AwaitTask
+        return DbVoiceDefinitionGroup.toDomain group
     }
 
     interface IAsyncDisposable with
@@ -262,19 +278,97 @@ type Db(connectionString: string) =
 
     member _.GetVoiceDefinitions() = async {
         use connection = dataSource.CreateConnection()
-        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinition>("SELECT id, name, member_count FROM voice_definition ORDER BY sort_order") |> Async.AwaitTask
+        let! voiceDefinitions = connection.QueryAsync<DbVoiceDefinition>($"SELECT vd.id, vd.name, vd.member_count FROM voice_definition vd LEFT JOIN voice_definition_group vdg ON vd.group_id = vdg.id %s{voiceDefinitionOrder}") |> Async.AwaitTask
         return voiceDefinitions |> Seq.map DbVoiceDefinition.toDomain |> Seq.toList
     }
 
-    member _.GetVoiceDefinitionsWithStats() = async {
+    member _.GetGroupedVoiceDefinitions() = async {
         use connection = dataSource.CreateConnection()
-        return! getVoiceDefinitions connection
+        let! groups = connection.QueryAsync<DbVoiceDefinitionGroup>("SELECT id, name FROM voice_definition_group ORDER BY sort_order") |> Async.AwaitTask
+        let! voiceDefinitions =
+            connection.QueryAsync<DbVoiceDefinitionWithStats>("""
+                SELECT vd.id, vd.name, vd.group_id, vd.member_count,
+                    COALESCE(JSON_AGG(c.title ORDER BY c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions
+                FROM voice_definition vd
+                LEFT JOIN voice v ON v.definition_id = vd.id
+                LEFT JOIN composition c ON c.id = v.composition_id
+                GROUP BY vd.id
+                ORDER BY vd.sort_order
+                """) |> Async.AwaitTask
+        return [
+            yield!
+                groups
+                |> Seq.map (fun group ->
+                    let voiceDefinitions =
+                        voiceDefinitions
+                        |> Seq.filter (fun v -> v.group_id = Nullable group.id)
+                        |> Seq.map DbVoiceDefinitionWithStats.toDomain
+                        |> Seq.toList
+                    {
+                        Group = Some (DbVoiceDefinitionGroup.toDomain group)
+                        VoiceDefinitions = voiceDefinitions
+                    }
+                )
+            {
+                Group = None
+                VoiceDefinitions =
+                    voiceDefinitions
+                    |> Seq.filter (fun v -> v.group_id.HasValue = false)
+                    |> Seq.map DbVoiceDefinitionWithStats.toDomain
+                    |> Seq.toList
+            }
+        ]
+    }
+
+    member _.CreateVoiceDefinitionGroup (group: NewVoiceDefinitionGroup) = async {
+        use connection = dataSource.CreateConnection()
+        let (sortOrderSql, sortOrderValue) =
+            match group.SortOrder with
+            | Some sortOrder -> ("@SortOrder", sortOrder)
+            | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition_group)", 0)
+        try
+            let! groupId = connection.ExecuteScalarAsync<int>($"INSERT INTO voice_definition_group(name, sort_order) VALUES(@Name, {sortOrderSql}) RETURNING id", {| Name = group.Name; SortOrder = sortOrderValue |}) |> Async.AwaitTask
+            let! group = getVoiceDefinitionGroup connection groupId
+            return Ok group
+        with
+        | UniqueViolation "voice_definition_group_name_key" -> return Error DuplicateVoiceDefinitionGroupName
+    }
+
+    member _.UpdateVoiceDefinitionGroup (groupId: string) (groupUpdate: VoiceDefinitionGroupUpdate) = async {
+        use connection = dataSource.CreateConnection()
+        let updateFields =
+            [
+                match groupUpdate.Name with
+                | Some _ -> "name = @Name"
+                | None -> ()
+
+                match groupUpdate.SortOrder with
+                | Some _ -> "sort_order = @SortOrder"
+                | None -> ()
+            ]
+            |> String.concat ", "
+        try
+            if updateFields <> "" then
+                let updateArgs = {|
+                    Id = int groupId
+                    Name = groupUpdate.Name |> Option.defaultValue ""
+                    SortOrder = groupUpdate.SortOrder |> Option.defaultValue 0
+                |}
+                do! connection.ExecuteAsync($"UPDATE voice_definition_group SET %s{updateFields} WHERE id = @Id", updateArgs) |> Async.AwaitTask |> Async.Ignore
+            let! group = getVoiceDefinitionGroup connection (int groupId)
+            return Ok group
+        with
+        | UniqueViolation "voice_definition_group_name_key" -> return Error DuplicateVoiceDefinitionGroupName
+    }
+
+    member _.DeleteVoiceDefinitionGroup (groupId: string) = async {
+        use connection = dataSource.CreateConnection()
+        do! connection.ExecuteAsync("DELETE FROM voice_definition_group WHERE id = @Id", {| Id = int groupId |}) |> Async.AwaitTask |> Async.Ignore
     }
 
     member _.GetVoiceDefinition (definitionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>("SELECT id, name, member_count FROM voice_definition WHERE id = @Id", {| Id = int definitionId |}) |> Async.AwaitTask
-        return DbVoiceDefinition.toDomain voiceDefinition
+        return! getVoiceDefinition connection (int definitionId)
     }
 
     member _.GetOrCreateVoiceDefinition (voiceDefinition: NewVoiceDefinition) = async {
@@ -285,12 +379,12 @@ type Db(connectionString: string) =
             | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition)", 0)
         let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>($"""
             WITH row AS (
-                INSERT INTO voice_definition(name, sort_order, member_count) VALUES(@Name, {sortOrderSql}, @MemberCount)
+                INSERT INTO voice_definition(name, sort_order, group_id, member_count) VALUES(@Name, {sortOrderSql}, @GroupId, @MemberCount)
                 ON CONFLICT(name) DO UPDATE SET name = EXCLUDED.name
                 RETURNING * 
             )
             SELECT id, name, member_count FROM row
-            """, {| Name = voiceDefinition.Name; SortOrder = sortOrderValue; MemberCount = voiceDefinition.MemberCount |}) |> Async.AwaitTask
+            """, {| Name = voiceDefinition.Name; SortOrder = sortOrderValue; GroupId = voiceDefinition.GroupId |> Option.map int |> Option.toNullable; MemberCount = voiceDefinition.MemberCount |}) |> Async.AwaitTask
         return DbVoiceDefinition.toDomain voiceDefinition
     }
 
@@ -307,11 +401,18 @@ type Db(connectionString: string) =
             | Some sortOrder -> ("@SortOrder", sortOrder)
             | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition)", 0)
         try
-            let! voiceDefinitionId = connection.ExecuteScalarAsync<int>($"INSERT INTO voice_definition(name, sort_order, member_count) VALUES(@Name, {sortOrderSql}, @MemberCount) RETURNING id", {| Name = voiceDefinition.Name; SortOrder = sortOrderValue; MemberCount = voiceDefinition.MemberCount |}) |> Async.AwaitTask
+            let commandArgs = {|
+                Name = voiceDefinition.Name
+                SortOrder = sortOrderValue
+                GroupId = voiceDefinition.GroupId |> Option.map int |> Option.toNullable
+                MemberCount = voiceDefinition.MemberCount
+            |}
+            let! voiceDefinitionId = connection.ExecuteScalarAsync<int>($"INSERT INTO voice_definition(name, sort_order, group_id, member_count) VALUES(@Name, {sortOrderSql}, @GroupId, @MemberCount) RETURNING id", commandArgs) |> Async.AwaitTask
             let! voiceDefinition = getVoiceDefinition connection voiceDefinitionId
             return Ok voiceDefinition
         with
         | UniqueViolation "voice_definition_name_key" -> return Error DuplicateVoiceDefinitionName
+        | ForeignKeyViolation "voice_definition_group_id_fkey" -> return Error UnknownVoiceDefinitionGroup
     }
 
     member _.DeleteVoiceDefinition (voiceDefinitionId: string) = async {
@@ -331,6 +432,10 @@ type Db(connectionString: string) =
                 | Some _ -> "sort_order = @SortOrder"
                 | None -> ()
 
+                match voiceDefinitionUpdate.GroupId with
+                | Some _ -> "group_id = @GroupId"
+                | None -> ()
+
                 match voiceDefinitionUpdate.MemberCount with
                 | Some _ -> "member_count = @MemberCount"
                 | None -> ()
@@ -342,6 +447,7 @@ type Db(connectionString: string) =
                     Id = int voiceDefinitionId
                     Name = voiceDefinitionUpdate.Name |> Option.defaultValue ""
                     SortOrder = voiceDefinitionUpdate.SortOrder |> Option.defaultValue 0
+                    GroupId = voiceDefinitionUpdate.GroupId |> Option.flatten |> Option.map int |> Option.toNullable
                     MemberCount = voiceDefinitionUpdate.MemberCount |> Option.defaultValue 0
                 |}
                 let command = $"UPDATE voice_definition SET %s{updateFields} WHERE id = @Id"
@@ -350,6 +456,7 @@ type Db(connectionString: string) =
             return Ok voiceDefinition
         with
         | UniqueViolation "voice_definition_name_key" -> return Error DuplicateVoiceDefinitionName
+        | ForeignKeyViolation "voice_definition_group_id_fkey" -> return Error UnknownVoiceDefinitionGroup
     }
 
     member _.GetCompositionVoices(compositionId: string) = async {
