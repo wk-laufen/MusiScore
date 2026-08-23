@@ -109,8 +109,8 @@ const load = async () => {
 load()
 
 /**
- * Voice definitions are sorted by group first, so their sort order as well as the group they belong to
- * are derived from where they are placed in the UI.
+ * Voice definitions are sorted by group first, so their sort order (which is local to their group) as
+ * well as the group they belong to are derived from where they are placed in the UI.
  */
 const updateSortOrder = () => {
   if (userGroups.value === undefined || groups.value === undefined) return
@@ -122,8 +122,8 @@ const updateSortOrder = () => {
     groupSortOrder++
   }
 
-  let voiceDefinitionSortOrder = 1
   for (const group of groups.value) {
+    let voiceDefinitionSortOrder = 1
     for (const voiceDefinition of group.voiceDefinitions) {
       voiceDefinition.groupId = EditableVoiceDefinitionGroup.getClientId(group)
       if (voiceDefinition.delete) continue

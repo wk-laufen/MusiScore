@@ -211,3 +211,12 @@ CREATE TABLE voice_definition_group (
 ALTER TABLE voice_definition_group ADD CONSTRAINT voice_definition_group_name_key UNIQUE (name);
 ALTER TABLE voice_definition ADD COLUMN group_id INT;
 ALTER TABLE voice_definition ADD CONSTRAINT voice_definition_group_id_fkey FOREIGN KEY (group_id) REFERENCES voice_definition_group(id) ON DELETE SET NULL;
+
+-- number voice definitions within their group instead of across all of them
+UPDATE voice_definition vd
+SET sort_order = numbered.sort_order
+FROM (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY group_id ORDER BY sort_order) sort_order
+    FROM voice_definition
+) numbered
+WHERE numbered.id = vd.id;

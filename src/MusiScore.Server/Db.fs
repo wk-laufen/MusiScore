@@ -376,7 +376,7 @@ type Db(connectionString: string) =
         let (sortOrderSql, sortOrderValue) =
             match voiceDefinition.SortOrder with
             | Some sortOrder -> ("@SortOrder", sortOrder)
-            | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition)", 0)
+            | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition WHERE group_id IS NOT DISTINCT FROM @GroupId)", 0)
         let! voiceDefinition = connection.QuerySingleAsync<DbVoiceDefinition>($"""
             WITH row AS (
                 INSERT INTO voice_definition(name, sort_order, group_id, member_count) VALUES(@Name, {sortOrderSql}, @GroupId, @MemberCount)
@@ -399,7 +399,7 @@ type Db(connectionString: string) =
         let (sortOrderSql, sortOrderValue) =
             match voiceDefinition.SortOrder with
             | Some sortOrder -> ("@SortOrder", sortOrder)
-            | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition)", 0)
+            | None -> ("(SELECT COALESCE(MAX(sort_order) + 1, 1) FROM voice_definition WHERE group_id IS NOT DISTINCT FROM @GroupId)", 0)
         try
             let commandArgs = {|
                 Name = voiceDefinition.Name
