@@ -548,7 +548,8 @@ const saveComposition = async () => {
             <button v-if="activeVoice.originalFile.type === 'loaded'" class="btn btn-blue" @click="printWithPrintDialog(activeVoice)">Mit Druckdialog drucken</button>
             <button v-else class="btn btn-blue" disabled="true">Mit Druckdialog drucken</button>
 
-            <button class="btn btn-blue" @click="download(activeVoice)">Herunterladen</button>
+            <button v-if="activeVoice.originalFile.type === 'loaded'" class="btn btn-blue" @click="download(activeVoice)">Herunterladen</button>
+            <button v-else class="btn btn-blue" disabled="true">Herunterladen</button>
           </div>
         </div>
         <div class="mt-6">
