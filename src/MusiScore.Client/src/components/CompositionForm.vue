@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, toRef } from 'vue'
+import { computed, ref, watch, toRef } from 'vue'
 import { uiFetchAuthorized } from './UIFetch'
-import { serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate, type VoiceDefinition } from './AdminTypes'
+import { serializeFile, type CompositionListItem, type FullComposition, type PrintConfig, type SaveCompositionServerError, type SaveVoiceServerError, type ExistingTag, type Voice, type CompositionTemplate, type GroupedVoiceDefinition } from './AdminTypes'
 import type { ValidationState } from './Validation'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
@@ -47,7 +47,7 @@ const props = defineProps<{
   testPrintConfigUrl: string
   compositionUrl: string
   compositionTemplateUrl: string
-  voiceDefinitionsUrl: string
+  voiceDefinitionGroupsUrl: string
 }>()
 
 const modifyType = ref(props.type)
@@ -118,6 +118,41 @@ const parseLoadedVoice = (voice: Voice, voiceId?: number) : EditableVoice => {
 }
 
 const composition = ref<EditableComposition>()
+
+/** the composition's voices bucketed into the group of their voice definition, empty groups omitted */
+const groupedVoices = computed(() => {
+  const composedVoices = composition.value?.voices
+  const definitionGroups = voiceDefinitionGroups.value
+  if (composedVoices === undefined || definitionGroups === undefined) return []
+  
+  const belongsTo = (voice: EditableVoice, group: GroupedVoiceDefinition) =>
+    group.voiceDefinitions.some(v => v.name === voice.name)
+  
+  return definitionGroups.map(group => {
+    switch (group.type) {
+      case 'UserGroup':
+        return {
+          name: group.name,
+          voiceDefinitions: group.voiceDefinitions,
+          voices: composedVoices.filter(voice => belongsTo(voice, group))
+        }
+        case 'NoGroup':
+          return {
+            name: 'Sonstige',
+            voiceDefinitions: group.voiceDefinitions,
+            voices: [
+              ...composedVoices.filter(voice => belongsTo(voice, group)),
+              ...composedVoices.filter(voice => !definitionGroups.some(group => belongsTo(voice, group)))
+            ]
+          }
+        }
+      }).filter(v => v.voices.length > 0)
+    })
+
+const showGroupTitle = (group: (typeof groupedVoices)['value'][number]) =>
+  group.voiceDefinitions.length > 1 ||
+  (group.voiceDefinitions.length === 1 && group.voiceDefinitions[0].name !== group.name)
+
 const activeVoice = ref<EditableVoice>()
 const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
@@ -161,19 +196,22 @@ const loadComposition = async () => {
 }
 loadComposition()
 
-const voiceDefinitions = ref<VoiceDefinition[]>()
-const isLoadingVoiceDefinitions = ref(false)
-const hasLoadingVoiceDefinitionsFailed = ref(false)
-const loadVoiceDefinitions = async () => {
-  const result = await uiFetchAuthorized(isLoadingVoiceDefinitions, hasLoadingVoiceDefinitionsFailed, props.voiceDefinitionsUrl)
+/** all voice definition groups incl. the ones without any voice definition, in display order */
+const voiceDefinitionGroups = ref<GroupedVoiceDefinition[]>()
+const isLoadingVoiceDefinitionGroups = ref(false)
+const hasLoadingVoiceDefinitionGroupsFailed = ref(false)
+const loadVoiceDefinitionGroups = async () => {
+  const result = await uiFetchAuthorized(isLoadingVoiceDefinitionGroups, hasLoadingVoiceDefinitionGroupsFailed, props.voiceDefinitionGroupsUrl)
   if (result.succeeded) {
-    voiceDefinitions.value = await result.response.json() as VoiceDefinition[]
+    voiceDefinitionGroups.value = await result.response.json() as GroupedVoiceDefinition[]
   }
   else {
-    voiceDefinitions.value = undefined
+    voiceDefinitionGroups.value = undefined
   }
 }
-loadVoiceDefinitions()
+loadVoiceDefinitionGroups()
+
+const voiceDefinitions = computed(() => voiceDefinitionGroups.value?.flatMap(v => v.voiceDefinitions))
 
 const loadVoiceSheet = async () => {
   if (activeVoice.value === undefined) {
@@ -468,7 +506,7 @@ const saveComposition = async () => {
     isSaving.value = false
   }
 
-  await loadVoiceDefinitions()
+  await loadVoiceDefinitionGroups()
 }
 
 </script>
@@ -496,35 +534,42 @@ const saveComposition = async () => {
         </template>
       </div>
       <h3 class="text-xl small-caps mt-4">Stimmen</h3>
-      <ul class="nav-container">
-        <li v-for="voice in composition.voices" :key="voice.id">
-          <a @click="activeVoice = voice" class="nav-item flex! items-center pr-2!" :class="{ active: activeVoice === voice }">
-            <span :class="{
-              'text-green-500': voice.state.type === 'newVoice',
-              'text-yellow-500': voice.state.type === 'modifiedVoice' && !voice.state.isMarkedForDeletion,
-              'text-musi-red line-through': (voice.state.type === 'loadedVoice' || voice.state.type === 'modifiedVoice') && voice.state.isMarkedForDeletion }">
-              {{ voice.name || '<leer>' }}
-            </span>
-            <LoadingBar v-if="voice.isSaving" type="minimal" class="m-2 mr-0 w-5 h-5" />
-            <template v-else>
-              <button class="p-2 hover:text-musi-red" title="Löschen" @click.stop="deleteVoice(voice)">
-                <font-awesome-icon :icon="['fas', 'trash-can']" />
-              </button>
-              <span v-if="voice.hasSavingFailed" class="p-2 text-musi-red" title="Fehler beim Speichern">
-                <font-awesome-icon :icon="['fas', 'info-circle']" />
-              </span>
-            </template>
-          </a>
-        </li>
-        <li>
-          <a class="nav-item py-5!" @click="addVoiceAndActivate()">+ Neue Stimme</a>
-        </li>
-      </ul>
-      <div v-if="activeVoice !== undefined">
+      <LoadingBar v-if="isLoadingVoiceDefinitionGroups" type="minimal" />
+      <ErrorWithRetry v-else-if="hasLoadingVoiceDefinitionGroupsFailed" type="inline" @retry="loadVoiceDefinitionGroups">Fehler beim Laden der Stimmen.</ErrorWithRetry>
+      <template v-if="voiceDefinitions !== undefined">
+        <fieldset v-for="group in groupedVoices" :key="group.name" class="border border-gray-300 rounded px-2 pb-2 mt-2">
+          <legend v-if="showGroupTitle(group)" class="px-1 text-sm small-caps text-gray-500">{{ group.name }}</legend>
+          <ul class="nav-container">
+            <li v-for="voice in group.voices" :key="voice.id">
+              <a @click="activeVoice = voice" class="nav-item flex! items-center pr-2!" :class="{ active: activeVoice === voice }">
+                <span :class="{
+                  'text-green-500': voice.state.type === 'newVoice',
+                  'text-yellow-500': voice.state.type === 'modifiedVoice' && !voice.state.isMarkedForDeletion,
+                  'text-musi-red line-through': (voice.state.type === 'loadedVoice' || voice.state.type === 'modifiedVoice') && voice.state.isMarkedForDeletion }">
+                  {{ voice.name || '<leer>' }}
+                </span>
+                <LoadingBar v-if="voice.isSaving" type="minimal" class="m-2 mr-0 w-5 h-5" />
+                <template v-else>
+                  <button class="p-2 hover:text-musi-red" title="Löschen" @click.stop="deleteVoice(voice)">
+                    <font-awesome-icon :icon="['fas', 'trash-can']" />
+                  </button>
+                  <span v-if="voice.hasSavingFailed" class="p-2 text-musi-red" title="Fehler beim Speichern">
+                    <font-awesome-icon :icon="['fas', 'info-circle']" />
+                  </span>
+                </template>
+              </a>
+            </li>
+          </ul>
+        </fieldset>
+        <ul class="nav-container">
+          <li>
+            <a class="nav-item py-5!" @click="addVoiceAndActivate()">+ Neue Stimme</a>
+          </li>
+        </ul>
+      </template>
+      <div v-if="activeVoice !== undefined && voiceDefinitions !== undefined">
         <div class="flex gap-2 items-center mt-6">
-          <VoiceForm :voices="voiceDefinitions || []" v-model="activeVoice.name" label="Name" />
-          <LoadingBar v-if="isLoadingVoiceDefinitions" type="minimal" />
-          <ErrorWithRetry v-else-if="hasLoadingVoiceDefinitionsFailed" type="inline" @retry="loadVoiceDefinitions">Fehler beim Laden der Stimmen.</ErrorWithRetry>
+          <VoiceForm :voices="voiceDefinitions" v-model="activeVoice.name" label="Name" />
         </div>
         <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" class="mt-6" />
         <div class="mt-6 flex gap-2">

@@ -136,7 +136,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
       :testPrintConfigUrl="compositionList.links.testPrintConfig"
       :composition-url="editComposition.compositionUrl"
       :composition-template-url="editComposition.templateUrl"
-      :voice-definitions-url="compositionList.links.voiceDefinitions"
+      :voice-definition-groups-url="compositionList.links.voiceDefinitionGroups"
       @cancel-edit="cancelEdit" />
     <ImportCompositionForm v-else-if="compositionList !== undefined && isImportingCompositions"
       :composition-url="compositionList.links.composition"
