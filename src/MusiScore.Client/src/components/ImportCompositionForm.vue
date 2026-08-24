@@ -233,7 +233,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       : errors.includes('InvalidFile')
         ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
         : { type: 'success' }
-    voice.printConfigValidationState = errors.includes('UnknownPrintConfig') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
+    voice.printConfigValidationState = errors.includes('InvalidKey') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
   }
   else {
     // TODO what happend here?

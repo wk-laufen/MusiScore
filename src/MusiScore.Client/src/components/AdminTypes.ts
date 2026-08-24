@@ -123,7 +123,7 @@ export type FullComposition = {
 
 export type SaveCompositionServerError = 'EmptyTitle'
 export type VoiceFileServerError = 'EmptyFile' | 'InvalidFile'
-export type SaveVoiceServerError = 'EmptyName' | VoiceFileServerError | 'UnknownPrintConfig'
+export type SaveVoiceServerError = 'EmptyName' | VoiceFileServerError | 'InvalidKey'
 
 export function serializeFile (content: Uint8Array): string
 export function serializeFile (content: undefined): undefined
