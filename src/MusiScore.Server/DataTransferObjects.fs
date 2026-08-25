@@ -1,26 +1,5 @@
 ﻿namespace MusiScore.Shared.DataTransfer
 
-module Print =
-    type ExistingTag = {
-        Key: string
-        Title: string
-        Settings: {|
-            OverviewDisplayFormat: {| Order: int; Format: string |} option
-        |}
-        Value: string option
-    }
-
-    type ActiveCompositionDto = {
-        Title: string
-        Tags: ExistingTag list
-        Voices: {| Name: string; GlobalSortOrder: int; PrintUrl: string |} list
-    }
-
-    type VoiceDto = {
-        Name: string
-        PrintUrl: string
-    }
-
 module Admin =
     type ExistingTag = {
         Key: string

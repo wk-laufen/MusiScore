@@ -345,11 +345,17 @@ module Parse =
 
 module Serialize =
     module Print =
-        let existingTag (v: ExistingTag) : MusiScore.Shared.DataTransfer.Print.ExistingTag =
+        let existingTag (v: ExistingTag) =
             let settings = {|
                 OverviewDisplayFormat = v.Settings.OverviewDisplayFormat
             |}
-            { Key = v.Key; Title = v.Title; Settings = settings; Value = v.Value }
+            {| Key = v.Key; Title = v.Title; Settings = settings; Value = v.Value |}
+
+        let voiceDefinitionGroup (v: VoiceDefinitionGroupWithVoices) =
+            {|
+                GroupName = v.Group |> Option.map _.Name
+                Voices = v.VoiceDefinitions |> List.map _.Name
+            |}
 
     module Admin =
         let existingTag (v: ExistingTag) : MusiScore.Shared.DataTransfer.Admin.ExistingTag =
