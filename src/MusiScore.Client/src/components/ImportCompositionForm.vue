@@ -325,8 +325,11 @@ type ImportInfo = {
   type: 'success' | 'error'
   message: string
 }
+const pluralizeWord = (count: number, singular: string, plural: string) => {
+  return count == 1 ? singular : plural
+}
 const pluralize = (count: number, singular: string, plural: string) => {
-  return count == 1 ? `${count} ${singular}` : `${count} ${plural}`
+  return `${count} ${pluralizeWord(count, singular, plural)}`
 }
 const importInfo = computed(() : ImportInfo | undefined => {
   if (compositions.value === undefined || isSaving.value) return undefined
@@ -346,7 +349,7 @@ const importInfo = computed(() : ImportInfo | undefined => {
     return { type: 'error', message: `${pluralize(saveFailedVoices, 'Stimme konnte', 'Stimmen konnten')} nicht importiert werden.` }
   }
   else if (savedCompositions > 0) {
-    return { type: 'success', message: `${pluralize(savedCompositions, 'Stück', 'Stücke')} mit ${pluralize(savedVoices, 'Stimme', 'Stimmen')} ${pluralize(savedCompositions, 'wurde', 'wurden')} erfolgreich importiert.` }
+    return { type: 'success', message: `${pluralize(savedCompositions, 'Stück', 'Stücke')} mit ${pluralize(savedVoices, 'Stimme', 'Stimmen')} ${pluralizeWord(savedCompositions, 'wurde', 'wurden')} erfolgreich importiert.` }
   }
   return undefined
 })
