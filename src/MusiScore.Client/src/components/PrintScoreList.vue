@@ -33,7 +33,7 @@ const voiceGroups = computed(() => {
   return compositionList.value.voices.flatMap(voiceGroup => {
     const activeVoices = voiceGroup.voices.filter(v => isActiveVoice(v))
     if (activeVoices.length === 0) return []
-    return [ { groupName: voiceGroup.groupName, voices: activeVoices } ]
+    return [ { groupName: voiceGroup.groupName ?? 'Sonstige', voices: activeVoices } ]
   })
 })
 

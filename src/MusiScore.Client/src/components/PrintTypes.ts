@@ -9,7 +9,7 @@ export type CompositionDto = {
 }
 
 export type VoiceGroupDto = {
-  groupName: string
+  groupName: string | null
   voices: string[]
 }
 
