@@ -150,8 +150,12 @@ const pagesToString = (pages: readonly number[]) => {
       <template v-else-if="modification.type === 'orderPages'">
         <span>{{ pagesToString(modification.pages) }} sortieren</span>
       </template>
-      <a v-if="modification.isDraft" title="Änderung akzeptieren" class="ml-2 btn btn-green py-1! px-2!" @click="modification.isDraft = false">✔</a>
-      <a v-if="modification === lastFileModification" title="Änderung verwerfen" class="ml-2 btn btn-red py-1! px-2!" @click="fileModifications.pop()">❌</a>
+      <a v-if="modification.isDraft" title="Änderung akzeptieren" class="ml-2 btn btn-green py-1! px-2!" @click="modification.isDraft = false">
+        <font-awesome-icon :icon="['fas', 'check']" />
+      </a>
+      <a v-if="modification === lastFileModification" title="Änderung verwerfen" class="ml-2 btn btn-red py-1! px-2!" @click="fileModifications.pop()">
+        <font-awesome-icon :icon="['fas', 'xmark']" />
+      </a>
     </li>
   </ol>
   <PdfPreview
