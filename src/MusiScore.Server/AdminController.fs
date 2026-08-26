@@ -316,16 +316,18 @@ type AdminController(db: Db, printer: Printer) =
             match Parse.createVoiceDto voice voiceDefinitions with
             | Ok createVoice ->
                 let! voiceDefinition = db.GetOrCreateVoiceDefinition createVoice.Definition
-                let! voiceId = db.CreateVoice compositionId voiceDefinition.Id createVoice.File createVoice.PrintConfig
-                let result = {
-                    Name = voiceDefinition.Name
-                    PrintConfig = createVoice.PrintConfig
-                    Links = {|
-                        Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
-                        Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = voiceId |})
-                    |}
-                }
-                return this.Ok(result) :> IActionResult
+                match! db.CreateVoice compositionId voiceDefinition.Id createVoice.File createVoice.PrintConfig with
+                | Ok voiceId ->
+                    let result = {
+                        Name = voiceDefinition.Name
+                        PrintConfig = createVoice.PrintConfig
+                        Links = {|
+                            Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
+                            Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = voiceId |})
+                        |}
+                    }
+                    return this.Ok(result) :> IActionResult
+                | Error UnknownPrintConfig -> return this.BadRequest(["InvalidKey"])
             | Error list -> return this.BadRequest(list) :> IActionResult
         }
 

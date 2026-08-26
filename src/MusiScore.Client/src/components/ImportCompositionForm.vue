@@ -60,6 +60,7 @@ type Voice = {
   isSaving: boolean
   hasSavingFailed: boolean
   isSaved: boolean
+  errorTitle: string | undefined
 }
 
 type Composition = {
@@ -152,7 +153,8 @@ watch(files, async files => {
             fileValidationState: { type: 'notValidated' },
             isSaving: false,
             hasSavingFailed: false,
-            isSaved: false
+            isSaved: false,
+            errorTitle: undefined,
           }
         })
       }
@@ -197,6 +199,11 @@ const inferPrintConfig = async (voice: Voice) => {
 const saveVoice = async (voiceUrl: string, voice: Voice) => {
   if (voice.isSaved) return
 
+  voice.nameValidationState = { type: 'notValidated' }
+  voice.fileValidationState = { type: 'notValidated' }
+  voice.printConfigValidationState = { type: 'notValidated' }
+  voice.errorTitle = undefined
+
   if (typeof voice.file !== 'string') {
     voice.file = serializeFile(await new Response(voice.file).bytes())
   }
@@ -224,6 +231,8 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
     voice.isSaved = true
     voice.name = newVoice.name
     voice.nameValidationState = { type: 'success' }
+    voice.fileValidationState = { type: 'success' }
+    voice.printConfigValidationState = { type: 'success' }
   }
   else if (result.response !== undefined && result.response.status === 400) {
     const errors = await result.response.json() as SaveVoiceServerError[]
@@ -233,7 +242,12 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       : errors.includes('InvalidFile')
         ? { type: 'error', error: 'Die PDF-Datei kann nicht gelesen werden.' }
         : { type: 'success' }
-    voice.printConfigValidationState = errors.includes('InvalidKey') ? { type: 'error', error: 'Bitte wählen Sie eine gültige Druckeinstellung aus.' } : { type: 'success' }
+    voice.printConfigValidationState = errors.includes('InvalidKey') ? { type: 'error', error: `Ungültige Druckeinstellung "${voice.printConfig}"` } : { type: 'success' }
+    voice.errorTitle = [
+      ...(voice.nameValidationState.type === 'error' ? [voice.nameValidationState.error] : []),
+      ...(voice.fileValidationState.type === 'error' ? [voice.fileValidationState.error] : []),
+      ...(voice.printConfigValidationState.type === 'error' ? [voice.printConfigValidationState.error] : []),
+    ].map(v => `* ${v}`).join('\n')
   }
   else {
     // TODO what happend here?
@@ -356,13 +370,15 @@ const importInfo = computed(() : ImportInfo | undefined => {
           <fieldset :disabled="isSaving || composition.isSaved">
             <div v-if="composition.isEditingTitle" class="flex">
               <input class="input-text rounded-r-none!" type="text" required v-model="composition.title" />
-              <button class="btn rounded-l-none! !border-l-none" @click="composition.isEditingTitle = false">✔</button>
+              <button class="btn rounded-l-none! !border-l-none" @click="composition.isEditingTitle = false">
+                <font-awesome-icon :icon="['fas', 'check']" />
+              </button>
             </div>
             <div v-else class="flex">
               <LoadButton :loading="composition.isSaving" class="btn-blue rounded-r-none!" :class="{ 'btn-solid': composition.enabled }" @click="composition.enabled = !composition.enabled">
                 {{ composition.title }}
-                <template v-if="composition.isSaved">✔</template>
-                <template v-else-if="composition.hasSavingFailed">❌</template>
+                <font-awesome-icon v-if="composition.isSaved" :icon="['fas', 'check']" />
+                <font-awesome-icon v-else-if="composition.hasSavingFailed" :icon="['fas', 'xmark']" class="text-musi-red" />
               </LoadButton>
               <button class="btn rounded-l-none! border-l-0!" @click="composition.isEditingTitle = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
             </div>
@@ -373,18 +389,19 @@ const importInfo = computed(() : ImportInfo | undefined => {
               <fieldset :disabled="!composition.enabled || isSaving || voice.isSaved">
                 <div v-if="voice.isEditingName" class="flex">
                   <VoiceForm :voices="voiceDefinitions || []" v-model="voice.name" class="flex-row! items-stretch!" />
-                  <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">✔</button>
+                  <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">
+                    <font-awesome-icon :icon="['fas', 'check']" />
+                  </button>
                 </div>
                 <div v-else class="flex flex-col">
                   <div class="flex">
                     <LoadButton :loading="voice.isSaving" class="rounded-r-none!" :class="{ 'bg-yellow-500/50': voice.enabled && isNewVoiceName(voice.name), 'bg-green-500/50': voice.enabled && isExistingVoiceName(voice.name) }" @click="voice.enabled = !voice.enabled">
                       {{ voice.name || '<leer>' }}
-                      <template v-if="voice.isSaved">✔</template>
-                      <template v-else-if="voice.hasSavingFailed">❌</template>
+                      <font-awesome-icon v-if="voice.isSaved" :icon="['fas', 'check']" />
+                      <font-awesome-icon v-else-if="voice.hasSavingFailed" :icon="['fas', 'xmark']" :title="voice.errorTitle ?? 'Unerwarteter Fehler'" class="text-musi-red" />
                     </LoadButton>
                     <button class="btn rounded-l-none! border-l-0!" @click="voice.isEditingName = true"><font-awesome-icon :icon="['fas', 'pen']" /></button>
                   </div>
-                  <span v-if="voice.fileValidationState.type === 'error'" class="text-sm text-musi-red">{{ voice.fileValidationState.error }}</span>
                 </div>
               </fieldset>
             </div>

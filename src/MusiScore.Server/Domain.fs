@@ -184,6 +184,8 @@ type CreateVoice = {
     PrintConfig: string
 }
 
+type CreateVoiceError = UnknownPrintConfig
+
 type UpdateVoice = {
     Definition: VoiceDefinitionReference option
     File: byte[] option

@@ -622,8 +622,11 @@ type Db(connectionString: string) =
             CompositionId = int compositionId
             PrintConfigId = printConfigId
         |}
-        let! voiceId = connection.ExecuteScalarAsync<int>(command, commandArgs) |> Async.AwaitTask
-        return string voiceId
+        try
+            let! voiceId = connection.ExecuteScalarAsync<int>(command, commandArgs) |> Async.AwaitTask
+            return Ok (string voiceId)
+        with
+        | ForeignKeyViolation "voice_print_config_id_fkey" -> return Error UnknownPrintConfig
     }
 
     member _.UpdateVoice (_compositionId: string) (voiceId: string) (definitionId: string option) (file: byte array option) (printConfigId: string option) = async {
