@@ -3,6 +3,8 @@
 open Dapper
 open Npgsql
 open System
+open System.Data
+open System.IO
 open System.Text.Json
 
 [<AutoOpen>]
@@ -610,6 +612,19 @@ type Db(connectionString: string) =
             voices
             |> Seq.map DbFullVoice.toDomain
             |> Seq.toList
+    }
+
+    /// Copies the voice's PDF straight from the database to `target`, so it never has to be held in memory as a whole.
+    member _.CopyVoiceFileTo (voiceId: string) (target: Stream) = async {
+        use connection = dataSource.CreateConnection()
+        do! connection.OpenAsync() |> Async.AwaitTask
+        use command = new NpgsqlCommand("SELECT file FROM voice WHERE id = @Id", connection)
+        command.Parameters.AddWithValue("Id", int voiceId) |> ignore
+        use! reader = command.ExecuteReaderAsync(CommandBehavior.SequentialAccess) |> Async.AwaitTask
+        let! hasVoice = reader.ReadAsync() |> Async.AwaitTask
+        if hasVoice then
+            use source = reader.GetStream 0
+            do! source.CopyToAsync target |> Async.AwaitTask
     }
 
     member _.CreateVoice (compositionId: string) (definitionId: string) (file: byte array) (printConfigId: string) = async {

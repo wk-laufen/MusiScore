@@ -4,7 +4,7 @@ open System
 open System.IO
 
 type TemporaryFile(extension) =
-    let path = Path.ChangeExtension(Path.GetTempFileName(), extension)
+    let path = Path.ChangeExtension(Path.GetRandomFileName(), extension)
     member _.Path with get() = path
     interface IDisposable with
         member _.Dispose() =

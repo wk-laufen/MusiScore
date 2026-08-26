@@ -15,6 +15,7 @@
     <Compile Include="Printer.fs" />
     <Compile Include="HttpQueryAttribute.fs" />
     <Compile Include="APIKeyAuthentication.fs" />
+    <Compile Include="DownloadToken.fs" />
     <Compile Include="PrintController.fs" />
     <Compile Include="AdminController.fs" />
     <Compile Include="FaultInjectionFilter.fs" />

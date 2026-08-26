@@ -31,7 +31,7 @@ module Admin =
             TestPrintConfig: string
             Composition: string
             CompositionTemplate: string
-            Export: string
+            ExportToken: string
             VoiceDefinitions: string
             VoiceDefinitionGroups: string
         |}

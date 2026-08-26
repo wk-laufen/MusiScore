@@ -30,6 +30,8 @@ let main args =
         Printer(printServer, printerName)
     ) |> ignore
 
+    builder.Services.AddSingleton<DownloadTokenStore>() |> ignore
+
     builder.Services
         .AddControllers(fun o ->
             if builder.Environment.IsDevelopment() then

@@ -5,9 +5,14 @@ open System.IO.Compression
 
 type ArchiveItem =
     | ArchiveFolder of name: string * children: Async<ArchiveItem list>
-    | ArchiveFile of name: string * content: byte[]
+    /// the content is written when the entry is reached, so it never has to be held in memory as a whole
+    | ArchiveFile of name: string * writeContent: (Stream -> Async<unit>)
 
 type Archive = ArchiveItem list
+
+module ArchiveFile =
+    let ofBytes name (content: byte[]) =
+        ArchiveFile (name, fun target -> target.WriteAsync(content, 0, content.Length) |> Async.AwaitTask)
 
 module Zip =
     let createFile archive = async {
@@ -25,16 +30,17 @@ module Zip =
                     |> List.map (addArchiveItem path)
                     |> Async.Sequential
                     |> Async.Ignore
-            | ArchiveFile (name, content) ->
-                let entry = zipStream.CreateEntry($"{path}{name}")
+            | ArchiveFile (name, writeContent) ->
+                // PDFs are compressed already, deflating them again costs a lot of time and saves close to nothing
+                let entry = zipStream.CreateEntry($"{path}{name}", CompressionLevel.NoCompression)
                 use target = entry.Open()
-                use source = new MemoryStream(content)
-                source.CopyTo(target)
+                do! writeContent target
         }
         do!
             archive
             |> Seq.map (addArchiveItem "")
             |> Async.Sequential
             |> Async.Ignore
-        return file.Path // TODO delete temporary file
+        // the caller is responsible for deleting the file, e.g. by reading it with `FileOptions.DeleteOnClose`
+        return file.Path
     }

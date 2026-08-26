@@ -13,7 +13,7 @@ open System.Text
 [<Route("api/admin")>]
 [<Authorize("Notenarchivar")>]
 [<RequestSizeLimit(1L * 1024L * 1024L * 1024L)>]
-type AdminController(db: Db, printer: Printer) =
+type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStore) =
     inherit ControllerBase()
 
     [<Route("compositions")>]
@@ -42,7 +42,7 @@ type AdminController(db: Db, printer: Printer) =
                     TestPrintConfig = this.Url.Action(nameof(this.TestPrintConfig))
                     Composition = this.Url.Action(nameof(this.CreateComposition))
                     CompositionTemplate = this.Url.Action(nameof(this.GetCompositionTemplate))
-                    Export = this.Url.Action(nameof(this.ExportCompositions))
+                    ExportToken = this.Url.Action(nameof(this.CreateExportToken))
                     VoiceDefinitions = this.Url.Action(nameof(this.GetVoiceDefinitions))
                     VoiceDefinitionGroups = this.Url.Action(nameof(this.GetVoiceDefinitionGroups))
                 |}
@@ -173,40 +173,59 @@ type AdminController(db: Db, printer: Printer) =
             | Error list -> return this.BadRequest(list) :> IActionResult
         }
 
+    /// The browser can't send the `Authorization` header when downloading a file by navigating to its URL,
+    /// so it gets a short-lived token to put in the export URL instead.
+    [<Route("compositions/export-token")>]
+    [<HttpPost>]
+    member this.CreateExportToken ([<FromQuery>]filterText: string, [<FromQuery>]activeOnly: bool) =
+        let exportUrl =
+            this.Url.Action(
+                nameof(this.ExportCompositions),
+                {| filterText = filterText; activeOnly = activeOnly; token = downloadTokens.Create() |}
+            )
+        this.Ok({| Url = exportUrl |})
+
     [<Route("compositions/export")>]
-    member this.ExportCompositions ([<FromQuery>]filterText: string, [<FromQuery>]activeOnly: bool) =
+    [<HttpGet>]
+    [<AllowAnonymous>]
+    member this.ExportCompositions ([<FromQuery>]filterText: string, [<FromQuery>]activeOnly: bool, [<FromQuery>]token: string) =
         async {
-            let filterText = filterText |> Option.ofObj |> Option.defaultValue ""
-            let! compositions = db.GetCompositions()
-            let filteredCompositions =
-                compositions
-                |> List.filter (fun v ->
-                    v.Title.Contains(filterText, StringComparison.InvariantCultureIgnoreCase) &&
-                        (not activeOnly || v.IsActive)
-                )
-            let! archivePath =
-                filteredCompositions
-                |> List.groupBy _.Title // TODO add composer and/or arranger?
-                |> List.collect (fun (folderName, compositions) ->
+            if not <| downloadTokens.IsValid token then
+                return this.Unauthorized() :> IActionResult
+            else
+                let filterText = filterText |> Option.ofObj |> Option.defaultValue ""
+                let! compositions = db.GetCompositions()
+                let filteredCompositions =
                     compositions
-                    |> List.mapi (fun index composition ->
-                        let folderName = if index = 0 then folderName else $"%s{folderName} (%d{index})"
-                        ArchiveFolder (folderName,
-                            async {
-                                let! voices = db.GetFullCompositionVoices(composition.Id)
-                                return [
-                                    ArchiveFile (".metadata.toml", Toml.getCompositionMetadata composition voices |> Encoding.UTF8.GetBytes)
-                                    yield!
-                                        voices
-                                        |> List.map (fun v -> ArchiveFile ($"{v.Name}.pdf", v.File))
-                                ]
-                            }
+                    |> List.filter (fun v ->
+                        v.Title.Contains(filterText, StringComparison.InvariantCultureIgnoreCase) &&
+                            (not activeOnly || v.IsActive)
+                    )
+                let! archivePath =
+                    filteredCompositions
+                    |> List.groupBy _.Title // TODO add composer and/or arranger?
+                    |> List.collect (fun (folderName, compositions) ->
+                        compositions
+                        |> List.mapi (fun index composition ->
+                            let folderName = if index = 0 then folderName else $"%s{folderName} (%d{index})"
+                            ArchiveFolder (folderName,
+                                async {
+                                    return [
+                                        Toml.getCompositionMetadata composition composition.Voices
+                                        |> Encoding.UTF8.GetBytes
+                                        |> ArchiveFile.ofBytes ".metadata.toml"
+
+                                        yield!
+                                            composition.Voices
+                                            |> List.map (fun v -> ArchiveFile ($"{v.Name}.pdf", db.CopyVoiceFileTo v.Id))
+                                    ]
+                                }
+                            )
                         )
                     )
-                )
-                |> Zip.createFile
-            let archiveStream = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.None, 4096, FileOptions.DeleteOnClose)
-            return this.File(archiveStream, "application/zip", "MusiScore.zip")
+                    |> Zip.createFile
+                let archiveStream = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.None, 4096, FileOptions.DeleteOnClose)
+                return this.File(archiveStream, "application/zip", "Notenarchiv.zip") :> IActionResult
         }
 
     [<Route("compositions/{compositionId}")>]

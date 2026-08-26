@@ -1,4 +1,4 @@
-namespace MusiScore.Server
+﻿namespace MusiScore.Server
 
 open Tomlyn
 
@@ -20,7 +20,7 @@ module Toml =
     type TomlMetadata (composition: TomlComposition) =
         member val Composition = composition with get, set
 
-    let getCompositionMetadata (composition: Composition) (voices: FullVoice list) =
+    let getCompositionMetadata (composition: Composition) (voices: Voice list) =
         let model =
             TomlMetadata(
                 TomlComposition(
@@ -29,7 +29,7 @@ module Toml =
                     composition.IsActive,
                     voices
                     |> List.map (fun v ->
-                        TomlVoice(v.Name, v.PrintConfig)
+                        TomlVoice(v.Name, v.PrintConfigId)
                     )
                     |> Array.ofList
                 )

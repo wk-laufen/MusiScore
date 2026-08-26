@@ -11,7 +11,6 @@ import SettingsForm from './SettingsForm.vue'
 import { uiFetchAuthorized } from './UIFetch'
 import type { CompositionListItem } from './AdminTypes'
 import { useAPIKeyStore } from '@/stores/api-key'
-import { downloadFile } from './UI'
 
 type CompositionData = {
   compositions: CompositionListItem[]
@@ -21,7 +20,7 @@ type CompositionData = {
     testPrintConfig: string
     composition: string
     compositionTemplate: string
-    export: string
+    exportToken: string
     voiceDefinitions: string
     voiceDefinitionGroups: string
   }
@@ -60,10 +59,12 @@ const hasExportingCompositionsFailed = ref(false)
 const exportCompositions = async () => {
   if (compositionList.value === undefined) return
 
-  const result = await uiFetchAuthorized(isExportingCompositions, hasExportingCompositionsFailed, compositionList.value.links.export)
+  // fetching the archive would buffer it completely before the download can start, so the browser
+  // downloads it itself - it can't send the API key, hence the short-lived token in the URL
+  const result = await uiFetchAuthorized(isExportingCompositions, hasExportingCompositionsFailed, compositionList.value.links.exportToken, { method: 'POST' })
   if (result.succeeded) {
-    const blob = await result.response.blob()
-    downloadFile(blob, 'Notenarchiv.zip')
+    const { url } = await result.response.json() as { url: string }
+    window.location.href = url
   }
 }
 
