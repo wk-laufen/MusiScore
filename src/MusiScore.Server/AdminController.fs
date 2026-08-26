@@ -291,7 +291,7 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
     member this.GetCompositionPrintSettings (compositionId: string) =
         async {
             let! voiceDefinitions = db.GetVoiceDefinitions()
-            let! voices = db.GetFullCompositionVoices compositionId
+            let! voices = db.GetCompositionVoices compositionId
             return
                 Voice.getSortedWithDefinition voiceDefinitions voices
                 |> List.map (fun (voice, (_, voiceDefinition)) -> {
