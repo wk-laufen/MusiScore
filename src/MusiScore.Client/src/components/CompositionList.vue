@@ -9,6 +9,7 @@ import _ from 'lodash'
 
 const props = defineProps<{
   compositions: CompositionListItem[]
+  voiceDefinitionGroupsUrl: string
 }>()
 
 defineEmits<{
@@ -71,6 +72,7 @@ const toggleActivate = async (composition: CompositionListItem) => {
       <HorizontalDivider>{{ firstChar }}</HorizontalDivider>
       <div class="flex flex-wrap items-stretch gap-2 m-4">
         <CompositionItem v-for="composition in compositions" :key="composition.links.self" :composition="composition"
+          :voice-definition-groups-url="voiceDefinitionGroupsUrl"
           @toggle-activate="toggleActivate(composition)"
           @edit="$emit('edit', composition)"
           @deleted="$emit('deleted', composition)" />

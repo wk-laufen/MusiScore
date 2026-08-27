@@ -129,6 +129,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
     <LoadingBar v-else-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
     <CompositionList v-else-if="compositionList !== undefined && isInListView" :compositions="compositionList.compositions"
+      :voice-definition-groups-url="compositionList.links.voiceDefinitionGroups"
       @edit="startEditComposition"
       @deleted="compositionDeleted" />
     <CompositionForm v-else-if="compositionList !== undefined && editComposition"

@@ -14,6 +14,7 @@ const emit = defineEmits<{
 
 const props = defineProps<{
   composition: CompositionListItem
+  voiceDefinitionGroupsUrl: string
 }>()
 
 const isMarkedForDeletion = ref(false)
@@ -76,5 +77,6 @@ const showPrintDialog = ref(false)
   </div>
   <PrintCompositionModal v-if="showPrintDialog"
     :composition="composition"
+    :voice-definition-groups-url="voiceDefinitionGroupsUrl"
     @close="showPrintDialog = false" />
 </template>

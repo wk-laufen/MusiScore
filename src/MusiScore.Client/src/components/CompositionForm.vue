@@ -16,6 +16,7 @@ import { PDFDocument } from 'pdf-lib'
 import _ from 'lodash'
 import VoiceForm from './VoiceForm.vue'
 import { downloadFile } from './UI'
+import { groupVoices, showGroupTitle } from './VoiceGrouping'
 
 // see https://stackoverflow.com/a/7616484
 const getBlobHash = (data: Uint8Array) => {
@@ -124,34 +125,8 @@ const groupedVoices = computed(() => {
   const composedVoices = composition.value?.voices
   const definitionGroups = voiceDefinitionGroups.value
   if (composedVoices === undefined || definitionGroups === undefined) return []
-  
-  const belongsTo = (voice: EditableVoice, group: GroupedVoiceDefinition) =>
-    group.voiceDefinitions.some(v => v.name === voice.name)
-  
-  return definitionGroups.map(group => {
-    switch (group.type) {
-      case 'UserGroup':
-        return {
-          name: group.name,
-          voiceDefinitions: group.voiceDefinitions,
-          voices: composedVoices.filter(voice => belongsTo(voice, group))
-        }
-        case 'NoGroup':
-          return {
-            name: 'Sonstige',
-            voiceDefinitions: group.voiceDefinitions,
-            voices: [
-              ...composedVoices.filter(voice => belongsTo(voice, group)),
-              ...composedVoices.filter(voice => !definitionGroups.some(group => belongsTo(voice, group)))
-            ]
-          }
-        }
-      }).filter(v => v.voices.length > 0)
-    })
-
-const showGroupTitle = (group: (typeof groupedVoices)['value'][number]) =>
-  group.voiceDefinitions.length > 1 ||
-  (group.voiceDefinitions.length === 1 && group.voiceDefinitions[0].name !== group.name)
+  return groupVoices(composedVoices, definitionGroups)
+})
 
 const activeVoice = ref<EditableVoice>()
 const isLoading = ref(false)

@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, useTemplateRef, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import LoadButton from './LoadButton.vue'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
-import { type CompositionListItem, type VoicePrintSettings, type VoicePrintResult } from './AdminTypes'
+import { type CompositionListItem, type GroupedVoiceDefinition, type VoicePrintSettings, type VoicePrintResult } from './AdminTypes'
 import { uiFetchAuthorized } from './UIFetch'
+import { groupVoices, showGroupTitle } from './VoiceGrouping'
 
 const props = defineProps<{
   composition: CompositionListItem
+  voiceDefinitionGroupsUrl: string
 }>()
 
 const emit = defineEmits<{
@@ -21,20 +23,37 @@ type VoicePrintSettingsFormValues = {
 }
 
 const popover = useTemplateRef('popover')
-const isLoading = ref(false)
-const hasLoadingFailed = ref(false)
+// both requests are issued in parallel, so each of them needs its own state
+const isLoadingVoices = ref(false)
+const hasLoadingVoicesFailed = ref(false)
+const isLoadingGroups = ref(false)
+const hasLoadingGroupsFailed = ref(false)
+const isLoading = computed(() => isLoadingVoices.value || isLoadingGroups.value)
+const hasLoadingFailed = computed(() => hasLoadingVoicesFailed.value || hasLoadingGroupsFailed.value)
 const isPrinting = ref(false)
 const hasPrintingFailed = ref(false)
 const voices = ref<VoicePrintSettingsFormValues[]>([])
+const voiceDefinitionGroups = ref<GroupedVoiceDefinition[]>()
 
 const loadVoices = async () => {
-  const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, props.composition.links.print, { method: 'GET' })
-  if (result.succeeded) {
-    const settings = await result.response.json() as VoicePrintSettings[]
+  const [voicesResult, groupsResult] = await Promise.all([
+    uiFetchAuthorized(isLoadingVoices, hasLoadingVoicesFailed, props.composition.links.print, { method: 'GET' }),
+    uiFetchAuthorized(isLoadingGroups, hasLoadingGroupsFailed, props.voiceDefinitionGroupsUrl)
+  ])
+  if (voicesResult.succeeded) {
+    const settings = await voicesResult.response.json() as VoicePrintSettings[]
     voices.value = settings.map(v => ({ name: v.name, count: v.count, error: undefined }))
+  }
+  if (groupsResult.succeeded) {
+    voiceDefinitionGroups.value = await groupsResult.response.json() as GroupedVoiceDefinition[]
   }
 }
 loadVoices()
+
+/** the composition's voices bucketed into the group of their voice definition, empty groups omitted */
+const groupedVoices = computed(() =>
+  voiceDefinitionGroups.value === undefined ? [] : groupVoices(voices.value, voiceDefinitionGroups.value)
+)
 
 watch(popover, el => {
   if (el === null) return
@@ -91,18 +110,23 @@ const print = async () => {
       <LoadingBar v-if="isLoading" />
       <ErrorWithRetry v-else-if="hasLoadingFailed" type="inline" @retry="loadVoices">Stimmen konnten nicht geladen werden.</ErrorWithRetry>
       <p v-else-if="voices.length === 0" class="text-sm text-slate-500">Keine Stimmen vorhanden.</p>
-      <div v-else class="flex flex-col text-sm divide-y">
-        <div v-for="voice in voices" :key="voice.name" class="flex justify-between items-center gap-4 py-2">
-          <div class="flex flex-col">
-            <span>{{ voice.name }}</span>
-            <span v-if="voice.error" class="text-musi-red text-xs">{{ voice.error }}</span>
+      <template v-else>
+        <fieldset v-for="group in groupedVoices" :key="group.name" class="border border-gray-300 rounded px-2 pb-2 mt-2">
+          <legend v-if="showGroupTitle(group)" class="px-1 text-sm small-caps text-gray-500">{{ group.name }}</legend>
+          <div class="flex flex-col text-sm divide-y">
+            <div v-for="voice in group.voices" :key="voice.name" class="flex justify-between items-center gap-4 py-2">
+              <div class="flex flex-col">
+                <span>{{ voice.name }}</span>
+                <span v-if="voice.error" class="text-musi-red text-xs">{{ voice.error }}</span>
+              </div>
+              <input class="input-text min-w-16! w-16"
+                type="number"
+                min="0"
+                v-model="voice.count" />
+            </div>
           </div>
-          <input class="input-text min-w-16! w-16"
-            type="number"
-            min="0"
-            v-model="voice.count" />
-        </div>
-      </div>
+        </fieldset>
+      </template>
     </div>
 
     <div class="flex justify-end gap-2 px-4 py-3">

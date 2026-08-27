@@ -3,6 +3,7 @@ import draggable from 'vuedraggable'
 import type { EditableVoiceDefinition, EditableVoiceDefinitionGroup } from './VoiceDefinitionTypes'
 import VoiceDefinitionItem from './VoiceDefinitionItem.vue'
 import { computed } from 'vue';
+import { ungroupedName } from './VoiceGrouping';
 
 const props = defineProps<{
   group: EditableVoiceDefinitionGroup
@@ -44,7 +45,7 @@ const deleteGroupTitle = () =>
         <span v-if="group.saveErrors.length > 0" class="text-sm text-musi-red">{{ group.saveErrors.join(" ") }}</span>
         <span v-else-if="group.hasSavingFailed" class="text-sm text-musi-red">Fehler beim Speichern.</span>
       </template>
-      <span v-else class="small-caps text-lg">Sonstige</span>
+      <span v-else class="small-caps text-lg">{{ ungroupedName }}</span>
     </div>
     <draggable :list="group.voiceDefinitions" item-key="id" animation="150" filter="input" :preventOnFilter="false"
       tag="ul" handle=".voice-handle" :group="{ name: 'voice-definitions' }"

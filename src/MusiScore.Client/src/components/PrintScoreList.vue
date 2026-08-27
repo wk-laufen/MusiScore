@@ -7,6 +7,7 @@ import LoadButton from './LoadButton.vue'
 import HorizontalDivider from './HorizontalDivider.vue'
 import { uiFetch } from './UIFetch'
 import type { CompositionDto, CompositionList } from './PrintTypes'
+import { ungroupedName } from './VoiceGrouping.js'
 
 const isLoading = ref(false)
 const hasLoadingFailed = ref(false)
@@ -33,7 +34,7 @@ const voiceGroups = computed(() => {
   return compositionList.value.voices.flatMap(voiceGroup => {
     const activeVoices = voiceGroup.voices.filter(v => isActiveVoice(v))
     if (activeVoices.length === 0) return []
-    return [ { groupName: voiceGroup.groupName ?? 'Sonstige', voices: activeVoices } ]
+    return [ { groupName: voiceGroup.groupName ?? ungroupedName, voices: activeVoices } ]
   })
 })
 
