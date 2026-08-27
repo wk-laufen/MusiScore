@@ -50,7 +50,6 @@ const loadVoices = async () => {
 }
 loadVoices()
 
-/** the composition's voices bucketed into the group of their voice definition, empty groups omitted */
 const groupedVoices = computed(() =>
   voiceDefinitionGroups.value === undefined ? [] : groupVoices(voices.value, voiceDefinitionGroups.value)
 )

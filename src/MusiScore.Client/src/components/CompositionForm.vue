@@ -120,7 +120,6 @@ const parseLoadedVoice = (voice: Voice, voiceId?: number) : EditableVoice => {
 
 const composition = ref<EditableComposition>()
 
-/** the composition's voices bucketed into the group of their voice definition, empty groups omitted */
 const groupedVoices = computed(() => {
   const composedVoices = composition.value?.voices
   const definitionGroups = voiceDefinitionGroups.value
