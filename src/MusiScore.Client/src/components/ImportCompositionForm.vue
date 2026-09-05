@@ -49,7 +49,7 @@ const files = ref<File[]>()
 
 type Voice = {
   id: string
-  name: string
+  names: string[]
   nameValidationState: ValidationState
   isEditingName: boolean
   printConfig: string | undefined
@@ -88,7 +88,7 @@ type Metadata = {
       tags?: { key?: string, value?: string }[]
       is_active?: boolean
       voices?: {
-        name?: string
+        names?: string[]
         print_config?: string
       } []
     }
@@ -139,11 +139,11 @@ watch(files, async files => {
         isSaved: false,
         voicesUrl: undefined,
         voices: value.map((v) : Voice => {
-          const voiceName = v.fileName.replace(/\.[^.]*$/, '')
-          const voiceMetadata = compositionMetadata?.data?.composition?.voices?.find?.(v => v.name === voiceName)
+          const voiceNames = v.fileName.replace(/\.[^.]*$/, '').split(',').map(v => v.trim())
+          const voiceMetadata = compositionMetadata?.data?.composition?.voices?.find?.(v => _.isEqual(v.names, voiceNames))
           return {
             id: `${nextId++}`,
-            name: voiceName,
+            names: voiceNames,
             nameValidationState: { type: 'notValidated' },
             isEditingName: false,
             printConfig: voiceMetadata?.print_config,
@@ -220,7 +220,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: voice.name,
+        names: voice.names,
         file: voice.file,
         printConfig: voice.printConfig
       })
@@ -229,7 +229,7 @@ const saveVoice = async (voiceUrl: string, voice: Voice) => {
   if (result.succeeded) {
     const newVoice = await result.response.json() as VoiceDto
     voice.isSaved = true
-    voice.name = newVoice.name
+    voice.names = newVoice.names
     voice.nameValidationState = { type: 'success' }
     voice.fileValidationState = { type: 'success' }
     voice.printConfigValidationState = { type: 'success' }
@@ -390,16 +390,16 @@ const importInfo = computed(() : ImportInfo | undefined => {
           <div class="ml-4 mt-2 flex flex-wrap items-center gap-2">
             <div v-for="voice in composition.voices" :key="voice.id">
               <fieldset :disabled="!composition.enabled || isSaving || voice.isSaved">
-                <div v-if="voice.isEditingName" class="flex">
-                  <VoiceForm :voices="voiceDefinitions || []" v-model="voice.name" class="flex-row! items-stretch!" />
+                <div v-if="voice.isEditingName" class="flex gap-2">
+                  <VoiceForm :voices="voiceDefinitions || []" v-model="voice.names" />
                   <button class="btn rounded-l-none! !border-l-none" @click="voice.isEditingName = false">
                     <font-awesome-icon :icon="['fas', 'check']" />
                   </button>
                 </div>
                 <div v-else class="flex flex-col">
                   <div class="flex">
-                    <LoadButton :loading="voice.isSaving" class="rounded-r-none!" :class="{ 'bg-yellow-500/50': voice.enabled && isNewVoiceName(voice.name), 'bg-green-500/50': voice.enabled && isExistingVoiceName(voice.name) }" @click="voice.enabled = !voice.enabled">
-                      {{ voice.name || '<leer>' }}
+                    <LoadButton :loading="voice.isSaving" class="rounded-r-none!" :class="{ 'bg-yellow-500/50': voice.enabled && voice.names.some(isNewVoiceName), 'bg-green-500/50': voice.enabled && voice.names.every(isExistingVoiceName) }" @click="voice.enabled = !voice.enabled">
+                      {{ voice.names.filter(v => v).join(', ') || '<leer>' }}
                       <font-awesome-icon v-if="voice.isSaved" :icon="['fas', 'check']" />
                       <font-awesome-icon v-else-if="voice.hasSavingFailed" :icon="['fas', 'xmark']" :title="voice.errorTitle ?? 'Unerwarteter Fehler'" class="text-musi-red" />
                     </LoadButton>

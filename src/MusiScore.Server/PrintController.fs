@@ -25,9 +25,9 @@ type PrintController(db: Db, printer: Printer) =
                             Tags = composition.Tags |> List.map Serialize.Print.existingTag
                             Voices =
                                 composition.Voices
-                                |> List.map (fun v ->
+                                |> List.collect (fun v ->
                                     let printUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = composition.Id; voiceId = v.Id |})
-                                    {| Name = v.Name; PrintUrl = printUrl |}
+                                    [ for name in v.Names -> {| Name = name; PrintUrl = printUrl |} ]
                                 )
                         |}
                     )

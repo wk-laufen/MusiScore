@@ -220,3 +220,14 @@ FROM (
     FROM voice_definition
 ) numbered
 WHERE numbered.id = vd.id;
+
+-- let a voice reference multiple voice definitions, e.g. one sheet used for "Horn 1" and "Horn 2"
+CREATE TABLE voice_to_voice_definition (
+    voice_id INT NOT NULL,
+    definition_id INT NOT NULL,
+    PRIMARY KEY (voice_id, definition_id),
+    CONSTRAINT voice_to_voice_definition_voice_id_fkey FOREIGN KEY (voice_id) REFERENCES voice(id) ON DELETE CASCADE,
+    CONSTRAINT voice_to_voice_definition_definition_id_fkey FOREIGN KEY (definition_id) REFERENCES voice_definition(id)
+);
+INSERT INTO voice_to_voice_definition (voice_id, definition_id) SELECT id, definition_id FROM voice;
+ALTER TABLE voice DROP COLUMN definition_id;

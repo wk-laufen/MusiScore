@@ -7,8 +7,8 @@ module Toml =
         member val Key = key with get, set
         member val Value = value with get, set
 
-    type TomlVoice (name: string, printConfig: string) =
-        member val Name = name with get, set
+    type TomlVoice (names: string[], printConfig: string) =
+        member val Names = names with get, set
         member val PrintConfig = printConfig with get, set
 
     type TomlComposition (title: string, tags: TomlTag array, isActive: bool, voices: TomlVoice array) =
@@ -29,9 +29,9 @@ module Toml =
                     composition.IsActive,
                     voices
                     |> List.map (fun v ->
-                        TomlVoice(v.Name, v.PrintConfigId)
+                        TomlVoice(Array.ofList v.Names, v.PrintConfigId)
                     )
                     |> Array.ofList
                 )
             )
-        Toml.FromModel(model)
+        TomlSerializer.Serialize model

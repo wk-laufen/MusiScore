@@ -75,7 +75,7 @@ type EditableVoiceState =
     | { type: 'loadedVoice', isMarkedForDeletion: boolean, links: { self: string } }
     | { type: 'newVoice' }
     | { type: 'modifiedVoice', isMarkedForDeletion: boolean, links: { self: string } }
-type LoadedVoice = Pick<EditableVoice, 'name' | 'printConfig'> & { fileHash: string | undefined }
+type LoadedVoice = Pick<EditableVoice, 'names' | 'printConfig'> & { fileHash: string | undefined }
 type EditableVoice = Omit<Voice, 'links'> & {
   loadedData: LoadedVoice | undefined
   id: number
@@ -103,10 +103,10 @@ type EditableComposition = {
 let nextVoiceId = 1
 const parseLoadedVoice = (voice: Voice, voiceId?: number) : EditableVoice => {
   return {
-    loadedData: { name: voice.name, printConfig: voice.printConfig, fileHash: undefined },
+    loadedData: { names: voice.names, printConfig: voice.printConfig, fileHash: undefined },
     id: voiceId || nextVoiceId++,
     state: { type: 'loadedVoice', isMarkedForDeletion: false, links: voice.links },
-    name: voice.name,
+    names: voice.names,
     nameValidationState: { type: 'success' },
     originalFile: { type: 'notLoaded', url: voice.links.sheet },
     fileModifications: [],
@@ -124,7 +124,7 @@ const groupedVoices = computed(() => {
   const composedVoices = composition.value?.voices
   const definitionGroups = voiceDefinitionGroups.value
   if (composedVoices === undefined || definitionGroups === undefined) return []
-  return groupVoices(composedVoices, definitionGroups)
+  return groupVoices(composedVoices, definitionGroups, v => v.names)
 })
 
 const activeVoice = ref<EditableVoice>()
@@ -221,8 +221,8 @@ watch(activeVoiceFile, async v => {
     activeVoice.value = undefined
     return
   }
-  if (!activeVoice.value.name) {
-    activeVoice.value.name = v.name.substring(0, v.name.lastIndexOf('.'))
+  if (activeVoice.value.names.every(v => !v)) {
+    activeVoice.value.names = [v.name.substring(0, v.name.lastIndexOf('.'))]
   }
   const data = new Uint8Array(await v.arrayBuffer())
   try {
@@ -273,7 +273,7 @@ const download = async (voice: EditableVoice) => {
 
   const voicePdf = await Pdf.applyModifications(voice.originalFile.data, voice.fileModifications)
   const pdfBlob = new Blob([voicePdf.data], { type: 'application/pdf' })
-  const fileName = [composition.value?.title, voice.name].filter(v => v?.trim()).join(" - ") || 'MusiScore'
+  const fileName = [composition.value?.title, voice.names.join(', ')].filter(v => v?.trim()).join(" - ") || 'MusiScore'
   downloadFile(pdfBlob, `${fileName}.pdf`)
 }
 
@@ -282,7 +282,7 @@ watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
     return
   }
   const currentData : LoadedVoice = {
-    name: newActiveVoice.name,
+    names: newActiveVoice.names,
     printConfig: newActiveVoice.printConfig,
     fileHash: getFileHash(newActiveVoice.originalFile),
   }
@@ -297,7 +297,7 @@ watch(activeVoice, (oldActiveVoice, newActiveVoice) => {
   newActiveVoice.state = newState
 }, { deep: true })
 
-const addVoice = (data: { name: EditableVoice['name'], originalFile: EditableVoice['originalFile'], printConfig: EditableVoice['printConfig'] }) => {
+const addVoice = (data: { names: EditableVoice['names'], originalFile: EditableVoice['originalFile'], printConfig: EditableVoice['printConfig'] }) => {
   if (composition.value === undefined) return
 
   composition.value.voices.push({
@@ -317,7 +317,7 @@ const addVoice = (data: { name: EditableVoice['name'], originalFile: EditableVoi
 const addVoiceAndActivate = () => {
   if (composition.value === undefined) return
 
-  addVoice({ name: '', originalFile: { type: 'empty' }, printConfig: '' })
+  addVoice({ names: [''], originalFile: { type: 'empty' }, printConfig: '' })
   activeVoice.value = last(composition.value.voices)
 }
 
@@ -377,7 +377,7 @@ const saveVoice = async (voice: EditableVoice, newVoiceUrl: string) => {
         method: httpMethod,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: voice.name,
+          names: voice.names,
           file: await serializeVoiceFile(voice.originalFile, voice.fileModifications),
           printConfig: voice.printConfig
         })
@@ -520,7 +520,7 @@ const saveComposition = async () => {
                   'text-green-500': voice.state.type === 'newVoice',
                   'text-yellow-500': voice.state.type === 'modifiedVoice' && !voice.state.isMarkedForDeletion,
                   'text-musi-red line-through': (voice.state.type === 'loadedVoice' || voice.state.type === 'modifiedVoice') && voice.state.isMarkedForDeletion }">
-                  {{ voice.name || '<leer>' }}
+                  {{ voice.names.filter(v => v).join(', ') || '<leer>' }}
                 </span>
                 <LoadingBar v-if="voice.isSaving" type="minimal" class="m-2 mr-0 w-5 h-5" />
                 <template v-else>
@@ -543,7 +543,7 @@ const saveComposition = async () => {
       </template>
       <div v-if="activeVoice !== undefined && voiceDefinitions !== undefined">
         <div class="flex gap-2 items-center mt-6">
-          <VoiceForm :voices="voiceDefinitions" v-model="activeVoice.name" label="Name" />
+          <VoiceForm :voices="voiceDefinitions" v-model="activeVoice.names" label="Name" />
         </div>
         <FileInput title="PDF-Datei" :validation-state="activeVoice.fileValidationState" v-model="activeVoiceFile" class="mt-6" />
         <div class="mt-6 flex gap-2">
@@ -578,7 +578,7 @@ const saveComposition = async () => {
           <VoiceSheetEditor v-else-if="activeVoice.originalFile.type === 'loaded'"
             :original-file="activeVoice.originalFile.data"
             v-model:file-modifications="activeVoice.fileModifications"
-            @extract-pages="doc => addVoice({name: '', originalFile: { type: 'loaded', data: doc }, printConfig: '' })"></VoiceSheetEditor>
+            @extract-pages="doc => addVoice({names: [''], originalFile: { type: 'loaded', data: doc }, printConfig: '' })"></VoiceSheetEditor>
         </div>
       </div>
     </template>

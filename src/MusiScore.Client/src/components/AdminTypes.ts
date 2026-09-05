@@ -37,7 +37,7 @@ export type VoicePrintSettings = {
 
 export type VoicePrintResult = {
   voiceName: string
-  result: 'Success' | 'PrintingFailed' | 'PrintConfigNotFound'
+  result: 'Success' | 'PrintingFailed'
 }
 
 export type VoiceDefinition = {
@@ -94,7 +94,7 @@ export type VoiceDefinitionInputs = {
 }
 
 export type Voice = {
-  name: string
+  names: string[]
   printConfig: string
   links: {
     self: string

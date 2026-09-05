@@ -93,13 +93,13 @@ module Admin =
     }
 
     type CreateVoiceDto = {
-        Name: string
+        Names: string list
         File: byte[]
         PrintConfig: string
     }
 
     type ExistingVoiceDto = {
-        Name: string
+        Names: string list
         PrintConfig: string
         Links: {| Self: string; Sheet: string |}
     }
@@ -120,7 +120,7 @@ module Admin =
     }
 
     type UpdateVoiceDto = {
-        Name: string option
+        Names: string list option
         File: byte[] option
         PrintConfig: string option
     }

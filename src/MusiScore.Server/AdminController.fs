@@ -217,7 +217,10 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
 
                                         yield!
                                             composition.Voices
-                                            |> List.map (fun v -> ArchiveFile ($"{v.Name}.pdf", db.CopyVoiceFileTo v.Id))
+                                            |> List.map (fun v ->
+                                                let fileName = v.Names |> String.concat ", "
+                                                ArchiveFile ($"%s{fileName}.pdf", db.CopyVoiceFileTo v.Id)
+                                            )
                                     ]
                                 }
                             )
@@ -260,8 +263,8 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
     [<HttpGet>]
     member this.GetFullComposition (compositionId: string) =
         async {
-            let! voiceDefinitions = db.GetVoiceDefinitions()
             let! composition = db.GetComposition(compositionId)
+            let! voices = db.GetCompositionVoices(compositionId)
             return
                 {
                     Title = composition.Title
@@ -273,9 +276,9 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
                         Print = this.Url.Action(nameof(this.PrintComposition), {| compositionId = compositionId |})
                     |}
                     Voices =
-                        Voice.getSortedWithDefinition voiceDefinitions composition.Voices
-                        |> Seq.map (fun (voice, _) -> {
-                            Name = voice.Name
+                        voices
+                        |> Seq.map (fun voice -> {
+                            Names = voice.Names
                             PrintConfig = voice.PrintConfigId
                             Links = {|
                                 Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voice.Id |})
@@ -293,10 +296,11 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             let! voiceDefinitions = db.GetVoiceDefinitions()
             let! voices = db.GetCompositionVoices compositionId
             return
-                Voice.getSortedWithDefinition voiceDefinitions voices
-                |> List.map (fun (voice, (_, voiceDefinition)) -> {
-                    Name = voice.Name
-                    Count = voiceDefinition.MemberCount
+                voices
+                |> List.collect _.Names
+                |> List.map (fun voice -> {
+                    Name = voice
+                    Count = voiceDefinitions |> List.find (fun v -> v.Name = voice) |> _.MemberCount
                 })
         }
 
@@ -305,24 +309,32 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
     member this.PrintComposition (compositionId: string, [<FromBody>]settings: VoicePrintSettingsDto list) =
         async {
             let! voices = db.GetFullCompositionVoices compositionId
-            let! voiceDefinitions = db.GetVoiceDefinitions()
             let! printConfigs = db.GetPrintConfigs()
-            let countByName = settings |> List.map (fun v -> (v.Name, v.Count)) |> Map.ofList
+
             return!
-                Voice.getSortedWithDefinition voiceDefinitions voices
-                |> List.choose (fun (voice, _) ->
-                    countByName
-                    |> Map.tryFind voice.Name
-                    |> Option.bind (fun count -> if count > 0 then Some (voice, count) else None)
+                settings
+                |> List.filter (fun v -> v.Count > 0)
+                |> List.choose (fun voicePrintSettings ->
+                    voices
+                    |> List.tryFind (fun v -> v.Names |> List.contains voicePrintSettings.Name)
+                    |> Option.bind(fun voice ->
+                        printConfigs
+                        |> List.tryFind (fun (v: PrintConfig) -> v.Key = voice.PrintConfig)
+                        |> Option.bind (fun printConfig ->
+                            Some {|
+                                Name = voicePrintSettings.Name
+                                Count = voicePrintSettings.Count
+                                PrintConfig = printConfig
+                                File = voice.File
+                            |}
+                        )
+                    )
                 )
-                |> List.map (fun (voice, count) -> async {
-                    match printConfigs |> List.tryFind (fun v -> v.Key = voice.PrintConfig) with
-                    | Some printConfig ->
-                        try
-                            do! printer.PrintPdf voice.File printConfig.Settings count
-                            return { VoiceName = voice.Name; Result = "Success" }
-                        with _ -> return { VoiceName = voice.Name; Result = "PrintingFailed" }
-                    | None -> return { VoiceName = voice.Name; Result = "PrintConfigNotFound" }
+                |> List.map (fun voice -> async {
+                    try
+                        do! printer.PrintPdf voice.File voice.PrintConfig.Settings voice.Count
+                        return { VoiceName = voice.Name; Result = "Success" }
+                    with _ -> return { VoiceName = voice.Name; Result = "PrintingFailed" }
                 })
                 |> Async.Sequential
         }
@@ -334,11 +346,14 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             let! voiceDefinitions = db.GetVoiceDefinitions()
             match Parse.createVoiceDto voice voiceDefinitions with
             | Ok createVoice ->
-                let! voiceDefinition = db.GetOrCreateVoiceDefinition createVoice.Definition
-                match! db.CreateVoice compositionId voiceDefinition.Id createVoice.File createVoice.PrintConfig with
+                let! voiceDefinitions =
+                    createVoice.Definitions
+                    |> List.map db.GetOrCreateVoiceDefinition
+                    |> Async.Sequential
+                match! db.CreateVoice compositionId [ for v in voiceDefinitions -> v.Id ] createVoice.File createVoice.PrintConfig with
                 | Ok voiceId ->
                     let result = {
-                        Name = voiceDefinition.Name
+                        Names = [ for v in voiceDefinitions -> v.Name ]
                         PrintConfig = createVoice.PrintConfig
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
@@ -357,17 +372,18 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             let! voiceDefinitions = db.GetVoiceDefinitions()
             match Parse.updateVoiceDto voice voiceDefinitions with
             | Ok updateVoice ->
-                let! voiceDefinitionId = async {
-                    match updateVoice.Definition with
-                    | Some voiceDefinition ->
-                        let! result = db.GetOrCreateVoiceDefinition voiceDefinition
-                        return Some result.Id
+                let! voiceDefinitionIds = async {
+                    match updateVoice.Definitions with
+                    | Some definitions ->
+                        let! result = definitions |> List.map db.GetOrCreateVoiceDefinition |> Async.Sequential
+                        return Some [ for v in result -> v.Id ]
                     | None -> return None
                 }
-                let! updatedVoice = db.UpdateVoice compositionId voiceId voiceDefinitionId updateVoice.File updateVoice.PrintConfig
+                do! db.UpdateVoice compositionId voiceId voiceDefinitionIds updateVoice.File updateVoice.PrintConfig
+                let! updatedVoice = db.GetVoice voiceId
                 let result = {
-                    Name = updatedVoice.Name
-                    PrintConfig = updatedVoice.PrintConfig
+                    Names = updatedVoice.Names
+                    PrintConfig = updatedVoice.PrintConfigId
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateVoice), {| compositionId = compositionId; voiceId = voiceId |})
                         Sheet = this.Url.Action(nameof(this.GetVoiceSheet), {| compositionId = compositionId; voiceId = voiceId |})

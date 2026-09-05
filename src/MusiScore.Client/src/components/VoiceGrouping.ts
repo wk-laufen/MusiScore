@@ -9,12 +9,14 @@ export type VoiceGroup<T> = {
 }
 
 /** Buckets voices into the group of their voice definition, empty groups omitted. */
-export const groupVoices = <T extends { name: string }>(
+export const groupVoices = <T>(
   voices: T[],
-  definitionGroups: GroupedVoiceDefinition[]
+  definitionGroups: GroupedVoiceDefinition[],
+  voiceNames: (voice: T) => string[]
 ) : VoiceGroup<T>[] => {
+  // a voice covering names from several groups shows up in each of them
   const belongsTo = (voice: T, group: GroupedVoiceDefinition) =>
-    group.voiceDefinitions.some(v => v.name === voice.name)
+    group.voiceDefinitions.some(v => voiceNames(voice).includes(v.name))
 
   return definitionGroups.map(group => {
     switch (group.type) {

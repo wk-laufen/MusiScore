@@ -61,18 +61,18 @@ module private DbModels =
     type DbCompositionVoice = {
         composition_id: int
         id: int
-        name: string
+        names: string
         print_config_id: string
     }
 
     type DbVoice = {
         id: int
-        name: string
+        names: string
         print_config_id: string
     }
     module DbVoice =
         let toDomain v : Voice =
-            { Id = string v.id; Name = v.name; PrintConfigId = v.print_config_id }
+            { Id = string v.id; Names = JsonSerializer.Deserialize<string list> v.names; PrintConfigId = v.print_config_id }
 
     type DbPrintableVoice = {
         file: byte[]
@@ -100,13 +100,13 @@ module private DbModels =
 
     type DbFullVoice = {
         id: int
-        name: string
+        names: string
         file: byte[]
         print_config_id: string
     }
     module DbFullVoice =
         let toDomain v : FullVoice =
-            { Id = string v.id; Name = v.name; File = v.file; PrintConfig = v.print_config_id }
+            { Id = string v.id; Names = JsonSerializer.Deserialize<string list> v.names; File = v.file; PrintConfig = v.print_config_id }
     
     type DbPrintConfig = {
         key: string
@@ -228,23 +228,54 @@ type Db(connectionString: string) =
         |> Map.ofSeq
     }
 
+    // a voice sorts like its first name, i.e. by the name's group first (ungrouped last), then within the group
+    let voiceOrder = "ORDER BY MIN(ARRAY[vdg.sort_order, vd.sort_order])"
+
     let getVoicesLookup (connection: NpgsqlConnection) (compositionIds: int[]) = async {
-        let! voices = connection.QueryAsync<DbCompositionVoice>("SELECT v.composition_id, v.id, vd.name, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbCompositionVoice>($"""
+            SELECT v.composition_id, v.id, JSON_AGG(vd.name ORDER BY vdg.sort_order NULLS LAST, vd.sort_order) names, v.print_config_id
+            FROM voice v
+            JOIN voice_to_voice_definition vvd ON vvd.voice_id = v.id
+            JOIN voice_definition vd ON vd.id = vvd.definition_id
+            LEFT JOIN voice_definition_group vdg ON vd.group_id = vdg.id
+            WHERE v.composition_id = ANY (@CompositionIds)
+            GROUP BY v.composition_id, v.id
+            %s{voiceOrder}
+            """, {| CompositionIds = compositionIds |}) |> Async.AwaitTask
         return
             voices
             |> Seq.groupBy _.composition_id
-            |> Seq.map (fun (compositionId, voices) -> (compositionId, [ for v in voices -> DbVoice.toDomain { id = v.id; name = v.name; print_config_id = v.print_config_id } ]))
+            |> Seq.map (fun (compositionId, voices) ->
+                let voices =
+                    [ for v in voices ->
+                        DbVoice.toDomain { id = v.id; names = v.names; print_config_id = v.print_config_id }
+                    ]
+                compositionId, voices
+            )
             |> Map.ofSeq
     }
 
-    let getVoices (connection: NpgsqlConnection) (compositionId) = async {
-        let! voices = connection.QueryAsync<DbVoice>("SELECT v.id, vd.name, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
-        return
-            voices
-            |> Seq.map DbVoice.toDomain
-            |> Seq.toList
+    let getVoices (connection: NpgsqlConnection) (compositionId: int) = async {
+        let! voices =
+            connection.QueryAsync<DbVoice>($"""
+                SELECT v.id, JSON_AGG(vd.name ORDER BY vdg.sort_order NULLS LAST, vd.sort_order) names, v.print_config_id
+                FROM voice v
+                JOIN voice_to_voice_definition vvd ON vvd.voice_id = v.id
+                JOIN voice_definition vd ON vd.id = vvd.definition_id
+                LEFT JOIN voice_definition_group vdg ON vd.group_id = vdg.id
+                WHERE v.composition_id = @CompositionId
+                GROUP BY v.id
+                %s{voiceOrder}
+                """, {| CompositionId = compositionId |}) |> Async.AwaitTask
+        return voices |> Seq.map DbVoice.toDomain |> Seq.toList
     }
-    
+
+    let setVoiceDefinitions (connection: NpgsqlConnection) (tx: NpgsqlTransaction) (voiceId: int) (definitionIds: string list) = async {
+        do! connection.ExecuteAsync("DELETE FROM voice_to_voice_definition WHERE voice_id = @VoiceId", {| VoiceId = voiceId |}, tx) |> Async.AwaitTask |> Async.Ignore
+        let rows = definitionIds |> List.map (fun v -> {| VoiceId = voiceId; DefinitionId = int v |})
+        do! connection.ExecuteAsync("INSERT INTO voice_to_voice_definition (voice_id, definition_id) VALUES (@VoiceId, @DefinitionId)", rows, tx) |> Async.AwaitTask |> Async.Ignore
+    }
+
     let voiceDefinitionOrder = "ORDER BY vdg.sort_order NULLS LAST, vd.sort_order"
 
     let getVoiceDefinition (connection: NpgsqlConnection) (voiceDefinitionId: int) = async {
@@ -281,7 +312,7 @@ type Db(connectionString: string) =
         let! tagTypes = getTagTypes connection
         let! tags = getTags connection
         return tagTypes
-            |> List.map (fun tagType ->
+            |> List.map (fun (tagType: CompositionTagType) ->
                 let values =
                     tags
                     |> Seq.filter (fun v -> v.tag_type = tagType.Key)
@@ -307,7 +338,8 @@ type Db(connectionString: string) =
                 SELECT vd.id, vd.name, vd.group_id, vd.member_count,
                     COALESCE(JSON_AGG(c.title ORDER BY c.title) FILTER (WHERE c.title IS NOT NULL), '[]'::json) compositions
                 FROM voice_definition vd
-                LEFT JOIN voice v ON v.definition_id = vd.id
+                LEFT JOIN voice_to_voice_definition vvd ON vvd.definition_id = vd.id
+                LEFT JOIN voice v ON v.id = vvd.voice_id
                 LEFT JOIN composition c ON c.id = v.composition_id
                 GROUP BY vd.id
                 ORDER BY vd.sort_order
@@ -441,13 +473,16 @@ type Db(connectionString: string) =
         try
             match replacementVoiceDefinitionId |> Option.bind (fun v -> match Int32.TryParse v with | (true, id) -> Some id | _ -> None) with
             | Some replacementId ->
-                do! connection.ExecuteAsync("UPDATE voice SET definition_id = @NewDefinitionId WHERE definition_id = @OldDefinitionId", {| OldDefinitionId = int voiceDefinitionId; NewDefinitionId = replacementId |}, tx) |> Async.AwaitTask |> Async.Ignore
+                let ids = {| OldDefinitionId = int voiceDefinitionId; NewDefinitionId = replacementId |}
+                // a voice that already references the replacement would end up with the same pair twice
+                do! connection.ExecuteAsync("DELETE FROM voice_to_voice_definition WHERE definition_id = @OldDefinitionId AND voice_id IN (SELECT voice_id FROM voice_to_voice_definition WHERE definition_id = @NewDefinitionId)", ids, tx) |> Async.AwaitTask |> Async.Ignore
+                do! connection.ExecuteAsync("UPDATE voice_to_voice_definition SET definition_id = @NewDefinitionId WHERE definition_id = @OldDefinitionId", ids, tx) |> Async.AwaitTask |> Async.Ignore
             | None -> ()
             do! connection.ExecuteAsync("DELETE FROM voice_definition WHERE id = @Id", {| Id = int voiceDefinitionId |}, tx) |> Async.AwaitTask |> Async.Ignore
             do! tx.CommitAsync() |> Async.AwaitTask
             return Ok ()
         with
-        | ForeignKeyViolation "voice_definition_id_fkey" ->
+        | ForeignKeyViolation "voice_to_voice_definition_definition_id_fkey" ->
             do! tx.RollbackAsync() |> Async.AwaitTask
             return Error InvalidReplacementVoiceDefinitionId
     }
@@ -494,6 +529,21 @@ type Db(connectionString: string) =
     member _.GetCompositionVoices(compositionId: string) = async {
         use connection = dataSource.CreateConnection()
         return! getVoices connection (int compositionId)
+    }
+
+    member _.GetVoice(voiceId: string) = async {
+        use connection = dataSource.CreateConnection()
+        let! voice =
+            connection.QuerySingleAsync<DbVoice>("""
+                SELECT v.id, JSON_AGG(vd.name ORDER BY vdg.sort_order NULLS LAST, vd.sort_order) names, v.print_config_id
+                FROM voice v
+                JOIN voice_to_voice_definition vvd ON vvd.voice_id = v.id
+                JOIN voice_definition vd ON vd.id = vvd.definition_id
+                LEFT JOIN voice_definition_group vdg ON vd.group_id = vdg.id
+                WHERE v.id = @Id
+                GROUP BY v.id
+                """, {| Id = int voiceId |}) |> Async.AwaitTask
+        return DbVoice.toDomain voice
     }
 
     member _.GetPrintableVoice (_compositionId: string, voiceId: string) = async {
@@ -607,7 +657,15 @@ type Db(connectionString: string) =
 
     member _.GetFullCompositionVoices (compositionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! voices = connection.QueryAsync<DbFullVoice>("SELECT v.id, vd.name, v.file, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.composition_id = @CompositionId", {| CompositionId = int compositionId |}) |> Async.AwaitTask
+        let! voices = connection.QueryAsync<DbFullVoice>($"""
+            SELECT v.id, JSON_AGG(vd.name ORDER BY vdg.sort_order NULLS LAST, vd.sort_order) names, v.file, v.print_config_id
+            FROM voice v
+            JOIN voice_to_voice_definition vvd ON vvd.voice_id = v.id
+            JOIN voice_definition vd ON vd.id = vvd.definition_id
+            LEFT JOIN voice_definition_group vdg ON vd.group_id = vdg.id
+            WHERE v.composition_id = @CompositionId
+            GROUP BY v.id
+            %s{voiceOrder}""", {| CompositionId = int compositionId |}) |> Async.AwaitTask
         return
             voices
             |> Seq.map DbFullVoice.toDomain
@@ -627,33 +685,33 @@ type Db(connectionString: string) =
             do! source.CopyToAsync target |> Async.AwaitTask
     }
 
-    member _.CreateVoice (compositionId: string) (definitionId: string) (file: byte array) (printConfigId: string) = async {
+    member _.CreateVoice (compositionId: string) (definitionIds: string list) (file: byte array) (printConfigId: string) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
-        let command = "INSERT INTO voice (definition_id, file, composition_id, print_config_id) VALUES(@DefinitionId, @File, @CompositionId, @PrintConfigId) RETURNING id"
+        use tx = connection.BeginTransaction()
+        let command = "INSERT INTO voice (file, composition_id, print_config_id) VALUES(@File, @CompositionId, @PrintConfigId) RETURNING id"
         let commandArgs = {|
-            DefinitionId = int definitionId
             File = file
             CompositionId = int compositionId
             PrintConfigId = printConfigId
         |}
         try
-            let! voiceId = connection.ExecuteScalarAsync<int>(command, commandArgs) |> Async.AwaitTask
+            let! voiceId = connection.ExecuteScalarAsync<int>(command, commandArgs, tx) |> Async.AwaitTask
+            do! setVoiceDefinitions connection tx voiceId definitionIds
+            do! tx.CommitAsync() |> Async.AwaitTask
             return Ok (string voiceId)
         with
-        | ForeignKeyViolation "voice_print_config_id_fkey" -> return Error UnknownPrintConfig
+        | ForeignKeyViolation "voice_print_config_id_fkey" ->
+            do! tx.RollbackAsync() |> Async.AwaitTask
+            return Error UnknownPrintConfig
     }
 
-    member _.UpdateVoice (_compositionId: string) (voiceId: string) (definitionId: string option) (file: byte array option) (printConfigId: string option) = async {
+    member _.UpdateVoice (_compositionId: string) (voiceId: string) (definitionIds: string list option) (file: byte array option) (printConfigId: string option) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
         use tx = connection.BeginTransaction()
         let updateFields =
             [
-                match definitionId with
-                | Some _ -> "definition_id = @DefinitionId"
-                | None -> ()
-
                 match file with
                 | Some _ -> "file = @File"
                 | None -> ()
@@ -666,15 +724,15 @@ type Db(connectionString: string) =
         if updateFields <> "" then
             let updateArgs = {|
                 Id = int voiceId
-                DefinitionId = definitionId |> Option.map int |> Option.defaultValue 0
                 File = file |> Option.defaultValue Array.empty
                 PrintConfigId = printConfigId |> Option.defaultValue ""
             |}
             let command = $"UPDATE voice SET %s{updateFields} WHERE id = @Id"
             do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
-        let! voice = connection.QuerySingleAsync<DbFullVoice>("SELECT v.id, vd.name, v.file, v.print_config_id FROM voice v JOIN voice_definition vd ON v.definition_id = vd.id WHERE v.id = @Id", {| Id = int voiceId |}, tx) |> Async.AwaitTask
+        match definitionIds with
+        | Some definitionIds -> do! setVoiceDefinitions connection tx (int voiceId) definitionIds
+        | None -> ()
         do! tx.CommitAsync() |> Async.AwaitTask
-        return DbFullVoice.toDomain voice
     }
 
     member _.DeleteVoice (_compositionId: string) (voiceId: string) = async {
@@ -700,7 +758,8 @@ type Db(connectionString: string) =
                 SELECT v.print_config_id, c.id composition_id, c.title, vd.name voice_name
                 FROM voice v
                 JOIN composition c ON c.id = v.composition_id
-                JOIN voice_definition vd ON vd.id = v.definition_id
+                JOIN voice_to_voice_definition vvd ON vvd.voice_id = v.id
+                JOIN voice_definition vd ON vd.id = vvd.definition_id
                 LEFT JOIN voice_definition_group vdg ON vd.group_id = vdg.id
                 %s{voiceDefinitionOrder}
                 """) |> Async.AwaitTask

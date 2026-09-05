@@ -46,31 +46,12 @@ type NewVoiceDefinition = {
     MemberCount: int
 }
 
-type IVoice =
-    abstract member Name : string
-
-module Voice =
-    let getSortedWithDefinition (voiceDefinitions: VoiceDefinition list) (voices: #IVoice list) =
-        voices
-        |> List.choose (fun voice ->
-            match voiceDefinitions |> List.tryFindIndex (fun v -> v.Name = voice.Name) with
-            | Some voiceDefinitionIndex ->
-                Some (voice, (voiceDefinitionIndex + 1, voiceDefinitions |> List.item voiceDefinitionIndex))
-            | None -> None
-        )
-        |> List.sortBy (fun (_, (idx, voice)) -> (idx, voice.Name.ToLowerInvariant()))
-
-    let filterWithMembers voiceDefinitions voices =
-        getSortedWithDefinition voiceDefinitions voices
-        |> List.filter (fun (voice, (sortOrder, definition)) -> definition.MemberCount > 0)
-
 type Voice =
     {
         Id: string
-        Name: string
+        Names: string list
         PrintConfigId: string
     }
-    interface IVoice with member this.Name = this.Name
 
 type TagValueType = TagValueTypeText | TagValueTypeMultiLineText
 
@@ -179,7 +160,7 @@ type VoiceDefinitionReference =
     | UseExistingDefinition of string
 
 type CreateVoice = {
-    Definition: VoiceDefinitionReference
+    Definitions: VoiceDefinitionReference list
     File: byte[]
     PrintConfig: string
 }
@@ -187,7 +168,7 @@ type CreateVoice = {
 type CreateVoiceError = UnknownPrintConfig
 
 type UpdateVoice = {
-    Definition: VoiceDefinitionReference option
+    Definitions: VoiceDefinitionReference list option
     File: byte[] option
     PrintConfig: string option
 }
@@ -209,11 +190,10 @@ type VoiceDefinitionDeleteError = InvalidReplacementVoiceDefinitionId
 type FullVoice =
     {
         Id: string
-        Name: string
+        Names: string list
         File: byte[]
         PrintConfig: string
     }
-    interface IVoice with member this.Name = this.Name
 
 module Validation =
     // see https://hoogle.haskell.org/?hoogle=Maybe%20(Result%20a%20b)%20-%3E%20Result%20a%20(Maybe%20b)
@@ -288,18 +268,25 @@ module Parse =
         return { Name = name; ReorderPagesAsBooklet = v.ReorderPagesAsBooklet; CupsCommandLineArgs = v.CupsCommandLineArgs; SortOrder = v.SortOrder }
     }
 
+    let voiceDefinitionReferences (voiceDefinitions: VoiceDefinition list) (names: string list) = validation {
+        if List.isEmpty names then return! Error "EmptyName"
+        else
+            let! references = names |> List.map (voiceDefinitionReference voiceDefinitions) |> List.sequenceValidationA
+            return references |> List.distinct
+    }
+
     let createVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.CreateVoiceDto) (voiceDefinitions: VoiceDefinition list) = validation {
-        let! definition = voiceDefinitionReference voiceDefinitions v.Name
+        let! definitions = voiceDefinitionReferences voiceDefinitions v.Names
         and! file = voiceFile v.File
         and! printConfig = printConfigKey v.PrintConfig
-        return { CreateVoice.Definition = definition; File = file; PrintConfig = printConfig }
+        return { CreateVoice.Definitions = definitions; File = file; PrintConfig = printConfig }
     } 
 
     let updateVoiceDto (v: MusiScore.Shared.DataTransfer.Admin.UpdateVoiceDto) (voiceDefinitions: VoiceDefinition list) = validation {
-        let! definition = v.Name |> Option.map (voiceDefinitionReference voiceDefinitions) |> Validation.accumulateOption
+        let! definitions = v.Names |> Option.map (voiceDefinitionReferences voiceDefinitions) |> Validation.accumulateOption
         and! file = v.File |> Option.map voiceFile |> Validation.accumulateOption
         and! printConfig = v.PrintConfig |> Option.map printConfigKey |> Validation.accumulateOption
-        return { Definition = definition; File = file; PrintConfig = printConfig }
+        return { Definitions = definitions; File = file; PrintConfig = printConfig }
     }
 
     let regex v = validation {

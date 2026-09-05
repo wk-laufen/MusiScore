@@ -51,7 +51,7 @@ const loadVoices = async () => {
 loadVoices()
 
 const groupedVoices = computed(() =>
-  voiceDefinitionGroups.value === undefined ? [] : groupVoices(voices.value, voiceDefinitionGroups.value)
+  voiceDefinitionGroups.value === undefined ? [] : groupVoices(voices.value, voiceDefinitionGroups.value, v => [v.name])
 )
 
 watch(popover, el => {
@@ -83,8 +83,6 @@ const print = async () => {
       const voicePrintResult = voicePrintResults.find(v => v.voiceName === voice.name)
       if (voicePrintResult === undefined || voicePrintResult.result === 'Success')
         voice.error = undefined
-      else if (voicePrintResult.result === 'PrintConfigNotFound')
-        voice.error = 'Druckkonfiguration nicht gefunden'
       else if (voicePrintResult.result === 'PrintingFailed')
         voice.error = 'Drucken fehlgeschlagen'
       if (voice.error !== undefined) hasError = true
