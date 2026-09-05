@@ -11,6 +11,7 @@ import pLimit from 'p-limit'
 import LoadingBar from './LoadingBar.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import VoiceForm from './VoiceForm.vue'
+import _ from 'lodash'
 
 const props = defineProps<{
   compositionUrl: string
