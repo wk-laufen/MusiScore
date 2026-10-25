@@ -9,6 +9,7 @@
 				"compose",
 				"-f", "./docker-compose.dev.yml",
 				"up",
+				"--build"
 			],
 			"problemMatcher": [],
 		},
@@ -36,7 +37,7 @@
 		},
 		{
 			"label": "Dev",
-			"dependsOn": [ "Run DB", "Run server", "Run client" ]
+			"dependsOn": [ "Run external systems (DB, CUPS)", "Run server", "Run client" ]
 		},
 	]
 }
