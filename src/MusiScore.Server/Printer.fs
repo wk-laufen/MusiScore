@@ -16,6 +16,6 @@ type Printer(printServer: string, printerName) =
         let p = Process.Start(psi)
         let! ct = Async.CancellationToken
         do! p.WaitForExitAsync(ct) |> Async.AwaitTask
-        if p.ExitCode <> 0 then failwith "Error while printing: lp exited with code %d{p.ExitCode}"
+        if p.ExitCode <> 0 then failwith $"Error while printing: %s{psi.FileName} exited with code %d{p.ExitCode}"
 #endif
     }

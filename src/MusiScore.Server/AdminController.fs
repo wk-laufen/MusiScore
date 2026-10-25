@@ -346,6 +346,8 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             let! voiceDefinitions = db.GetVoiceDefinitions()
             match Parse.createVoiceDto voice voiceDefinitions with
             | Ok createVoice ->
+                let! normalizedFile = PDF.normalize createVoice.File
+                let createVoice = { createVoice with File = normalizedFile }
                 let! voiceDefinitions =
                     createVoice.Definitions
                     |> List.map db.GetOrCreateVoiceDefinition
@@ -372,6 +374,13 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             let! voiceDefinitions = db.GetVoiceDefinitions()
             match Parse.updateVoiceDto voice voiceDefinitions with
             | Ok updateVoice ->
+                let! updateVoice = async {
+                    match updateVoice.File with
+                    | Some file ->
+                        let! normalizedFile = PDF.normalize file
+                        return { updateVoice with File = Some normalizedFile }
+                    | None -> return updateVoice
+                }
                 let! voiceDefinitionIds = async {
                     match updateVoice.Definitions with
                     | Some definitions ->

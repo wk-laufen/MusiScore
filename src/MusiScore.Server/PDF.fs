@@ -1,9 +1,22 @@
 ﻿namespace MusiScore.Server
 
 open iText.Kernel.Pdf
+open System.Diagnostics
 open System.IO
 
 module PDF =
+    let normalize (content: byte array) = async {
+        use! inputFile = TemporaryFile.createWithContent ".pdf" content
+        use outputFile = new TemporaryFile ".pdf"
+        let psi = ProcessStartInfo("pdftocairo", $"-pdf %s{inputFile.Path}  %s{outputFile.Path}")
+        printfn $"Running \"%s{psi.FileName} %s{psi.Arguments}\""
+        let p = Process.Start(psi)
+        let! ct = Async.CancellationToken
+        do! p.WaitForExitAsync(ct) |> Async.AwaitTask
+        if p.ExitCode <> 0 then failwith $"Error while normalizing: %s{psi.FileName} exited with code %d{p.ExitCode}"
+        return! File.ReadAllBytesAsync outputFile.Path |> Async.AwaitTask
+    }
+
     let isValid (content: byte array) =
         try
             use docStream = new MemoryStream(content)
