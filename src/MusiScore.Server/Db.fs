@@ -127,6 +127,31 @@ module private DbModels =
                 Compositions = compositions
             }
 
+    type DbPrintConfigRule = {
+        min_page_count: int
+        max_page_count: Nullable<int>
+        page_width_mm: Nullable<int>
+        page_height_mm: Nullable<int>
+        orientation: string
+        print_config_id: string
+    }
+    module DbPrintConfigRule =
+        let toDomain v : PrintConfigRule =
+            {
+                MinPageCount = v.min_page_count
+                MaxPageCount = Option.ofNullable v.max_page_count
+                PageSize =
+                    match Option.ofNullable v.page_width_mm, Option.ofNullable v.page_height_mm with
+                    | Some width, Some height -> Some { WidthMm = width; HeightMm = height }
+                    | _ -> None
+                Orientation =
+                    v.orientation |> Option.ofObj |> Option.map (fun orientation ->
+                        PrintConfigRule.tryParseOrientation orientation
+                        |> Option.defaultWith (fun () -> failwith $"Invalid orientation \"%s{orientation}\"")
+                    )
+                PrintConfigKey = v.print_config_id
+            }
+
     type DbPrintConfigUsage = {
         print_config_id: string
         composition_id: int
@@ -852,17 +877,57 @@ type Db(connectionString: string) =
             do! connection.ExecuteAsync(command, updateArgs) |> Async.AwaitTask |> Async.Ignore
     }
 
+    /// Voices and rules using the deleted print config are moved to `replacementConfigId`.
+    /// Rules are removed instead if there is no valid replacement.
     member _.DeletePrintConfig (key: string) (replacementConfigId: string) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
         use tx = connection.BeginTransaction()
         try
             do! connection.ExecuteAsync("UPDATE voice SET print_config_id = @NewConfigId WHERE print_config_id = @OldConfigId", {| OldConfigId = key; NewConfigId = replacementConfigId |}, tx) |> Async.AwaitTask |> Async.Ignore
+            do! connection.ExecuteAsync("""
+                UPDATE print_config_rule SET print_config_id = @NewConfigId
+                WHERE print_config_id = @OldConfigId AND EXISTS (SELECT 1 FROM voice_print_config WHERE "key" = @NewConfigId AND "key" <> @OldConfigId)
+                """, {| OldConfigId = key; NewConfigId = replacementConfigId |}, tx) |> Async.AwaitTask |> Async.Ignore
             do! connection.ExecuteAsync("DELETE FROM voice_print_config WHERE \"key\" = @Key", {| Key = key |}, tx) |> Async.AwaitTask |> Async.Ignore
             do! tx.CommitAsync() |> Async.AwaitTask
             return Ok ()
         with
-        | ForeignKeyViolation "voice_print_setting_id_fkey" ->
+        | ForeignKeyViolation "voice_print_config_id_fkey" ->
             do! tx.RollbackAsync() |> Async.AwaitTask
             return Error InvalidReplacementConfigId
+    }
+
+    member _.GetPrintConfigRules () = async {
+        use connection = dataSource.CreateConnection()
+        let! rules = connection.QueryAsync<DbPrintConfigRule>("SELECT min_page_count, max_page_count, page_width_mm, page_height_mm, orientation, print_config_id FROM print_config_rule ORDER BY sort_order") |> Async.AwaitTask
+        return [ for v in rules -> DbPrintConfigRule.toDomain v ]
+    }
+
+    /// Replaces all rules, their order is taken from the list.
+    member _.SetPrintConfigRules (rules: PrintConfigRule list) = async {
+        use connection = dataSource.CreateConnection()
+        connection.Open()
+        use tx = connection.BeginTransaction()
+        try
+            do! connection.ExecuteAsync("DELETE FROM print_config_rule", transaction = tx) |> Async.AwaitTask |> Async.Ignore
+            let commandArgs =
+                rules
+                |> List.mapi (fun index rule -> {|
+                    SortOrder = index + 1
+                    MinPageCount = rule.MinPageCount
+                    MaxPageCount = Option.toNullable rule.MaxPageCount
+                    PageWidthMm = rule.PageSize |> Option.map _.WidthMm |> Option.toNullable
+                    PageHeightMm = rule.PageSize |> Option.map _.HeightMm |> Option.toNullable
+                    Orientation = rule.Orientation |> Option.map PrintConfigRule.serializeOrientation |> Option.toObj
+                    PrintConfigId = rule.PrintConfigKey
+                |})
+            let command = "INSERT INTO print_config_rule (sort_order, min_page_count, max_page_count, page_width_mm, page_height_mm, orientation, print_config_id) VALUES (@SortOrder, @MinPageCount, @MaxPageCount, @PageWidthMm, @PageHeightMm, @Orientation, @PrintConfigId)"
+            do! connection.ExecuteAsync(command, commandArgs, tx) |> Async.AwaitTask |> Async.Ignore
+            do! tx.CommitAsync() |> Async.AwaitTask
+            return Ok ()
+        with
+        | ForeignKeyViolation "print_config_rule_print_config_id_fkey" ->
+            do! tx.RollbackAsync() |> Async.AwaitTask
+            return Error UnknownPrintConfigInRule
     }

@@ -6,6 +6,7 @@ import VoiceDefinitionForm from './VoiceDefinitionForm.vue'
 
 defineProps<{
   printConfigsUrl: string
+  printConfigRulesUrl: string
   voiceDefinitionsUrl: string
   voiceDefinitionGroupsUrl: string
 }>()
@@ -39,7 +40,7 @@ const saveSettings = async () => {
 <template>
   <div class="p-4">
     <h2 class="text-2xl small-caps">Einstellungen</h2>
-    <PrintSettingsForm ref="printSettingsFormRef" :printConfigsUrl="printConfigsUrl" />
+    <PrintSettingsForm ref="printSettingsFormRef" :printConfigsUrl="printConfigsUrl" :printConfigRulesUrl="printConfigRulesUrl" />
     <VoiceDefinitionForm ref="voiceDefinitionFormRef" :voiceDefinitionsUrl="voiceDefinitionsUrl" :voiceDefinitionGroupsUrl="voiceDefinitionGroupsUrl" />
   </div>
 

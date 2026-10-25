@@ -16,6 +16,7 @@ type CompositionData = {
   compositions: CompositionListItem[]
   links: {
     printConfigs: string
+    printConfigRules: string
     inferPrintConfig: string
     testPrintConfig: string
     composition: string
@@ -147,6 +148,7 @@ const compositionDeleted = (composition: CompositionListItem) => {
       @cancel-import="cancelImport" />
     <SettingsForm v-else-if="compositionList !== undefined && isEditingSettings"
       :printConfigsUrl="compositionList.links.printConfigs"
+      :printConfigRulesUrl="compositionList.links.printConfigRules"
       :voiceDefinitionsUrl="compositionList.links.voiceDefinitions"
       :voiceDefinitionGroupsUrl="compositionList.links.voiceDefinitionGroups"
       @cancel-edit-settings="cancelEditSettings" />

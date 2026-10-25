@@ -27,6 +27,7 @@ module Admin =
         Compositions: ExistingCompositionDto array
         Links: {|
             PrintConfigs: string
+            PrintConfigRules: string
             InferPrintConfig: string
             TestPrintConfig: string
             Composition: string
@@ -72,6 +73,17 @@ module Admin =
 
     type PrintConfigDeleteDto = {
         ReplacementConfigId: string
+    }
+
+    type PrintConfigRuleDto = {
+        MinPageCount: int
+        MaxPageCount: int option
+        /// either both or none of page width and height are set
+        PageWidthMm: int option
+        PageHeightMm: int option
+        /// "portrait" or "landscape"
+        Orientation: string option
+        PrintConfig: string
     }
 
     type NewTag = {

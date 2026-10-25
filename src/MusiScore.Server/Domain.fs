@@ -130,6 +130,62 @@ type PrintConfigCreateError =
 type PrintConfigDeleteError =
     | InvalidReplacementConfigId
 
+/// Independent of the orientation, i.e. 210 x 297 and 297 x 210 are the same page size.
+type PageSize = {
+    WidthMm: int
+    HeightMm: int
+}
+
+type PageOrientation = Portrait | Landscape
+
+/// Conditions that are `None` match any voice file.
+type PrintConfigRule = {
+    MinPageCount: int
+    MaxPageCount: int option
+    PageSize: PageSize option
+    Orientation: PageOrientation option
+    PrintConfigKey: string
+}
+
+type SavePrintConfigRulesError = UnknownPrintConfigInRule
+
+module PrintConfigRule =
+    /// PDF page sizes are rarely exact, e.g. scans
+    let toleranceMm = 5.
+
+    let private pointsToMm (v: float) = v * 25.4 / 72.
+
+    /// `width` and `height` are in points
+    let matchesPageSize (pageSize: PageSize) (width: float, height: float) =
+        let shortSide, longSide = pointsToMm (min width height), pointsToMm (max width height)
+        let expectedShortSide, expectedLongSide = float (min pageSize.WidthMm pageSize.HeightMm), float (max pageSize.WidthMm pageSize.HeightMm)
+        abs (shortSide - expectedShortSide) <= toleranceMm && abs (longSide - expectedLongSide) <= toleranceMm
+
+    let getOrientation (width: float, height: float) =
+        if width > height then Landscape else Portrait
+
+    /// A rule matches if all of its conditions are met by every page.
+    let matches (pageSizes: (float * float) list) (rule: PrintConfigRule) =
+        let pageCount = List.length pageSizes
+        pageCount >= rule.MinPageCount &&
+        rule.MaxPageCount |> Option.forall (fun v -> pageCount <= v) &&
+        rule.PageSize |> Option.forall (fun v -> pageSizes |> List.forall (matchesPageSize v)) &&
+        rule.Orientation |> Option.forall (fun v -> pageSizes |> List.forall (fun p -> getOrientation p = v))
+
+    /// The first matching rule wins.
+    let tryFindPrintConfigKey (pageSizes: (float * float) list) (rules: PrintConfigRule list) =
+        rules
+        |> List.tryFind (matches pageSizes)
+        |> Option.map _.PrintConfigKey
+
+    let serializeOrientation v =
+        match v with
+        | Portrait -> "portrait"
+        | Landscape -> "landscape"
+
+    let tryParseOrientation v =
+        [ Portrait; Landscape ] |> List.tryFind (fun orientation -> serializeOrientation orientation = v)
+
 type PrintableVoice = {
     File: byte[]
     PrintSettings: PrintSettings
@@ -268,6 +324,53 @@ module Parse =
         return { Name = name; ReorderPagesAsBooklet = v.ReorderPagesAsBooklet; CupsCommandLineArgs = v.CupsCommandLineArgs; SortOrder = v.SortOrder }
     }
 
+    let printConfigRule (v: MusiScore.Shared.DataTransfer.Admin.PrintConfigRuleDto) = validation {
+        let! pageCountRange = validation {
+            if v.MinPageCount < 1 || v.MaxPageCount |> Option.exists (fun count -> count < 1) then
+                return! Error "InvalidPageCount"
+            elif v.MaxPageCount |> Option.exists (fun max -> v.MinPageCount > max) then
+                return! Error "InvalidPageCountRange"
+            else return (v.MinPageCount, v.MaxPageCount)
+        }
+        and! pageSize = validation {
+            match v.PageWidthMm, v.PageHeightMm with
+            | Some width, Some height when width < 1 || height < 1 -> return! Error "InvalidPageSize"
+            | Some width, Some height -> return Some { WidthMm = width; HeightMm = height }
+            | None, None -> return None
+            | _ -> return! Error "IncompletePageSize"
+        }
+        and! orientation =
+            match v.Orientation with
+            | Some orientation ->
+                match PrintConfigRule.tryParseOrientation orientation with
+                | Some v -> Ok (Some v)
+                | None -> Error [ "InvalidOrientation" ]
+            | None -> Ok None
+        and! printConfigKey = printConfigKey v.PrintConfig
+        let (minPageCount, maxPageCount) = pageCountRange
+        return {
+            MinPageCount = minPageCount
+            MaxPageCount = maxPageCount
+            PageSize = pageSize
+            Orientation = orientation
+            PrintConfigKey = printConfigKey
+        }
+    }
+
+    /// Errors are reported per rule, so the client can show them next to the rule.
+    let printConfigRules (v: MusiScore.Shared.DataTransfer.Admin.PrintConfigRuleDto list) =
+        let results = v |> List.map printConfigRule
+        let errors =
+            results
+            |> List.indexed
+            |> List.choose (fun (index, result) ->
+                match result with
+                | Ok _ -> None
+                | Error errors -> Some {| Index = index; Errors = errors |}
+            )
+        if List.isEmpty errors then Ok (results |> List.choose Result.toOption)
+        else Error errors
+
     let voiceDefinitionReferences (voiceDefinitions: VoiceDefinition list) (names: string list) = validation {
         if List.isEmpty names then return! Error "EmptyName"
         else
@@ -359,6 +462,16 @@ module Serialize =
         let printConfigDeleteError e =
             match e with
             | InvalidReplacementConfigId -> "InvalidReplacementConfigId"
+
+        let printConfigRule (v: PrintConfigRule) : MusiScore.Shared.DataTransfer.Admin.PrintConfigRuleDto =
+            {
+                MinPageCount = v.MinPageCount
+                MaxPageCount = v.MaxPageCount
+                PageWidthMm = v.PageSize |> Option.map _.WidthMm
+                PageHeightMm = v.PageSize |> Option.map _.HeightMm
+                Orientation = v.Orientation |> Option.map PrintConfigRule.serializeOrientation
+                PrintConfig = v.PrintConfigKey
+            }
 
         let voiceDefinition (url: string) (v: VoiceDefinition) =
             {|

@@ -26,11 +26,12 @@ module PDF =
             not <| reader.IsEncrypted()
         with _ -> false
 
+    /// Width and height of every page in points, as they appear when the page is displayed (i.e. with `/Rotate` applied).
     let getPageSizes (content: byte[]) =
         use docStream = new MemoryStream(content)
         use doc = new PdfDocument(new PdfReader(docStream))
         [ 1..doc.GetNumberOfPages() ]
-        |> List.map (doc.GetPage >> (fun v -> v.GetPageSize()) >> (fun v -> v.GetWidth(), v.GetHeight()))
+        |> List.map (doc.GetPage >> (fun v -> v.GetPageSizeWithRotation()) >> (fun v -> float (v.GetWidth()), float (v.GetHeight())))
 
     let getBookletPageOrder pageCount =
         let n = if pageCount % 4 = 0 then pageCount else pageCount + (4 - pageCount % 4)

@@ -231,3 +231,17 @@ CREATE TABLE voice_to_voice_definition (
 );
 INSERT INTO voice_to_voice_definition (voice_id, definition_id) SELECT id, definition_id FROM voice;
 ALTER TABLE voice DROP COLUMN definition_id;
+
+-- rules to infer the print config of a voice from its file
+CREATE TABLE print_config_rule (
+    id SERIAL PRIMARY KEY NOT NULL,
+    sort_order INT NOT NULL,
+    min_page_count INT NOT NULL,
+    max_page_count INT,
+    page_width_mm INT,
+    page_height_mm INT,
+    orientation VARCHAR,
+    print_config_id VARCHAR(50) NOT NULL,
+    CONSTRAINT print_config_rule_page_size_check CHECK ((page_width_mm IS NULL) = (page_height_mm IS NULL)),
+    CONSTRAINT print_config_rule_print_config_id_fkey FOREIGN KEY (print_config_id) REFERENCES voice_print_config("key") ON DELETE CASCADE
+);

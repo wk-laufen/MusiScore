@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="PDF.fs" />
+    <Compile Include="PrintConfigRule.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

@@ -38,6 +38,7 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
                     |> Seq.toArray
                 Links = {|
                     PrintConfigs = this.Url.Action(nameof(this.GetPrintConfigs))
+                    PrintConfigRules = this.Url.Action(nameof(this.GetPrintConfigRules))
                     InferPrintConfig = this.Url.Action(nameof(this.InferPrintConfig))
                     TestPrintConfig = this.Url.Action(nameof(this.TestPrintConfig))
                     Composition = this.Url.Action(nameof(this.CreateComposition))
@@ -110,12 +111,38 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
     member this.InferPrintConfig ([<FromBody>]data: {| File: byte[] |}) =
         async {
             match Parse.voiceFile data.File with
-            | Ok _file ->
-                match! db.GetDefaultPrintConfig() with
-                | Some printConfig ->
-                    return this.Ok({| PrintConfig = printConfig.Key |}) :> IActionResult
-                | None -> return this.StatusCode(StatusCodes.Status500InternalServerError, {| Message = "No default print config found" |})
+            | Ok file ->
+                let! rules = db.GetPrintConfigRules()
+                match PrintConfigRule.tryFindPrintConfigKey (PDF.getPageSizes file) rules with
+                | Some printConfigKey ->
+                    return this.Ok({| PrintConfig = printConfigKey |}) :> IActionResult
+                | None ->
+                    match! db.GetDefaultPrintConfig() with
+                    | Some printConfig ->
+                        return this.Ok({| PrintConfig = printConfig.Key |}) :> IActionResult
+                    | None -> return this.StatusCode(StatusCodes.Status500InternalServerError, {| Message = "No default print config found" |})
             | Error list -> return this.BadRequest(list) :> IActionResult
+        }
+
+    [<Route("print-config-rules")>]
+    [<HttpGet>]
+    member _.GetPrintConfigRules () =
+        async {
+            let! rules = db.GetPrintConfigRules()
+            return rules |> List.map Serialize.Admin.printConfigRule
+        }
+
+    /// Replaces all rules. Rules are evaluated in the given order, the first matching rule wins.
+    [<Route("print-config-rules")>]
+    [<HttpPut>]
+    member this.SetPrintConfigRules ([<FromBody>]rules: PrintConfigRuleDto list) =
+        async {
+            match Parse.printConfigRules rules with
+            | Ok rules ->
+                match! db.SetPrintConfigRules rules with
+                | Ok () -> return this.NoContent() :> IActionResult
+                | Error UnknownPrintConfigInRule -> return this.BadRequest([ {| Index = None; Errors = [ "UnknownPrintConfig" ] |} ])
+            | Error errors -> return this.BadRequest(errors |> List.map (fun v -> {| Index = Some v.Index; Errors = v.Errors |})) :> IActionResult
         }
 
     [<Route("print-config/{key}")>]

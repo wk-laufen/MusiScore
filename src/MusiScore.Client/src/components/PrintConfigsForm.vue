@@ -4,13 +4,17 @@ import type { EditablePrintConfig, PrintConfigDeleteError, PrintConfigDto, Print
 import { uiFetchAuthorized } from './UIFetch'
 import _ from 'lodash'
 import PrintConfigItem from './PrintConfigItem.vue'
+import PrintConfigRulesForm from './PrintConfigRulesForm.vue'
 import ErrorWithRetry from './ErrorWithRetry.vue'
 import LoadingBar from './LoadingBar.vue'
 import draggable from 'vuedraggable'
 
 const props = defineProps<{
   printConfigsUrl: string
+  printConfigRulesUrl: string
 }>()
+
+const printConfigRulesFormRef = ref<InstanceType<typeof PrintConfigRulesForm>>()
 
 let nextPrintConfigId = 1
 const printConfigs = ref<EditablePrintConfig[]>()
@@ -221,11 +225,27 @@ const savePrintConfig = async (printConfig: EditablePrintConfig) => {
   }
 }
 
-const canSave = computed(() => modifiedPrintConfigs.value.length > 0)
+/** print configs that rules can point to, in sort order */
+const ruleTargets = computed(() =>
+  (printConfigs.value ?? [])
+    .filter(v => !v.delete && v.key !== '')
+    .map(v => ({ key: v.key, name: v.name })))
+
+const canSave = computed(() => modifiedPrintConfigs.value.length > 0 || (printConfigRulesFormRef.value?.canSave ?? false))
 const save = async () => {
   if (!canSave.value) return
 
+  const hasDeletedPrintConfigs = modifiedPrintConfigs.value.some(v => v.delete)
+  // print configs are saved first so that rules can point to newly created ones
   await Promise.all(modifiedPrintConfigs.value.map(v => savePrintConfig(v)))
+
+  if (printConfigRulesFormRef.value?.canSave) {
+    await printConfigRulesFormRef.value.save()
+  }
+  else if (hasDeletedPrintConfigs) {
+    // the server moves rules of deleted print configs to the replacement or removes them
+    await printConfigRulesFormRef.value?.load()
+  }
 }
 
 defineExpose({ canSave, save })
@@ -253,5 +273,6 @@ defineExpose({ canSave, save })
         <button class="btn btn-green btn-solid self-center px-8! py-4!" @click="addPrintConfig">Neue Druckeinstellung</button>
       </template>
     </draggable>
+    <PrintConfigRulesForm ref="printConfigRulesFormRef" :print-config-rules-url="printConfigRulesUrl" :print-configs="ruleTargets" />
   </div>
 </template>
