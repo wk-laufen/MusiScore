@@ -21,7 +21,9 @@ module PDF =
         try
             use docStream = new MemoryStream(content)
             let reader = new PdfReader(docStream)
-            reader.GetPermissions() &&& int64 EncryptionConstants.ALLOW_PRINTING <> 0L
+            use _doc = new PdfDocument(reader) // need to read the document before getting permissions
+            not (reader.IsEncrypted()) ||
+            reader.GetPermissions() &&& EncryptionConstants.ALLOW_PRINTING = EncryptionConstants.ALLOW_PRINTING
         with _ -> false
 
     /// Width and height of every page in points, as they appear when the page is displayed (i.e. with `/Rotate` applied).
