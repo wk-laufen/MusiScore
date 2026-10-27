@@ -16,20 +16,25 @@ const loadCompositions = async () => {
   const result = await uiFetch(isLoading, hasLoadingFailed, '/api/print/compositions')
   if (result.succeeded) {
     compositionList.value = (await result.response.json() as CompositionList)
-    compositionList.value.compositions.sort((a, b) => a.title.localeCompare(b.title))
   }
 }
 loadCompositions()
 
+const selectedEventIndex = ref(0)
+const selectEvent = (index: number) => {
+  selectedEventIndex.value = index
+  selectedComposition.value = null
+  selectedVoiceName.value = null
+}
+const compositions = computed(() => compositionList.value?.events[selectedEventIndex.value]?.compositions ?? [])
+
 const voiceGroups = computed(() => {
   if (compositionList.value === undefined) return undefined
-
-  const compositions = compositionList.value.compositions
 
   const compositionHasVoice = (composition: CompositionDto, voiceName: string) =>
     composition.voices.some(v => v.name === voiceName)
   const isActiveVoice = (voiceName: string) =>
-    compositions.some(c => compositionHasVoice(c, voiceName))
+    compositions.value.some(c => compositionHasVoice(c, voiceName))
 
   return compositionList.value.voices.flatMap(voiceGroup => {
     const activeVoices = voiceGroup.voices.filter(v => isActiveVoice(v))
@@ -104,11 +109,22 @@ const tryPrint = async () => {
     <LoadingBar v-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
     <div v-else-if="compositionList !== undefined" class="flex flex-col items-stretch md:m-4">
-      <InfoNotification v-if="compositionList.compositions.length === 0">Keine Stücke vorhanden.</InfoNotification>
+      <template v-if="compositionList.events.length > 1">
+        <HorizontalDivider>Veranstaltung</HorizontalDivider>
+        <div class="flex flex-wrap items-stretch justify-center gap-2 m-4">
+          <div v-for="(event, index) in compositionList.events" :key="event.name || ''"
+            @click="selectEvent(index)"
+            :class="{ 'bg-blue-500 text-white': selectedEventIndex === index }"
+            class="flex items-stretch border rounded-sm font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
+            <span class="grow flex items-center justify-center text-center p-4 md:p-8 md:w-60">{{ event.name }}</span>
+          </div>
+        </div>
+      </template>
+      <InfoNotification v-if="compositions.length === 0">Keine Stücke vorhanden.</InfoNotification>
       <template v-else>
         <HorizontalDivider>Stück</HorizontalDivider>
         <div class="flex flex-wrap items-stretch justify-center gap-2 m-4">
-          <div v-for="composition in compositionList.compositions" :key="composition.title"
+          <div v-for="composition in compositions" :key="composition.title"
             @click="() => trySelectComposition(composition)"
             :class="{ 'bg-blue-500 text-white': selectedComposition === composition, 'opacity-50 cursor-not-allowed!': !isCompositionSelectable(composition) }"
             class="flex items-stretch border rounded-sm font-semibold text-blue-700 border-blue-500 divide-x divide-blue-500 cursor-pointer">
@@ -133,7 +149,7 @@ const tryPrint = async () => {
       </template>
     </div>
   </div>
-  <div v-if="compositionList !== undefined && compositionList.compositions.length > 0"
+  <div v-if="compositions.length > 0"
     class="basis-auto grow-0 shrink-0 border-t flex justify-center p-4">
     <LoadButton v-if="isPrinting"
       :loading="true"

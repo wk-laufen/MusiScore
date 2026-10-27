@@ -1,6 +1,6 @@
 @baseUrl = https://localhost:64326
 
-GET {{baseUrl}}/api/print/compositions?activeOnly=true
+GET {{baseUrl}}/api/print/compositions
 
 ###
 
@@ -19,7 +19,7 @@ GET {{baseUrl}}/api/admin/compositions
 PATCH {{baseUrl}}/api/admin/compositions/1
 Content-Type: application/json
 
-{ "title": "An der Elbe", "isActive": true }
+{ "title": "An der Elbe", "eventIds": ["1"] }
 
 ###
 
@@ -35,6 +35,20 @@ DELETE {{baseUrl}}/api/admin/compositions/6
 ###
 
 GET {{baseUrl}}/api/admin/compositions/6/voices
+
+###
+
+POST {{baseUrl}}/api/admin/events
+Content-Type: application/json
+
+{ "name": "2026-10 Konzertwertung", "isActive": true }
+
+###
+
+PATCH {{baseUrl}}/api/admin/events/1
+Content-Type: application/json
+
+{ "isActive": false }
 
 ###
 

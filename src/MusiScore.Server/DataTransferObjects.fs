@@ -13,9 +13,10 @@ module Admin =
     }
 
     type ExistingCompositionDto = {
+        Id: string
         Title: string
         Tags: ExistingTag list
-        IsActive: bool
+        EventIds: string list
         Links: {|
             Self: string
             Voices: string
@@ -23,9 +24,36 @@ module Admin =
         |}
     }
 
+    type EventDto = {
+        Id: string
+        Name: string
+        IsActive: bool
+        Links: {|
+            Self: string
+            // append a composition id to add or remove a single composition
+            Compositions: string
+        |}
+    }
+
+    type NewEventDto = {
+        Name: string
+        IsActive: bool option
+        CompositionIds: string list option
+    }
+
+    type EventUpdateDto = {
+        Name: string option
+        IsActive: bool option
+        /// replaces all compositions of the event
+        CompositionIds: string list option
+    }
+
     type CompositionListDto = {
         Compositions: ExistingCompositionDto array
+        /// sorted by name, newest first
+        Events: EventDto list
         Links: {|
+            Events: string
             PrintConfigs: string
             PrintConfigRules: string
             InferPrintConfig: string
@@ -94,14 +122,12 @@ module Admin =
     type NewCompositionDto = {
         Title: string
         Tags: NewTag list
-        IsActive: bool option
     }
 
     type CompositionUpdateDto = {
         Title: string option
         TagsToRemove: string list option
         TagsToAdd: NewTag list option
-        IsActive: bool option
     }
 
     type CreateVoiceDto = {
@@ -119,14 +145,12 @@ module Admin =
     type CompositionTemplateDto = {
         Title: string
         Tags: ExistingTag list
-        IsActive: bool
         Voices: ExistingVoiceDto array
     }
 
     type FullCompositionDto = {
         Title: string
         Tags: ExistingTag list
-        IsActive: bool
         Links: {| Self: string; Voices: string; Print: string |}
         Voices: ExistingVoiceDto array
     }

@@ -2,18 +2,20 @@
 import { ref } from 'vue'
 import LoadingBar from './LoadingBar.vue'
 import PrintCompositionModal from './PrintCompositionModal.vue'
-import { type CompositionListItem } from './AdminTypes'
+import { type CompositionListItem, type Event } from './AdminTypes'
 import { uiFetchAuthorized } from './UIFetch'
 import { sortBy } from 'lodash-es';
 
 const emit = defineEmits<{
-  'toggleActivate': []
+  'toggleEvent': []
   'edit': []
   'deleted': []
 }>()
 
 const props = defineProps<{
   composition: CompositionListItem
+  /** the event that the composition can be added to or removed from */
+  event: Event | undefined
   voiceDefinitionGroupsUrl: string
 }>()
 
@@ -41,10 +43,10 @@ const showPrintDialog = ref(false)
       </span>
     </div>
     <div class="flex flex-col divide-y divide-blue-500">
-      <button class="p-4 grow cursor-pointer"
-        :title="composition.isActive ? 'Markierung entfernen' : 'Als aktuelles Stück markieren'"
-        @click="$emit('toggleActivate')">
-        <font-awesome-icon v-if="composition.isActive" :icon="['fas', 'star']" />
+      <button v-if="event !== undefined" class="p-4 grow cursor-pointer"
+        :title="composition.eventIds.includes(event.id) ? `Aus „${event.name}“ entfernen` : `Zu „${event.name}“ hinzufügen`"
+        @click="$emit('toggleEvent')">
+        <font-awesome-icon v-if="composition.eventIds.includes(event.id)" :icon="['fas', 'star']" />
         <font-awesome-icon v-else :icon="['far', 'star']" />
       </button>
       <button class="p-4 grow cursor-pointer"

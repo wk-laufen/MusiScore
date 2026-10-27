@@ -11,10 +11,9 @@ module Toml =
         member val Names = names with get, set
         member val PrintConfig = printConfig with get, set
 
-    type TomlComposition (title: string, tags: TomlTag array, isActive: bool, voices: TomlVoice array) =
+    type TomlComposition (title: string, tags: TomlTag array, voices: TomlVoice array) =
         member val Title = title with get, set
         member val Tags = tags with get, set
-        member val IsActive = isActive with get, set
         member val Voices = voices with get, set
 
     type TomlMetadata (composition: TomlComposition) =
@@ -26,7 +25,6 @@ module Toml =
                 TomlComposition(
                     composition.Title,
                     composition.Tags |> List.choose (fun v -> match v.Value with | Some value -> Some (TomlTag(v.Key, value)) | None -> None) |> Array.ofList,
-                    composition.IsActive,
                     voices
                     |> List.map (fun v ->
                         TomlVoice(Array.ofList v.Names, v.PrintConfigId)

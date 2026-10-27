@@ -50,11 +50,12 @@ module private DbModels =
         title: string
     }
     module DbActiveComposition =
-        let toDomain v tags voices : ActiveComposition =
+        let toDomain v tags eventIds voices : ActiveComposition =
             {
                 Id = string v.id
                 Title = v.title
                 Tags = tags
+                EventIds = eventIds
                 Voices = voices
             }
 
@@ -86,17 +87,30 @@ module private DbModels =
     type DbComposition = {
         id: int
         title: string
-        is_active: bool
     }
     module DbComposition =
-        let toDomain v tags voices : Composition =
+        let toDomain v tags eventIds voices : Composition =
             {
                 Id = string v.id
                 Title = v.title
                 Tags = tags
-                IsActive = v.is_active
+                EventIds = eventIds
                 Voices = voices
             }
+
+    type DbCompositionEvent = {
+        composition_id: int
+        event_id: int
+    }
+
+    type DbEvent = {
+        id: int
+        name: string
+        is_active: bool
+    }
+    module DbEvent =
+        let toDomain v : Event =
+            { Id = string v.id; Name = v.name; IsActive = v.is_active }
 
     type DbFullVoice = {
         id: int
@@ -280,6 +294,27 @@ type Db(connectionString: string) =
             |> Map.ofSeq
     }
 
+    let getEventIdsLookup (connection: NpgsqlConnection) (compositionIds: int[]) = async {
+        let! compositionEvents = connection.QueryAsync<DbCompositionEvent>("SELECT composition_id, event_id FROM composition_to_event WHERE composition_id = ANY (@CompositionIds)", {| CompositionIds = compositionIds |}) |> Async.AwaitTask
+        return
+            compositionEvents
+            |> Seq.groupBy _.composition_id
+            |> Seq.map (fun (compositionId, events) -> compositionId, [ for v in events -> string v.event_id ])
+            |> Map.ofSeq
+    }
+
+    /// Unknown composition ids are ignored.
+    let setEventCompositions (connection: NpgsqlConnection) (tx: NpgsqlTransaction) (eventId: int) (compositionIds: string list) = async {
+        do! connection.ExecuteAsync("DELETE FROM composition_to_event WHERE event_id = @EventId", {| EventId = eventId |}, tx) |> Async.AwaitTask |> Async.Ignore
+        let args = {| EventId = eventId; CompositionIds = [| for v in compositionIds -> int v |] |}
+        do! connection.ExecuteAsync("INSERT INTO composition_to_event (composition_id, event_id) SELECT id, @EventId FROM composition WHERE id = ANY (@CompositionIds)", args, tx) |> Async.AwaitTask |> Async.Ignore
+    }
+
+    let getEvent (connection: NpgsqlConnection) (eventId: int) = async {
+        let! event = connection.QuerySingleAsync<DbEvent>("SELECT id, name, is_active FROM event WHERE id = @Id", {| Id = eventId |}) |> Async.AwaitTask
+        return DbEvent.toDomain event
+    }
+
     let getVoices (connection: NpgsqlConnection) (compositionId: int) = async {
         let! voices =
             connection.QueryAsync<DbVoice>($"""
@@ -316,18 +351,29 @@ type Db(connectionString: string) =
     interface IAsyncDisposable with
         member _.DisposeAsync() = dataSource.DisposeAsync()
 
+    /// Compositions of active events, or all compositions if there are no events at all.
     member _.GetActiveCompositions() = async {
         use connection = dataSource.CreateConnection()
-        let! compositions = connection.QueryAsync<DbActiveComposition>("SELECT id, title FROM composition WHERE is_active = true") |> Async.AwaitTask
+        let! compositions =
+            connection.QueryAsync<DbActiveComposition>("""
+                SELECT c.id, c.title
+                FROM composition c
+                WHERE NOT EXISTS (SELECT 1 FROM event) OR EXISTS (
+                    SELECT 1 FROM composition_to_event ce JOIN event e ON e.id = ce.event_id
+                    WHERE ce.composition_id = c.id AND e.is_active
+                )
+                """) |> Async.AwaitTask
         let compositionIds = [| for v in compositions -> v.id |]
         let! tagLookup = getTagLookupForCompositions connection compositionIds
+        let! eventIdsLookup = getEventIdsLookup connection compositionIds
         let! voiceLookup = getVoicesLookup connection compositionIds
         return
             compositions
             |> Seq.map (fun v ->
                 let tags = tagLookup.[v.id]
+                let eventIds = Map.tryFind v.id eventIdsLookup |> Option.defaultValue []
                 let voices = Map.tryFind v.id voiceLookup |> Option.defaultValue []
-                DbActiveComposition.toDomain v tags voices
+                DbActiveComposition.toDomain v tags eventIds voices
             )
             |> Seq.toList
     }
@@ -579,37 +625,36 @@ type Db(connectionString: string) =
 
     member _.GetCompositions() = async {
         use connection = dataSource.CreateConnection()
-        let! compositions = connection.QueryAsync<DbComposition>("SELECT id, title, is_active FROM composition") |> Async.AwaitTask
+        let! compositions = connection.QueryAsync<DbComposition>("SELECT id, title FROM composition") |> Async.AwaitTask
         let compositionIds = [| for v in compositions -> v.id |]
         let! tagLookup = getTagLookupForCompositions connection compositionIds
+        let! eventIdsLookup = getEventIdsLookup connection compositionIds
         let! voiceLookup = getVoicesLookup connection compositionIds
         return
             compositions
             |> Seq.map (fun v ->
                 let tags = tagLookup.[v.id]
+                let eventIds = Map.tryFind v.id eventIdsLookup |> Option.defaultValue []
                 let voices = Map.tryFind v.id voiceLookup |> Option.defaultValue []
-                DbComposition.toDomain v tags voices
+                DbComposition.toDomain v tags eventIds voices
             )
             |> Seq.toList
     }
 
     member _.GetComposition (compositionId: string) = async {
         use connection = dataSource.CreateConnection()
-        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask
+        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask
         let! tagLookup = getTagLookupForCompositions connection [| composition.id |]
+        let! eventIdsLookup = getEventIdsLookup connection [| composition.id |]
         let! voices = getVoices connection composition.id
-        return DbComposition.toDomain composition tagLookup.[composition.id] voices
+        return DbComposition.toDomain composition tagLookup.[composition.id] (Map.tryFind composition.id eventIdsLookup |> Option.defaultValue []) voices
     }
 
     member this.CreateComposition (newComposition: NewComposition) = async {
         use connection = dataSource.CreateConnection()
         connection.Open()
         use tx = connection.BeginTransaction()
-        let data = {|
-            Title = newComposition.Title
-            IsActive = newComposition.IsActive
-        |}
-        let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title, is_active) VALUES(@Title, @IsActive) RETURNING id", data, tx) |> Async.AwaitTask
+        let! compositionId = connection.ExecuteScalarAsync<int>("INSERT INTO composition (title) VALUES(@Title) RETURNING id", {| Title = newComposition.Title |}, tx) |> Async.AwaitTask
         let! tagTypes = connection.QueryAsync<string>("SELECT key FROM composition_tag_type") |> Async.AwaitTask
         let tags =
             newComposition.Tags
@@ -629,25 +674,10 @@ type Db(connectionString: string) =
         use connection = dataSource.CreateConnection()
         connection.Open()
         use tx = connection.BeginTransaction()
-        let updateFields =
-            [
-                match compositionUpdate.Title with
-                | Some _ -> "title = @Title"
-                | None -> ()
-
-                match compositionUpdate.IsActive with
-                | Some _ -> "is_active = @IsActive"
-                | None -> ()
-            ]
-            |> String.concat ", "
-        if updateFields <> "" then
-            let updateArgs = {|
-                Id = compositionId
-                Title = compositionUpdate.Title |> Option.defaultValue ""
-                IsActive = compositionUpdate.IsActive |> Option.defaultValue false
-            |}
-            let command = $"UPDATE composition SET %s{updateFields} WHERE id = @Id"
-            do! connection.ExecuteAsync(command, updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
+        match compositionUpdate.Title with
+        | Some title ->
+            do! connection.ExecuteAsync("UPDATE composition SET title = @Title WHERE id = @Id", {| Id = compositionId; Title = title |}, tx) |> Async.AwaitTask |> Async.Ignore
+        | None -> ()
         
         let tagsToAdd =
             compositionUpdate.TagUpdates
@@ -668,16 +698,90 @@ type Db(connectionString: string) =
             let command = $"DELETE FROM composition_tag WHERE composition_id = @CompositionId AND tag_type = @TagType"
             do! connection.ExecuteAsync(command, tagsToRemove, tx) |> Async.AwaitTask |> Async.Ignore
 
-        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title, is_active FROM composition WHERE id = @Id", {| Id = compositionId |}, tx) |> Async.AwaitTask
+        let! composition = connection.QuerySingleAsync<DbComposition>("SELECT id, title FROM composition WHERE id = @Id", {| Id = compositionId |}, tx) |> Async.AwaitTask
         let! tagLookup = getTagLookupForCompositions connection [| composition.id |]
+        let! eventIdsLookup = getEventIdsLookup connection [| composition.id |]
         let! voices = getVoices connection composition.id
         do! tx.CommitAsync() |> Async.AwaitTask
-        return DbComposition.toDomain composition tagLookup.[composition.id] voices
+        return DbComposition.toDomain composition tagLookup.[composition.id] (Map.tryFind composition.id eventIdsLookup |> Option.defaultValue []) voices
     }
 
     member _.DeleteComposition (compositionId: string) = async {
         use connection = dataSource.CreateConnection()
         do! connection.ExecuteAsync("DELETE FROM composition WHERE id = @Id", {| Id = int compositionId |}) |> Async.AwaitTask |> Async.Ignore
+    }
+
+    /// Event names usually start with a date, so the latest events come first.
+    member _.GetEvents () = async {
+        use connection = dataSource.CreateConnection()
+        let! events = connection.QueryAsync<DbEvent>("SELECT id, name, is_active FROM event ORDER BY name DESC") |> Async.AwaitTask
+        return [ for v in events -> DbEvent.toDomain v ]
+    }
+
+    member _.CreateEvent (event: NewEvent) = async {
+        use connection = dataSource.CreateConnection()
+        connection.Open()
+        use tx = connection.BeginTransaction()
+        try
+            let! eventId = connection.ExecuteScalarAsync<int>("INSERT INTO event (name, is_active) VALUES (@Name, @IsActive) RETURNING id", {| Name = event.Name; IsActive = event.IsActive |}, tx) |> Async.AwaitTask
+            do! setEventCompositions connection tx eventId event.CompositionIds
+            do! tx.CommitAsync() |> Async.AwaitTask
+            let! event = getEvent connection eventId
+            return Ok event
+        with
+        | UniqueViolation "event_name_key" ->
+            do! tx.RollbackAsync() |> Async.AwaitTask
+            return Error DuplicateEventName
+    }
+
+    member _.UpdateEvent (eventId: string) (eventUpdate: EventUpdate) = async {
+        use connection = dataSource.CreateConnection()
+        let updateFields =
+            [
+                match eventUpdate.Name with
+                | Some _ -> "name = @Name"
+                | None -> ()
+
+                match eventUpdate.IsActive with
+                | Some _ -> "is_active = @IsActive"
+                | None -> ()
+            ]
+            |> String.concat ", "
+        connection.Open()
+        use tx = connection.BeginTransaction()
+        try
+            if updateFields <> "" then
+                let updateArgs = {|
+                    Id = int eventId
+                    Name = eventUpdate.Name |> Option.defaultValue ""
+                    IsActive = eventUpdate.IsActive |> Option.defaultValue false
+                |}
+                do! connection.ExecuteAsync($"UPDATE event SET %s{updateFields} WHERE id = @Id", updateArgs, tx) |> Async.AwaitTask |> Async.Ignore
+            match eventUpdate.CompositionIds with
+            | Some compositionIds -> do! setEventCompositions connection tx (int eventId) compositionIds
+            | None -> ()
+            do! tx.CommitAsync() |> Async.AwaitTask
+            let! event = getEvent connection (int eventId)
+            return Ok event
+        with
+        | UniqueViolation "event_name_key" ->
+            do! tx.RollbackAsync() |> Async.AwaitTask
+            return Error DuplicateEventName
+    }
+
+    member _.AddCompositionToEvent (eventId: string) (compositionId: string) = async {
+        use connection = dataSource.CreateConnection()
+        do! connection.ExecuteAsync("INSERT INTO composition_to_event (composition_id, event_id) VALUES (@CompositionId, @EventId) ON CONFLICT DO NOTHING", {| EventId = int eventId; CompositionId = int compositionId |}) |> Async.AwaitTask |> Async.Ignore
+    }
+
+    member _.RemoveCompositionFromEvent (eventId: string) (compositionId: string) = async {
+        use connection = dataSource.CreateConnection()
+        do! connection.ExecuteAsync("DELETE FROM composition_to_event WHERE composition_id = @CompositionId AND event_id = @EventId", {| EventId = int eventId; CompositionId = int compositionId |}) |> Async.AwaitTask |> Async.Ignore
+    }
+
+    member _.DeleteEvent (eventId: string) = async {
+        use connection = dataSource.CreateConnection()
+        do! connection.ExecuteAsync("DELETE FROM event WHERE id = @Id", {| Id = int eventId |}) |> Async.AwaitTask |> Async.Ignore
     }
 
     member _.GetFullCompositionVoices (compositionId: string) = async {

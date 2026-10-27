@@ -21,14 +21,16 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
     member this.GetCompositions () =
         async {
             let! compositions = db.GetCompositions()
+            let! events = db.GetEvents()
             return {
                 Compositions =
                     compositions
-                    |> Seq.sortBy (fun v -> v.Title)
+                    |> Seq.sortWith (fun a b -> Collation.compare a.Title b.Title)
                     |> Seq.map (fun v -> {
+                        Id = v.Id
                         Title = v.Title
                         Tags = v.Tags |> List.sortBy (fun v -> v.Title) |> List.map Serialize.Admin.existingTag
-                        IsActive = v.IsActive
+                        EventIds = v.EventIds
                         Links = {|
                             Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = v.Id |})
                             Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = v.Id |})
@@ -36,7 +38,9 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
                         |}
                     })
                     |> Seq.toArray
+                Events = events |> List.map (fun v -> this.SerializeEvent v)
                 Links = {|
+                    Events = this.Url.Action(nameof(this.GetEvents))
                     PrintConfigs = this.Url.Action(nameof(this.GetPrintConfigs))
                     PrintConfigRules = this.Url.Action(nameof(this.GetPrintConfigRules))
                     InferPrintConfig = this.Url.Action(nameof(this.InferPrintConfig))
@@ -58,9 +62,68 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             return {
                 Title = ""
                 Tags = tags |> List.map Serialize.Admin.existingTag
-                IsActive = false
                 Voices = [||]
             }
+        }
+
+    member private this.SerializeEvent (event: Event) =
+        let url = this.Url.Action(nameof(this.UpdateEvent), {| eventId = event.Id |})
+        let compositionsUrl = this.Url.Action(nameof(this.GetEvents)) + $"/%s{event.Id}/compositions"
+        Serialize.Admin.event url compositionsUrl event
+
+    [<Route("events")>]
+    [<HttpGet>]
+    member this.GetEvents () =
+        async {
+            let! events = db.GetEvents()
+            return events |> List.map (fun v -> this.SerializeEvent v)
+        }
+
+    [<Route("events")>]
+    [<HttpPost>]
+    member this.CreateEvent ([<FromBody>]event: NewEventDto) =
+        async {
+            match Parse.newEventDto event with
+            | Ok newEvent ->
+                match! db.CreateEvent newEvent with
+                | Ok (event: Event) ->
+                    return this.Ok(this.SerializeEvent event) :> IActionResult
+                | Error e -> return this.BadRequest([ Serialize.Admin.saveEventError e ])
+            | Error errors -> return this.BadRequest(errors)
+        }
+
+    [<Route("events/{eventId}")>]
+    [<HttpPatch>]
+    member this.UpdateEvent (eventId: string, [<FromBody>]event: EventUpdateDto) =
+        async {
+            match Parse.eventUpdateDto event with
+            | Ok eventUpdate ->
+                match! db.UpdateEvent eventId eventUpdate with
+                | Ok (event: Event) ->
+                    return this.Ok(this.SerializeEvent event) :> IActionResult
+                | Error e -> return this.BadRequest([ Serialize.Admin.saveEventError e ])
+            | Error errors -> return this.BadRequest(errors)
+        }
+
+    [<Route("events/{eventId}/compositions/{compositionId}")>]
+    [<HttpPut>]
+    member _.AddCompositionToEvent (eventId: string, compositionId: string) =
+        async {
+            do! db.AddCompositionToEvent eventId compositionId
+        }
+
+    [<Route("events/{eventId}/compositions/{compositionId}")>]
+    [<HttpDelete>]
+    member _.RemoveCompositionFromEvent (eventId: string, compositionId: string) =
+        async {
+            do! db.RemoveCompositionFromEvent eventId compositionId
+        }
+
+    [<Route("events/{eventId}")>]
+    [<HttpDelete>]
+    member _.DeleteEvent (eventId: string) =
+        async {
+            do! db.DeleteEvent eventId
         }
 
     [<Route("print-configs")>]
@@ -187,9 +250,10 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             | Ok newComposition ->
                 let! composition = db.CreateComposition newComposition
                 let result = {
+                    Id = composition.Id
                     Title = composition.Title
                     Tags = composition.Tags |> List.map Serialize.Admin.existingTag
-                    IsActive = composition.IsActive
+                    EventIds = composition.EventIds
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = composition.Id |})
                         Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = composition.Id |})
@@ -222,11 +286,13 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             else
                 let filterText = filterText |> Option.ofObj |> Option.defaultValue ""
                 let! compositions = db.GetCompositions()
+                let! events = db.GetEvents()
+                let activeEventIds = events |> List.filter _.IsActive |> List.map _.Id |> Set.ofList
                 let filteredCompositions =
                     compositions
                     |> List.filter (fun v ->
                         v.Title.Contains(filterText, StringComparison.InvariantCultureIgnoreCase) &&
-                            (not activeOnly || v.IsActive)
+                            (not activeOnly || v.EventIds |> List.exists activeEventIds.Contains)
                     )
                 let! archivePath =
                     filteredCompositions
@@ -266,9 +332,10 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
             | Ok compositionUpdate ->
                 let! updatedComposition = db.UpdateComposition compositionId compositionUpdate
                 let result = {
+                    Id = updatedComposition.Id
                     Title = updatedComposition.Title
                     Tags = updatedComposition.Tags |> List.map Serialize.Admin.existingTag
-                    IsActive = updatedComposition.IsActive
+                    EventIds = updatedComposition.EventIds
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition))
                         Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})
@@ -296,7 +363,6 @@ type AdminController(db: Db, printer: Printer, downloadTokens: DownloadTokenStor
                 {
                     Title = composition.Title
                     Tags = composition.Tags |> List.map Serialize.Admin.existingTag
-                    IsActive = composition.IsActive
                     Links = {|
                         Self = this.Url.Action(nameof(this.UpdateComposition), {| compositionId = compositionId |})
                         Voices = this.Url.Action(nameof(this.CreateVoice), {| compositionId = compositionId |})

@@ -70,7 +70,6 @@ type Composition = {
   titleValidationState: ValidationState
   tags: { key: string, value: string }[]
   isEditingTitle: boolean
-  isActive: boolean
   enabled: boolean
   isSaving: boolean
   hasSavingFailed: boolean
@@ -87,7 +86,6 @@ type Metadata = {
     composition?: {
       title?: string
       tags?: { key?: string, value?: string }[]
-      is_active?: boolean
       voices?: {
         names?: string[]
         print_config?: string
@@ -133,7 +131,6 @@ watch(files, async files => {
         titleValidationState: { type: 'notValidated' },
         isEditingTitle: false,
         tags: compositionMetadata?.data?.composition?.tags?.flatMap(v => v.key && v.value ? [{ key: v.key, value: v.value }] : []) || [],
-        isActive: compositionMetadata?.data?.composition?.is_active || false,
         enabled: true,
         isSaving: false,
         hasSavingFailed: false,
@@ -267,8 +264,7 @@ const saveComposition = async (composition: Composition) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: composition.title,
-        tags: composition.tags,
-        isActive: composition.isActive
+        tags: composition.tags
       })
     }
   )

@@ -13,24 +13,39 @@ type PrintController(db: Db, printer: Printer) =
     member this.GetActiveCompositions () =
         async {
             let! compositions = db.GetActiveCompositions()
+            let! events = db.GetEvents()
             let! voiceDefinitionGroups = db.GetGroupedVoiceDefinitions()
+            let serializeComposition (composition: ActiveComposition) =
+                {|
+                    Title = composition.Title
+                    Tags = composition.Tags |> List.map Serialize.Print.existingTag
+                    Voices =
+                        composition.Voices
+                        |> List.collect (fun v ->
+                            let printUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = composition.Id; voiceId = v.Id |})
+                            [ for name in v.Names -> {| Name = name; PrintUrl = printUrl |} ]
+                        )
+                |}
+            let compositions = compositions |> List.sortWith (fun a b -> Collation.compare a.Title b.Title)
             return {|
                 Voices = voiceDefinitionGroups |> List.map Serialize.Print.voiceDefinitionGroup
-                Compositions = 
-                    compositions
-                    |> Seq.sortBy (fun v -> v.Title)
-                    |> Seq.map (fun composition ->
-                        {|
-                            Title = composition.Title
-                            Tags = composition.Tags |> List.map Serialize.Print.existingTag
-                            Voices =
-                                composition.Voices
-                                |> List.collect (fun v ->
-                                    let printUrl = this.Url.Action(nameof(this.PrintVoice), {| compositionId = composition.Id; voiceId = v.Id |})
-                                    [ for name in v.Names -> {| Name = name; PrintUrl = printUrl |} ]
-                                )
-                        |}
-                    )
+                // sorted by name, oldest first - a single group without name if there are no events at all
+                Events =
+                    if List.isEmpty events then
+                        [ {| Name = None; Compositions = compositions |> List.map serializeComposition |} ]
+                    else
+                        events
+                        |> List.filter _.IsActive
+                        |> List.sortWith (fun a b -> Collation.compare a.Name b.Name)
+                        |> List.map (fun event ->
+                            {|
+                                Name = Some event.Name
+                                Compositions =
+                                    compositions
+                                    |> List.filter (fun v -> List.contains event.Id v.EventIds)
+                                    |> List.map serializeComposition
+                            |}
+                        )
             |}
         }
 

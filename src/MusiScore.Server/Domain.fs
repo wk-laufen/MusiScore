@@ -79,6 +79,7 @@ type ActiveComposition = {
     Id: string
     Title: string
     Tags: ExistingTag list
+    EventIds: string list
     Voices: Voice list
 }
 
@@ -86,9 +87,31 @@ type Composition = {
     Id: string
     Title: string
     Tags: ExistingTag list
-    IsActive: bool
+    EventIds: string list
     Voices: Voice list
 }
+
+/// Compositions of active events are shown on the print page.
+type Event = {
+    Id: string
+    Name: string
+    IsActive: bool
+}
+
+type NewEvent = {
+    Name: string
+    IsActive: bool
+    CompositionIds: string list
+}
+
+type EventUpdate = {
+    Name: string option
+    IsActive: bool option
+    /// replaces all compositions of the event
+    CompositionIds: string list option
+}
+
+type SaveEventError = DuplicateEventName
 
 type PrintSettings = {
     ReorderPagesAsBooklet: bool
@@ -198,7 +221,6 @@ type NewTag = {
 type NewComposition = {
     Title: string
     Tags: NewTag list
-    IsActive: bool
 }
 
 type TagUpdate =
@@ -208,7 +230,6 @@ type TagUpdate =
 type CompositionUpdate = {
     Title: string option
     TagUpdates: TagUpdate list
-    IsActive: bool option
 }
 
 type VoiceDefinitionReference =
@@ -277,14 +298,40 @@ module Parse =
     let newCompositionDto (v: MusiScore.Shared.DataTransfer.Admin.NewCompositionDto) = validation {
         let! title = compositionTitle v.Title
         let! tags = v.Tags |> List.map newTag |> List.sequenceValidationA
-        return { NewComposition.Title = title; Tags = tags; IsActive = v.IsActive |> Option.defaultValue false }
+        return { NewComposition.Title = title; Tags = tags }
     }
 
     let compositionUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.CompositionUpdateDto) = validation {
         let! title = v.Title |> Option.map compositionTitle |> Validation.accumulateOption
         let! tagsToAdd = v.TagsToAdd |> Option.defaultValue [] |> List.map newTag |> List.sequenceValidationA |> Validation.map (List.map AddTag)
         let! tagsToRemove = v.TagsToRemove |> Option.defaultValue [] |> List.map tagKey |> List.sequenceValidationA |> Validation.map (List.map RemoveTag)
-        return { Title = title; TagUpdates = tagsToRemove @ tagsToAdd; IsActive = v.IsActive }
+        return { Title = title; TagUpdates = tagsToRemove @ tagsToAdd }
+    }
+
+    let eventName (name: string) = validation {
+        if String.IsNullOrWhiteSpace name then return! Error "EmptyName"
+        else return name.Trim()
+    }
+
+    let compositionId (v: string) = validation {
+        match Int32.TryParse v with
+        | (true, _) -> return v
+        | _ -> return! Error "InvalidCompositionId"
+    }
+
+    let compositionIds (v: string list) =
+        v |> List.map compositionId |> List.sequenceValidationA |> Validation.map List.distinct
+
+    let newEventDto (v: MusiScore.Shared.DataTransfer.Admin.NewEventDto) = validation {
+        let! name = eventName v.Name
+        and! compositionIds = v.CompositionIds |> Option.defaultValue [] |> compositionIds
+        return { NewEvent.Name = name; IsActive = v.IsActive |> Option.defaultValue false; CompositionIds = compositionIds }
+    }
+
+    let eventUpdateDto (v: MusiScore.Shared.DataTransfer.Admin.EventUpdateDto) = validation {
+        let! name = v.Name |> Option.map eventName |> Validation.accumulateOption
+        and! compositionIds = v.CompositionIds |> Option.map compositionIds |> Validation.accumulateOption
+        return { EventUpdate.Name = name; IsActive = v.IsActive; CompositionIds = compositionIds }
     }
 
     let voiceDefinitionReference (voiceDefinitions: VoiceDefinition list) (name: string) = validation {
@@ -511,6 +558,13 @@ module Serialize =
         let saveVoiceDefinitionGroupError e =
             match e with
             | DuplicateVoiceDefinitionGroupName -> "DuplicateName"
+
+        let event (url: string) (compositionsUrl: string) (v: Event) : MusiScore.Shared.DataTransfer.Admin.EventDto =
+            { Id = v.Id; Name = v.Name; IsActive = v.IsActive; Links = {| Self = url; Compositions = compositionsUrl |} }
+
+        let saveEventError e =
+            match e with
+            | DuplicateEventName -> "DuplicateName"
 
         let voiceDefinitionDeleteError e =
             match e with

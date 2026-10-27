@@ -9,12 +9,14 @@ import CompositionForm from './CompositionForm.vue'
 import ImportCompositionForm from './ImportCompositionForm.vue'
 import SettingsForm from './SettingsForm.vue'
 import { uiFetchAuthorized } from './UIFetch'
-import type { CompositionListItem } from './AdminTypes'
+import { type CompositionListItem, type Event, sortEvents } from './AdminTypes'
 import { useAPIKeyStore } from '@/stores/api-key'
 
 type CompositionData = {
   compositions: CompositionListItem[]
+  events: Event[]
   links: {
+    events: string
     printConfigs: string
     printConfigRules: string
     inferPrintConfig: string
@@ -43,7 +45,6 @@ const loadCompositions = async () => {
   const result = await uiFetchAuthorized(isLoading, hasLoadingFailed, '/api/admin/compositions')
   if (result.succeeded) {
     compositionList.value = (await result.response.json() as CompositionData)
-    compositionList.value.compositions.sort((a, b) => a.title.localeCompare(b.title))
   }
   else if (result.response?.status === 401) {
     showLogin.value = true
@@ -118,6 +119,25 @@ const compositionDeleted = (composition: CompositionListItem) => {
 
   compositionList.value.compositions = compositionList.value.compositions.filter(v => v !== composition)
 }
+
+const eventSaved = (event: Event, compositionIds: string[]) => {
+  if (compositionList.value === undefined) return
+
+  compositionList.value.events = sortEvents([ ...compositionList.value.events.filter(v => v.id !== event.id), event ])
+  for (const composition of compositionList.value.compositions) {
+    const otherEventIds = composition.eventIds.filter(v => v !== event.id)
+    composition.eventIds = compositionIds.includes(composition.id) ? [ ...otherEventIds, event.id ] : otherEventIds
+  }
+}
+
+const eventDeleted = (event: Event) => {
+  if (compositionList.value === undefined) return
+
+  compositionList.value.events = compositionList.value.events.filter(v => v !== event)
+  for (const composition of compositionList.value.compositions) {
+    composition.eventIds = composition.eventIds.filter(v => v !== event.id)
+  }
+}
 </script>
 
 <template>
@@ -130,9 +150,13 @@ const compositionDeleted = (composition: CompositionListItem) => {
     <LoadingBar v-else-if="isLoading"></LoadingBar>
     <ErrorWithRetry v-else-if="hasLoadingFailed" @retry="loadCompositions">Fehler beim Laden.</ErrorWithRetry>
     <CompositionList v-else-if="compositionList !== undefined && isInListView" :compositions="compositionList.compositions"
+      :events="compositionList.events"
+      :events-url="compositionList.links.events"
       :voice-definition-groups-url="compositionList.links.voiceDefinitionGroups"
       @edit="startEditComposition"
-      @deleted="compositionDeleted" />
+      @deleted="compositionDeleted"
+      @event-saved="eventSaved"
+      @event-deleted="eventDeleted" />
     <CompositionForm v-else-if="compositionList !== undefined && editComposition"
       :type="editComposition.type"
       :printConfigsUrl="compositionList.links.printConfigs"

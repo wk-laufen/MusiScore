@@ -14,10 +14,28 @@ export type ExistingTag = {
   otherValues: string[]
 }
 
+/** compositions of active events are shown on the print page */
+export type Event = {
+  id: string
+  name: string
+  isActive: boolean
+  links: {
+    self: string
+    /** append a composition id to add or remove a single composition */
+    compositions: string
+  }
+}
+
+export type EventSaveError = 'EmptyName' | 'DuplicateName'
+
+/** event names usually start with a date, so the latest events come first */
+export const sortEvents = (events: Event[]) => events.sort((a, b) => b.name.localeCompare(a.name))
+
 export type CompositionListItem = {
+  id: string
   title: string
   tags: ExistingTag[]
-  isActive: boolean
+  eventIds: string[]
   links: {
     self: string
     voices: string
@@ -105,14 +123,12 @@ export type Voice = {
 export type CompositionTemplate = {
   title: string
   tags: ExistingTag[]
-  isActive: boolean
   voices: Voice[]
 }
 
 export type FullComposition = {
   title: string
   tags: ExistingTag[]
-  isActive: boolean
   links: {
     self: string
     voices: string

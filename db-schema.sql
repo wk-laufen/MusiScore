@@ -245,3 +245,21 @@ CREATE TABLE print_config_rule (
     CONSTRAINT print_config_rule_page_size_check CHECK ((page_width_mm IS NULL) = (page_height_mm IS NULL)),
     CONSTRAINT print_config_rule_print_config_id_fkey FOREIGN KEY (print_config_id) REFERENCES voice_print_config("key") ON DELETE CASCADE
 );
+
+-- group compositions by events, e.g. concerts, and activate events instead of compositions
+CREATE TABLE event (
+    id SERIAL PRIMARY KEY NOT NULL,
+    name VARCHAR NOT NULL,
+    is_active BOOLEAN NOT NULL,
+    CONSTRAINT event_name_key UNIQUE (name)
+);
+CREATE TABLE composition_to_event (
+    composition_id INT NOT NULL,
+    event_id INT NOT NULL,
+    PRIMARY KEY (composition_id, event_id),
+    CONSTRAINT composition_to_event_composition_id_fkey FOREIGN KEY (composition_id) REFERENCES composition(id) ON DELETE CASCADE,
+    CONSTRAINT composition_to_event_event_id_fkey FOREIGN KEY (event_id) REFERENCES event(id) ON DELETE CASCADE
+);
+INSERT INTO event (name, is_active) SELECT 'Aktuelle Stücke', TRUE WHERE EXISTS (SELECT 1 FROM composition WHERE is_active);
+INSERT INTO composition_to_event (composition_id, event_id) SELECT c.id, e.id FROM composition c, event e WHERE c.is_active AND e.name = 'Aktuelle Stücke';
+ALTER TABLE composition DROP COLUMN is_active;

@@ -13,7 +13,14 @@ export type VoiceGroupDto = {
   voices: string[]
 }
 
+export type EventDto = {
+  /** `null` if there are no events at all and therefore all compositions are shown */
+  name: string | null
+  compositions: CompositionDto[]
+}
+
 export type CompositionList = {
   voices: VoiceGroupDto[]
-  compositions: CompositionDto[]
+  /** sorted by name, oldest first */
+  events: EventDto[]
 }
