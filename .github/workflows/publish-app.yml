@@ -1,4 +1,4 @@
-name: Publish
+name: Publish admin app
 
 on:
   push:
@@ -33,14 +33,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push CUPS container image to registry
-        uses: docker/build-push-action@v6
-        with:
-          context: ./cups-docker
-          file: ./cups-docker/Dockerfile
-          push: true
-          tags: ghcr.io/wk-laufen/musiscore-cups:${{ github.sha }}
 
       - name: Build and push admin app container image to registry
         uses: docker/build-push-action@v6
